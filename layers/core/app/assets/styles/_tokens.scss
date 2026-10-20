@@ -1,8 +1,12 @@
 // Design tokens. Colours, radii and type are provisional until synced with
 // the Figma file; components must use these variables, never raw values.
+
+// Configured from layers/core/theme.ts (also used for the theme-color meta).
+$theme-bg: #fff !default;
+
 :root {
   // Colour
-  --color-bg: #f4f7fb;
+  --color-bg: #{$theme-bg};
   --color-surface: #fff;
   --color-text: #23262f;
   --color-text-muted: #6b7280;

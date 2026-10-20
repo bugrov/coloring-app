@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url'
+import { THEME_BG } from './theme'
 
 // `~` in a layer config points at the root app, so layer files are resolved
 // relative to this config instead.
@@ -15,7 +16,7 @@ export default defineNuxtConfig({
         // viewport-fit=cover lets the layout reach under notches and the home
         // indicator; safe-area insets keep controls out of those zones.
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
-        { name: 'theme-color', content: '#f4f7fb' },
+        { name: 'theme-color', content: THEME_BG },
         { name: 'format-detection', content: 'telephone=no' },
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
@@ -25,4 +26,12 @@ export default defineNuxtConfig({
   },
 
   css: [resolveLayer('./app/assets/styles/main.scss')],
+
+  vite: {
+    css: {
+      preprocessorOptions: {
+        scss: { additionalData: `$theme-bg: ${THEME_BG};\n` },
+      },
+    },
+  },
 })
