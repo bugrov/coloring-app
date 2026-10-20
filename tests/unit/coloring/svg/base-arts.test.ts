@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { convertSvg } from '../../../../layers/coloring/shared/svg/pipeline'
+import { convertSvg } from '../../../../layers/coloring/shared'
 
 const BASE_ARTS = ['octopus', 'cat', 'house'] as const
 

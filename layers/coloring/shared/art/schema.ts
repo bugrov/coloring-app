@@ -45,11 +45,6 @@ export const artSchema = z.object({
   items: z.array(z.discriminatedUnion('type', [regionSchema, inkSchema])).min(1),
 })
 
-export type ArtRegion = z.infer<typeof regionSchema>
-export type ArtInk = z.infer<typeof inkSchema>
-export type ArtItem = ArtRegion | ArtInk
-export type ColoringArt = z.infer<typeof artSchema>
-
 export function isValidPathData(d: string): boolean {
   return PATH_DATA.test(d)
 }

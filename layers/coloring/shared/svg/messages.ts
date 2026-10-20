@@ -1,4 +1,4 @@
-import type { SvgErrorCode, SvgWarningCode } from './pipeline'
+import type { SvgErrorCode, SvgWarningCode } from '../types'
 
 /** User-facing explanations of import results. */
 export const SVG_ERROR_MESSAGES: Record<SvgErrorCode, string> = {

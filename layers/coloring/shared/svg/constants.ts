@@ -1,16 +1,4 @@
-/** Hard limits for imported SVG files; they bound memory and CPU per import. */
-export interface SvgLimits {
-  /** Source size in bytes (UTF-8). */
-  maxBytes: number
-  /** Element nodes in the document, including unsupported ones. */
-  maxElements: number
-  /** Colourable regions in the result. */
-  maxRegions: number
-  /** Characters of path data in a single output item. */
-  maxPathLength: number
-  /** Wall-clock budget for the whole conversion. */
-  timeBudgetMs: number
-}
+import type { SvgLimits } from '../types'
 
 export const DEFAULT_SVG_LIMITS: SvgLimits = {
   maxBytes: 1_000_000,

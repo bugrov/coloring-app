@@ -1,5 +1,6 @@
 import { DOMParser, type Element } from '@xmldom/xmldom'
-import { ART_FORMAT_VERSION, artSchema, isValidPathData, type ArtItem, type ColoringArt } from '../art'
+import { ART_FORMAT_VERSION, artSchema, isValidPathData } from '../art'
+import type { ArtItem, ColoringArt, SvgConversion, SvgErrorCode, SvgLimits, SvgWarning, SvgWarningCode } from '../types'
 import { parseColor, relativeLuminance, toHex, type Rgb } from './color'
 import { analyzePath, applyTransforms, roundPath, transformScale, type Bounds } from './geometry'
 import {
@@ -8,41 +9,9 @@ import {
   INK_LUMINANCE_MAX,
   MAX_USE_DEPTH,
   PATH_PRECISION,
-  type SvgLimits,
-} from './limits'
+} from './constants'
 import { numberAttr, SHAPE_ELEMENTS, shapeToPath } from './shapes'
 import { INITIAL_STYLE, parseClassRules, resolveStyle, type StyleDeclarations } from './style'
-
-export type SvgErrorCode
-  = | 'too-large'
-    | 'doctype-not-allowed'
-    | 'malformed'
-    | 'not-svg'
-    | 'too-many-elements'
-    | 'no-dimensions'
-    | 'no-regions'
-    | 'too-many-regions'
-    | 'timeout'
-    | 'invalid-svg'
-
-export type SvgWarningCode
-  = | 'unsupported-element'
-    | 'unsupported-paint'
-    | 'ignored-effect'
-    | 'ignored-dash'
-    | 'external-reference'
-    | 'invalid-path'
-    | 'path-too-long'
-
-export interface SvgWarning {
-  code: SvgWarningCode
-  /** Element or value the warning is about, for diagnostics. */
-  detail?: string
-}
-
-export type SvgConversion
-  = | { ok: true, art: ColoringArt, warnings: SvgWarning[] }
-    | { ok: false, error: SvgErrorCode, detail?: string }
 
 class SvgConversionError extends Error {
   constructor(readonly code: SvgErrorCode, readonly detail?: string) {

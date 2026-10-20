@@ -1,8 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import type { ArtInk, ArtItem, ArtRegion, ColoringArt } from '../../../../layers/coloring/shared/art'
-import { DEFAULT_SVG_LIMITS } from '../../../../layers/coloring/shared/svg/limits'
-import { convertSvg, type SvgConversion } from '../../../../layers/coloring/shared/svg/pipeline'
+import type { ArtInk, ArtItem, ArtRegion, ColoringArt, SvgConversion } from '../../../../layers/coloring/shared'
+import { convertSvg, DEFAULT_SVG_LIMITS } from '../../../../layers/coloring/shared'
 
 const fixture = (name: string) => readFileSync(new URL(`../../../fixtures/svg/${name}`, import.meta.url), 'utf8')
 
