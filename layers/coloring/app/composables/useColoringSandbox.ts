@@ -1,7 +1,7 @@
 import { convertSvg, PALETTE } from '../../shared'
 import type { ColoringArt, Op, Tool } from '../../shared'
-import type { Progress } from '../engine'
-import type { ColoringStageHandle, FrameStats } from './useColoringStage'
+import { EMPTY_PROGRESS, type Progress } from '../engine'
+import { createFrameStats, type ColoringStageHandle, type FrameStats } from './useColoringStage'
 
 /** Idle time after the last change before the share image is re-rendered. */
 const EXPORT_IDLE_MS = 800
@@ -23,17 +23,26 @@ export function useColoringSandbox(stage: Readonly<Ref<ColoringStageHandle | nul
   const tool = ref<Tool>('pencil')
   const color = ref(PALETTE[1]!.hex)
   const ops = shallowRef<Op[]>([])
-  const progress = ref<Progress>({ percent: 0, complete: false })
-  const frameStats = ref<FrameStats>({ last: 0, max: 0, average: 0, frames: 0 })
+  const progress = ref<Progress>({ ...EMPTY_PROGRESS })
+  const frameStats = ref<FrameStats>(createFrameStats())
 
   let preparedPng: Blob | null = null
   let exportTimer: ReturnType<typeof setTimeout> | undefined
+  /** Bumped on every change; an export finishing for an older generation is stale. */
+  let generation = 0
 
   function prepareExport() {
     clearTimeout(exportTimer)
     preparedPng = null
-    exportTimer = setTimeout(async () => {
-      preparedPng = await stage.value?.exportPng() ?? null
+    const current = ++generation
+    exportTimer = setTimeout(() => {
+      stage.value?.exportPng()
+        .then((png) => {
+          if (current === generation) preparedPng = png
+        })
+        .catch(() => {
+          // Share renders on demand when no prepared image is available.
+        })
     }, EXPORT_IDLE_MS)
   }
 

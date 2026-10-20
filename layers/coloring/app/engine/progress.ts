@@ -1,13 +1,15 @@
-import { context2d, createCanvas, type AnyCanvas, type AnyContext, type Rect } from './canvas'
-import type { ArtGeometry } from './geometry'
-import type { ArtSpace } from './space'
+import { context2d, createCanvas, releaseCanvas, type AnyCanvas, type AnyContext, type Rect } from './canvas'
 import { PAINTED_ALPHA_MIN, PROGRESS_GRID_LONG_SIDE, REGION_COMPLETE_RATIO } from './constants'
+import { drawInk, type ArtGeometry } from './geometry'
+import type { ArtSpace } from './space'
 
 export interface Progress {
   /** 0–100, reaches 100 only when every region is complete. */
   percent: number
   complete: boolean
 }
+
+export const EMPTY_PROGRESS: Readonly<Progress> = { percent: 0, complete: false }
 
 /**
  * Share of coloured area. A region at or above REGION_COMPLETE_RATIO counts
@@ -27,7 +29,7 @@ export function computeProgress(totals: ArrayLike<number>, painted: ArrayLike<nu
     area += total
     covered += done ? total : painted[i]!
   }
-  if (area === 0) return { percent: 0, complete: false }
+  if (area === 0) return EMPTY_PROGRESS
   return { percent: complete ? 100 : Math.min(99, Math.floor((covered / area) * 100)), complete }
 }
 
@@ -56,6 +58,7 @@ export class ProgressTracker {
   private readonly painted: Uint8Array
   private readonly totals: Uint32Array
   private readonly paintedCounts: Uint32Array
+  private readonly sampler: AnyCanvas
   private readonly samplerContext: AnyContext
 
   constructor(space: ArtSpace, geometry: ArtGeometry) {
@@ -70,13 +73,14 @@ export class ProgressTracker {
     this.paintedCounts = new Uint32Array(counted.length)
     this.painted = new Uint8Array(this.gridWidth * this.gridHeight)
 
-    this.samplerContext = context2d(createCanvas(this.gridWidth, this.gridHeight), { willReadFrequently: true })
+    this.sampler = createCanvas(this.gridWidth, this.gridHeight)
+    this.samplerContext = context2d(this.sampler, { willReadFrequently: true })
     this.labels = this.renderLabels(space, geometry, indexById, scale)
   }
 
   private renderLabels(space: ArtSpace, geometry: ArtGeometry, indexById: Map<number, number>, scale: number): Int32Array {
     const ctx = this.samplerContext
-    ctx.setTransform(scale, 0, 0, scale, -space.x * scale, -space.y * scale)
+    ctx.setTransform(...space.artTransform(scale))
     ctx.fillStyle = '#000'
     ctx.fillRect(space.x, space.y, space.width, space.height)
 
@@ -91,13 +95,7 @@ export class ProgressTracker {
       }
       else {
         // Ink hides whatever is below it: those cells are not colourable.
-        ctx.fillStyle = '#000'
-        ctx.strokeStyle = '#000'
-        if (item.fill) ctx.fill(item.path, item.fillRule)
-        if (item.stroke && item.strokeWidth > 0) {
-          ctx.lineWidth = item.strokeWidth
-          ctx.stroke(item.path)
-        }
+        drawInk(ctx, item, '#000')
       }
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -145,5 +143,9 @@ export class ProgressTracker {
 
   get progress(): Progress {
     return computeProgress(this.totals, this.paintedCounts)
+  }
+
+  dispose() {
+    releaseCanvas(this.sampler)
   }
 }

@@ -7,21 +7,23 @@ export interface View {
   y: number
 }
 
-export const IDENTITY_VIEW: View = { scale: 1, x: 0, y: 0 }
+export const IDENTITY_VIEW: Readonly<View> = { scale: 1, x: 0, y: 0 }
+
+const clampScale = (scale: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, scale))
 
 /**
  * Keeps the art covering the stage: at scale s the content is s times the
  * stage, so the translation must stay within [size * (1 - s), 0].
  */
 export function clampView(view: View, width: number, height: number): View {
-  const scale = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, view.scale))
+  const scale = clampScale(view.scale)
   const clamp = (value: number, size: number) => Math.min(0, Math.max(size * (1 - scale), value))
   return { scale, x: clamp(view.x, width), y: clamp(view.y, height) }
 }
 
 /** Zooms by `factor` keeping the stage point (px, py) under the same content point. */
 export function zoomAt(view: View, factor: number, px: number, py: number, width: number, height: number): View {
-  const scale = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, view.scale * factor))
+  const scale = clampScale(view.scale * factor)
   const ratio = scale / view.scale
   return clampView({ scale, x: px - (px - view.x) * ratio, y: py - (py - view.y) * ratio }, width, height)
 }

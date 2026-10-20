@@ -1,10 +1,10 @@
 import type { Op, Tool } from '../../shared'
 import { BrushCache } from './brushes'
-import { context2d, createCanvas, intersectRect, unionRect, type AnyCanvas, type AnyContext, type Rect } from './canvas'
+import { context2d, copyRect, createCanvas, intersectRect, releaseCanvas, unionRect, type AnyCanvas, type AnyContext, type Rect } from './canvas'
 import { BRUSH_STAMP_SPACING } from './constants'
-import type { ArtGeometry, RegionShape } from './geometry'
+import type { ArtGeometry } from './geometry'
 import { RegionMask } from './mask'
-import type { ArtSpace } from './space'
+import { gridToPaint, type ArtSpace } from './space'
 import { StampWalker } from './stamps'
 
 export interface StrokeStyle {
@@ -17,6 +17,19 @@ export interface StrokeStyle {
 
 /** Extra pixels around a segment's bounds so caps and soft edges are not cut. */
 const SEGMENT_PADDING = 2
+
+/** What a stroke needs from the painter; keeps the painter's canvases private. */
+interface StrokeTarget {
+  /**
+   * Draws the new points (paint pixels). `path` is every point of the current
+   * op so far: line tools redraw it whole within the touched area, so live
+   * drawing gives exactly the pixels a replay of the op gives.
+   */
+  draw: (style: StrokeStyle, from: [number, number] | null, points: number[], path: readonly number[], walker: StampWalker) => Rect | null
+  /** Makes the current paint the base the stroke is drawn over (after a split). */
+  rebase: () => void
+  restore: () => void
+}
 
 /**
  * Draws ops onto the paint canvas. Every mark is first drawn onto a scratch
@@ -34,7 +47,7 @@ export class Painter {
 
   constructor(
     readonly canvas: HTMLCanvasElement,
-    readonly space: ArtSpace,
+    private readonly space: ArtSpace,
     private readonly geometry: ArtGeometry,
   ) {
     canvas.width = space.paintWidth
@@ -56,20 +69,28 @@ export class Painter {
    * the stroke can be taken back (a second finger turned it into a gesture).
    */
   beginStroke(regionId: number, style: StrokeStyle, restorable = false): PaintStroke | null {
-    const region = this.geometry.region(regionId)
-    if (!region) return null
-    const rect = this.mask.use(region)
-    if (restorable) {
+    const rect = this.prepare(regionId)
+    if (!rect) return null
+    const saveBase = () => {
       this.backupContext.clearRect(rect.x, rect.y, rect.width, rect.height)
-      this.backupContext.drawImage(this.canvas, rect.x, rect.y, rect.width, rect.height, rect.x, rect.y, rect.width, rect.height)
+      copyRect(this.backupContext, this.canvas, rect)
     }
-    return new PaintStroke(this, region, rect, style)
+    if (restorable) saveBase()
+    return new PaintStroke(style, {
+      draw: (style, from, points, path, walker) => this.drawSegment(rect, style, from, points, restorable ? path : null, walker),
+      rebase: () => {
+        if (restorable) saveBase()
+      },
+      restore: () => {
+        this.ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
+        copyRect(this.ctx, this.backup, rect)
+      },
+    })
   }
 
   fill(regionId: number, color: string): Rect | null {
-    const region = this.geometry.region(regionId)
-    if (!region) return null
-    const rect = this.mask.use(region)
+    const rect = this.prepare(regionId)
+    if (!rect) return null
     const ctx = this.scratchContext
     ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
     ctx.fillStyle = color
@@ -79,11 +100,10 @@ export class Painter {
   }
 
   clear(regionId: number): Rect | null {
-    const region = this.geometry.region(regionId)
-    if (!region) return null
-    const rect = this.mask.use(region)
+    const rect = this.prepare(regionId)
+    if (!rect) return null
     this.ctx.globalCompositeOperation = 'destination-out'
-    this.ctx.drawImage(this.mask.canvas, rect.x, rect.y, rect.width, rect.height, rect.x, rect.y, rect.width, rect.height)
+    copyRect(this.ctx, this.mask.canvas, rect)
     this.ctx.globalCompositeOperation = 'source-over'
     return rect
   }
@@ -92,7 +112,8 @@ export class Painter {
     switch (op.type) {
       case 'stroke': {
         const stroke = this.beginStroke(op.region, op)
-        return stroke ? stroke.add(op.points) : null
+        stroke?.add(op.points)
+        return stroke?.dirty ?? null
       }
       case 'fill':
         return this.fill(op.region, op.color)
@@ -105,9 +126,26 @@ export class Painter {
     this.ctx.clearRect(0, 0, this.space.paintWidth, this.space.paintHeight)
   }
 
-  /** @internal Draws one chunk of a stroke; used by {@link PaintStroke}. */
-  drawSegment(regionRect: Rect, style: StrokeStyle, from: [number, number] | null, points: number[], walker: StampWalker): Rect | null {
-    const widthPx = this.space.gridToPaint(style.width)
+  dispose() {
+    releaseCanvas(this.scratch)
+    releaseCanvas(this.backup)
+    this.mask.dispose()
+  }
+
+  /** Builds the region's mask; returns its paint rectangle, or null for an unknown region. */
+  private prepare(regionId: number): Rect | null {
+    const region = this.geometry.region(regionId)
+    return region ? this.mask.use(region) : null
+  }
+
+  /**
+   * Draws one chunk of a stroke (paint pixels) and composites it inside the
+   * region. With `path` (live line tools), the area is first reset to the base
+   * saved at stroke start and the whole path is drawn again, so overlapping
+   * caps between frames never accumulate.
+   */
+  private drawSegment(regionRect: Rect, style: StrokeStyle, from: [number, number] | null, points: number[], path: readonly number[] | null, walker: StampWalker): Rect | null {
+    const widthPx = gridToPaint(style.width)
     const reach = widthPx / 2 + SEGMENT_PADDING
     let minX = from ? from[0] : Infinity
     let minY = from ? from[1] : Infinity
@@ -142,69 +180,90 @@ export class Painter {
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
       ctx.strokeStyle = style.tool === 'pencil' && style.color ? this.brushes.pencilPattern(ctx, style.color) : '#000'
+      const line = path ?? (from ? [...from, ...points] : points)
       ctx.beginPath()
-      const start = from ?? [points[0]!, points[1]!]
-      ctx.moveTo(start[0], start[1])
+      ctx.moveTo(line[0]!, line[1]!)
       // A zero-length line with round caps draws a dot for a single tap.
-      ctx.lineTo(start[0], start[1])
-      for (let i = from ? 0 : 2; i + 1 < points.length; i += 2) ctx.lineTo(points[i]!, points[i + 1]!)
+      ctx.lineTo(line[0]!, line[1]!)
+      for (let i = 2; i + 1 < line.length; i += 2) ctx.lineTo(line[i]!, line[i + 1]!)
       ctx.stroke()
     }
     ctx.restore()
 
+    if (path && style.tool !== 'brush') {
+      this.ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
+      copyRect(this.ctx, this.backup, rect)
+    }
     this.composite(rect, style.tool === 'eraser' ? 'destination-out' : 'source-over')
     return rect
-  }
-
-  /** @internal Puts saved pixels back after a cancelled stroke. */
-  restore(rect: Rect) {
-    this.ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
-    this.ctx.drawImage(this.backup, rect.x, rect.y, rect.width, rect.height, rect.x, rect.y, rect.width, rect.height)
   }
 
   /** Masks the scratch rectangle and blends it onto the paint. */
   private composite(rect: Rect, operation: GlobalCompositeOperation) {
     const scratch = this.scratchContext
     scratch.globalCompositeOperation = 'destination-in'
-    scratch.drawImage(this.mask.canvas, rect.x, rect.y, rect.width, rect.height, rect.x, rect.y, rect.width, rect.height)
+    copyRect(scratch, this.mask.canvas, rect)
     scratch.globalCompositeOperation = 'source-over'
 
     this.ctx.globalCompositeOperation = operation
-    this.ctx.drawImage(this.scratch, rect.x, rect.y, rect.width, rect.height, rect.x, rect.y, rect.width, rect.height)
+    copyRect(this.ctx, this.scratch, rect)
     this.ctx.globalCompositeOperation = 'source-over'
   }
 }
 
 /** A stroke in progress. Points are in grid units, as stored in ops. */
 export class PaintStroke {
-  /** Every point added so far, grid units. */
-  readonly points: number[] = []
-  /** Paint area touched so far. */
-  dirty: Rect | null = null
+  private readonly gridPoints: number[] = []
+  private readonly paintPath: number[] = []
+  private dirtyRect: Rect | null = null
   private last: [number, number] | null = null
-  private readonly walker: StampWalker
+  private walker: StampWalker
 
-  constructor(
-    private readonly painter: Painter,
-    readonly region: RegionShape,
-    private readonly regionRect: Rect,
-    readonly style: StrokeStyle,
-  ) {
-    this.walker = new StampWalker(painter.space.gridToPaint(style.width) * BRUSH_STAMP_SPACING)
+  constructor(readonly style: StrokeStyle, private readonly target: StrokeTarget) {
+    this.walker = this.createWalker()
   }
 
-  add(gridPoints: readonly number[]): Rect | null {
-    if (gridPoints.length < 2) return null
-    this.points.push(...gridPoints)
-    const paintPoints = gridPoints.map(value => this.painter.space.gridToPaint(value))
-    const rect = this.painter.drawSegment(this.regionRect, this.style, this.last, paintPoints, this.walker)
+  /** Every point since the stroke (or its last restart) began, grid units. */
+  get points(): readonly number[] {
+    return this.gridPoints
+  }
+
+  /** Paint area touched so far, across restarts. */
+  get dirty(): Rect | null {
+    return this.dirtyRect
+  }
+
+  add(gridPoints: readonly number[]) {
+    if (gridPoints.length < 2) return
+    this.gridPoints.push(...gridPoints)
+    const paintPoints = gridPoints.map(gridToPaint)
+    this.paintPath.push(...paintPoints)
+    const rect = this.target.draw(this.style, this.last, paintPoints, this.paintPath, this.walker)
     this.last = [paintPoints[paintPoints.length - 2]!, paintPoints[paintPoints.length - 1]!]
-    this.dirty = unionRect(this.dirty, rect)
-    return rect
+    this.dirtyRect = unionRect(this.dirtyRect, rect)
+  }
+
+  /**
+   * Continues the line as a fresh stroke starting at the last point, exactly as
+   * replaying a separate op would draw it. Used to split very long strokes.
+   */
+  restart() {
+    const x = this.gridPoints[this.gridPoints.length - 2]!
+    const y = this.gridPoints[this.gridPoints.length - 1]!
+    this.gridPoints.length = 0
+    this.paintPath.length = 0
+    this.last = null
+    this.walker = this.createWalker()
+    this.target.rebase()
+    this.add([x, y])
   }
 
   /** Takes the stroke back; requires the stroke to have been started as restorable. */
   cancel() {
-    this.painter.restore(this.regionRect)
+    this.target.restore()
+  }
+
+  private createWalker(): StampWalker {
+    return new StampWalker(gridToPaint(this.style.width) * BRUSH_STAMP_SPACING)
   }
 }

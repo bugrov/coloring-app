@@ -8,6 +8,9 @@ import {
   HoldDetector,
   IDENTITY_VIEW,
   panBy,
+  PINCH_MIN_DISTANCE_PX,
+  WHEEL_LINE_HEIGHT_PX,
+  WHEEL_MAX_DELTA_PX,
   WHEEL_ZOOM_SPEED,
   zoomAt,
   type Progress,
@@ -38,6 +41,10 @@ export interface FrameStats {
   frames: number
 }
 
+export function createFrameStats(): FrameStats {
+  return { last: 0, max: 0, average: 0, frames: 0 }
+}
+
 /** What `<ColoringStage>` exposes to its parent through a template ref. */
 export interface ColoringStageHandle {
   stats: Readonly<FrameStats>
@@ -49,9 +56,24 @@ export interface ColoringStageHandle {
 
 interface ActiveStroke {
   pointerId: number
+  pointerType: string
   recorder: StrokeRecorder
   /** Grid points received since the last frame. */
   queue: number[]
+}
+
+interface Gesture {
+  distance: number
+  x: number
+  y: number
+}
+
+/** Wheel delta in pixels whatever the device reports (pixels, lines or pages), capped per event. */
+function wheelPixels(delta: number, mode: number, pageSize: number): number {
+  const pixels = mode === WheelEvent.DOM_DELTA_LINE
+    ? delta * WHEEL_LINE_HEIGHT_PX
+    : mode === WheelEvent.DOM_DELTA_PAGE ? delta * pageSize : delta
+  return Math.max(-WHEEL_MAX_DELTA_PX, Math.min(WHEEL_MAX_DELTA_PX, pixels))
 }
 
 /**
@@ -63,17 +85,19 @@ interface ActiveStroke {
 export function useColoringStage({ stage, content, canvas }: ColoringStageElements, options: ColoringStageOptions) {
   const engine = shallowRef<ColoringEngine | null>(null)
   const view = ref<View>(IDENTITY_VIEW)
-  const stats: FrameStats = { last: 0, max: 0, average: 0, frames: 0 }
+  const stats = createFrameStats()
 
   const pointers = new Map<number, { x: number, y: number }>()
   const hold = new HoldDetector(HOLD_TOLERANCE_PX)
   let stroke: ActiveStroke | null = null
-  let gesture: { distance: number, x: number, y: number } | null = null
+  let gesture: Gesture | null = null
   let holdTimer: ReturnType<typeof setTimeout> | undefined
   let frame = 0
 
   watch([options.art, canvas], ([art, element]) => {
     cancelStroke()
+    engine.value?.dispose()
+    engine.value = null
     if (!element) return
     engine.value = markRaw(new ColoringEngine(art, element))
     view.value = IDENTITY_VIEW
@@ -84,22 +108,16 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     transform: `translate(${view.value.x}px, ${view.value.y}px) scale(${view.value.scale})`,
   }))
 
-  /** Position as a share of the rendered art; the canvas rect already includes zoom. */
-  function ratioOf(event: { clientX: number, clientY: number }): [number, number] {
-    const rect = canvas.value!.getBoundingClientRect()
+  /** Position as a share of the rendered art; `rect` is the canvas rect, which already includes zoom. */
+  function ratioOf(event: { clientX: number, clientY: number }, rect: DOMRect): [number, number] {
     return [(event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height]
   }
 
-  /** Content size and its untransformed top-left corner, in client pixels. */
+  /** Content size and its untransformed top-left corner, in client pixels (transform origin is 0 0). */
   function contentBox() {
     const element = content.value!
-    const stageRect = stage.value!.getBoundingClientRect()
-    return {
-      left: stageRect.left + element.offsetLeft,
-      top: stageRect.top + element.offsetTop,
-      width: element.offsetWidth,
-      height: element.offsetHeight,
-    }
+    const rect = element.getBoundingClientRect()
+    return { left: rect.left - view.value.x, top: rect.top - view.value.y, width: element.offsetWidth, height: element.offsetHeight }
   }
 
   function scheduleFrame() {
@@ -136,14 +154,18 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     stroke = null
   }
 
+  function commit(ops: Op[]) {
+    options.onOps(ops)
+    if (engine.value) options.onProgress(engine.value.progress)
+  }
+
   function finishStroke() {
-    if (!stroke || !engine.value) return
+    if (!stroke) return
     flushStroke()
     clearHoldTimer()
     const ops = stroke.recorder.finish()
     stroke = null
-    options.onOps(ops)
-    options.onProgress(engine.value.progress)
+    commit(ops)
   }
 
   function onHold() {
@@ -156,11 +178,10 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
       ? engine.value.clear(recorder.region)
       : engine.value.fill(recorder.region, options.color.value)
     navigator.vibrate?.(15)
-    options.onOps([op])
-    options.onProgress(engine.value.progress)
+    commit([op])
   }
 
-  function gestureSnapshot() {
+  function gestureSnapshot(): Gesture {
     const [a, b] = [...pointers.values()]
     return { distance: Math.hypot(b!.x - a!.x, b!.y - a!.y), x: (a!.x + b!.x) / 2, y: (a!.y + b!.y) / 2 }
   }
@@ -169,30 +190,35 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     if (!gesture || pointers.size < 2) return
     const next = gestureSnapshot()
     const box = contentBox()
-    const zoomed = zoomAt(view.value, next.distance / gesture.distance, next.x - box.left, next.y - box.top, box.width, box.height)
+    const factor = gesture.distance < PINCH_MIN_DISTANCE_PX ? 1 : next.distance / gesture.distance
+    const zoomed = zoomAt(view.value, factor, next.x - box.left, next.y - box.top, box.width, box.height)
     view.value = panBy(zoomed, next.x - gesture.x, next.y - gesture.y, box.width, box.height)
     gesture = next
   }
 
   function onPointerDown(event: PointerEvent) {
     if (!engine.value || (event.pointerType === 'mouse' && event.button !== 0)) return
+    // Palm rejection: while the pen draws, touches are ignored instead of starting a gesture.
+    if (stroke?.pointerType === 'pen' && event.pointerType !== 'pen') return
+
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
     stage.value!.setPointerCapture(event.pointerId)
 
-    if (pointers.size === 2) {
+    if (pointers.size >= 2) {
       // A second finger means zoom/pan: take back what the first one drew.
       cancelStroke()
       gesture = gestureSnapshot()
       return
     }
-    if (pointers.size > 2 || gesture) return
+    if (gesture) return
 
-    const { point, region } = engine.value.locate(...ratioOf(event))
+    const rect = canvas.value!.getBoundingClientRect()
+    const { point, region } = engine.value.locate(...ratioOf(event, rect))
     if (region === null) return
     const recorder = engine.value.beginStroke(region, options.tool.value, options.color.value)
     if (!recorder) return
 
-    stroke = { pointerId: event.pointerId, recorder, queue: [...point] }
+    stroke = { pointerId: event.pointerId, pointerType: event.pointerType, recorder, queue: [...point] }
     hold.start(event.clientX, event.clientY)
     holdTimer = setTimeout(onHold, HOLD_DURATION_MS)
     scheduleFrame()
@@ -208,10 +234,11 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     }
     if (!stroke || stroke.pointerId !== event.pointerId || !engine.value) return
 
+    const rect = canvas.value!.getBoundingClientRect()
     const coalesced = event.getCoalescedEvents?.()
-    const space = engine.value.space
+    const { space } = engine.value
     for (const sample of coalesced?.length ? coalesced : [event]) {
-      const [x, y] = space.gridFromRatio(...ratioOf(sample))
+      const [x, y] = space.gridFromRatio(...ratioOf(sample, rect))
       const { queue } = stroke
       if (queue[queue.length - 2] !== x || queue[queue.length - 1] !== y) queue.push(x, y)
     }
@@ -219,14 +246,24 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     scheduleFrame()
   }
 
-  function onPointerUp(event: PointerEvent) {
-    if (!pointers.delete(event.pointerId)) return
+  /** Common bookkeeping when a pointer leaves; returns false for pointers we do not track. */
+  function releasePointer(event: PointerEvent): boolean {
+    if (!pointers.delete(event.pointerId)) return false
     if (gesture) {
-      // Drawing resumes only after every finger of the gesture is lifted.
-      if (pointers.size === 0) gesture = null
-      return
+      // Re-pair the remaining fingers; drawing resumes only after every finger is lifted.
+      if (pointers.size >= 2) gesture = gestureSnapshot()
+      else if (pointers.size === 0) gesture = null
     }
-    if (stroke?.pointerId === event.pointerId) finishStroke()
+    return true
+  }
+
+  function onPointerUp(event: PointerEvent) {
+    if (releasePointer(event) && stroke?.pointerId === event.pointerId) finishStroke()
+  }
+
+  /** The system took the pointer away (edge swipe, rotation): the stroke is not intended, take it back. */
+  function onPointerCancel(event: PointerEvent) {
+    if (releasePointer(event) && stroke?.pointerId === event.pointerId) cancelStroke()
   }
 
   function onWheel(event: WheelEvent) {
@@ -234,11 +271,14 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     if (event.ctrlKey) {
       // Ctrl+wheel and trackpad pinch: zoom the art, not the page.
       event.preventDefault()
-      view.value = zoomAt(view.value, Math.exp(-event.deltaY * WHEEL_ZOOM_SPEED), event.clientX - box.left, event.clientY - box.top, box.width, box.height)
+      const delta = wheelPixels(event.deltaY, event.deltaMode, box.height)
+      view.value = zoomAt(view.value, Math.exp(-delta * WHEEL_ZOOM_SPEED), event.clientX - box.left, event.clientY - box.top, box.width, box.height)
     }
     else if (view.value.scale > 1) {
       event.preventDefault()
-      view.value = panBy(view.value, -event.deltaX, -event.deltaY, box.width, box.height)
+      const dx = wheelPixels(event.deltaX, event.deltaMode, box.width)
+      const dy = wheelPixels(event.deltaY, event.deltaMode, box.height)
+      view.value = panBy(view.value, -dx, -dy, box.width, box.height)
     }
   }
 
@@ -247,13 +287,17 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     if (element) view.value = clampView(view.value, element.offsetWidth, element.offsetHeight)
   }
 
+  const listeners = {
+    pointerdown: onPointerDown,
+    pointermove: onPointerMove,
+    pointerup: onPointerUp,
+    pointercancel: onPointerCancel,
+  } satisfies Partial<Record<keyof HTMLElementEventMap, (event: PointerEvent) => void>>
+
   let resizeObserver: ResizeObserver | undefined
   onMounted(() => {
     const element = stage.value!
-    element.addEventListener('pointerdown', onPointerDown)
-    element.addEventListener('pointermove', onPointerMove)
-    element.addEventListener('pointerup', onPointerUp)
-    element.addEventListener('pointercancel', onPointerUp)
+    for (const [type, listener] of Object.entries(listeners)) element.addEventListener(type, listener as EventListener)
     element.addEventListener('wheel', onWheel, { passive: false })
     resizeObserver = new ResizeObserver(onResize)
     resizeObserver.observe(element)
@@ -264,19 +308,23 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     cancelStroke()
     resizeObserver?.disconnect()
     const element = stage.value
-    element?.removeEventListener('pointerdown', onPointerDown)
-    element?.removeEventListener('pointermove', onPointerMove)
-    element?.removeEventListener('pointerup', onPointerUp)
-    element?.removeEventListener('pointercancel', onPointerUp)
+    for (const [type, listener] of Object.entries(listeners)) element?.removeEventListener(type, listener as EventListener)
     element?.removeEventListener('wheel', onWheel)
+    engine.value?.dispose()
   })
 
-  return {
-    engine,
-    contentStyle,
+  const handle: ColoringStageHandle = {
     stats,
     resetView: () => {
       view.value = IDENTITY_VIEW
     },
+    replay: (ops) => {
+      if (!engine.value) return
+      engine.value.replay(ops)
+      options.onProgress(engine.value.progress)
+    },
+    exportPng: () => engine.value?.exportPng() ?? Promise.reject(new Error('Engine is not ready')),
   }
+
+  return { contentStyle, handle }
 }

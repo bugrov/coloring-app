@@ -1,5 +1,8 @@
 export type ShareResult = 'shared' | 'downloaded' | 'cancelled'
 
+/** The download has started by then; the object URL can be freed. */
+const REVOKE_DELAY_MS = 1000
+
 /**
  * Opens the system share sheet with the file (on iOS it also offers "Save
  * Image"), or downloads it where sharing files is not supported.
@@ -29,5 +32,5 @@ export function downloadBlob(blob: Blob, fileName: string) {
   link.href = url
   link.download = fileName
   link.click()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS)
 }

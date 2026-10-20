@@ -1,5 +1,7 @@
+import { parseColor } from '../../shared'
+import type { Rgb } from '../../shared'
 import { context2d, createCanvas, type AnyCanvas, type AnyContext } from './canvas'
-import { BRUSH_HARDNESS, PENCIL_GRAIN_ALPHA_MIN, PENCIL_GRAIN_TILE } from './constants'
+import { BRUSH_HARDNESS, PENCIL_GRAIN_LIGHTEN, PENCIL_GRAIN_TILE } from './constants'
 
 /** Fixed seed: the grain must look the same after a reload and on replay. */
 const GRAIN_SEED = 0x2F_6B_43
@@ -15,10 +17,7 @@ function random(seed: number): () => number {
   }
 }
 
-function hexToRgb(hex: string): [number, number, number] {
-  const value = Number.parseInt(hex.slice(1), 16)
-  return [(value >> 16) & 0xFF, (value >> 8) & 0xFF, value & 0xFF]
-}
+const BLACK: Rgb = { r: 0, g: 0, b: 0 }
 
 /**
  * Caches per-colour drawing resources: a grainy pattern for the pencil and a
@@ -35,13 +34,14 @@ export class BrushCache {
       const tile = createCanvas(PENCIL_GRAIN_TILE, PENCIL_GRAIN_TILE)
       const tileContext = context2d(tile)
       const image = tileContext.createImageData(PENCIL_GRAIN_TILE, PENCIL_GRAIN_TILE)
-      const [r, g, b] = hexToRgb(color)
+      const { r, g, b } = parseColor(color) ?? BLACK
       const next = random(GRAIN_SEED)
       for (let i = 0; i < image.data.length; i += 4) {
-        image.data[i] = r
-        image.data[i + 1] = g
-        image.data[i + 2] = b
-        image.data[i + 3] = Math.round(255 * (PENCIL_GRAIN_ALPHA_MIN + (1 - PENCIL_GRAIN_ALPHA_MIN) * next()))
+        const lighten = PENCIL_GRAIN_LIGHTEN * next()
+        image.data[i] = r + (255 - r) * lighten
+        image.data[i + 1] = g + (255 - g) * lighten
+        image.data[i + 2] = b + (255 - b) * lighten
+        image.data[i + 3] = 255
       }
       tileContext.putImageData(image, 0, 0)
       pattern = ctx.createPattern(tile, 'repeat')!
@@ -58,7 +58,7 @@ export class BrushCache {
       stamp = createCanvas(size, size)
       const ctx = context2d(stamp)
       const radius = size / 2
-      const [r, g, b] = hexToRgb(color)
+      const { r, g, b } = parseColor(color) ?? BLACK
       const gradient = ctx.createRadialGradient(radius, radius, 0, radius, radius, radius)
       gradient.addColorStop(0, `rgb(${r} ${g} ${b} / 100%)`)
       gradient.addColorStop(BRUSH_HARDNESS, `rgb(${r} ${g} ${b} / 100%)`)

@@ -24,6 +24,17 @@ export function context2d(canvas: AnyCanvas, options?: CanvasRenderingContext2DS
   return ctx
 }
 
+/** Frees a canvas' pixel memory now instead of whenever it is garbage collected (iOS has a hard total limit). */
+export function releaseCanvas(canvas: AnyCanvas) {
+  canvas.width = 0
+  canvas.height = 0
+}
+
+/** Copies a rectangle from one canvas to the same place on another. */
+export function copyRect(target: AnyContext, source: AnyCanvas, { x, y, width, height }: Rect) {
+  target.drawImage(source, x, y, width, height, x, y, width, height)
+}
+
 export function canvasToPng(canvas: AnyCanvas): Promise<Blob> {
   if ('convertToBlob' in canvas) return canvas.convertToBlob({ type: 'image/png' })
   return new Promise((resolve, reject) => {
@@ -31,7 +42,7 @@ export function canvasToPng(canvas: AnyCanvas): Promise<Blob> {
   })
 }
 
-/** Smallest integer rectangle covering both, or the other one when either is empty. */
+/** Smallest rectangle covering both, or the other one when either is empty. */
 export function unionRect(a: Rect | null, b: Rect | null): Rect | null {
   if (!a) return b
   if (!b) return a

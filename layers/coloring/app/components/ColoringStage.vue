@@ -18,7 +18,7 @@ const stage = useTemplateRef<HTMLElement>('stage')
 const content = useTemplateRef<HTMLElement>('content')
 const canvas = useTemplateRef<HTMLCanvasElement>('canvas')
 
-const { engine, contentStyle, stats, resetView } = useColoringStage({ stage, content, canvas }, {
+const { contentStyle, handle } = useColoringStage({ stage, content, canvas }, {
   art: toRef(props, 'art'),
   tool: toRef(props, 'tool'),
   color: toRef(props, 'color'),
@@ -28,15 +28,7 @@ const { engine, contentStyle, stats, resetView } = useColoringStage({ stage, con
 
 const aspectRatio = computed(() => props.art.viewBox[2] / props.art.viewBox[3])
 
-defineExpose<ColoringStageHandle>({
-  resetView,
-  stats,
-  replay: (ops) => {
-    engine.value?.replay(ops)
-    if (engine.value) emit('progress', engine.value.progress)
-  },
-  exportPng: () => engine.value?.exportPng() ?? Promise.reject(new Error('Engine is not ready')),
-})
+defineExpose<ColoringStageHandle>(handle)
 </script>
 
 <template>

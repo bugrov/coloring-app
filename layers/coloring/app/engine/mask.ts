@@ -1,4 +1,4 @@
-import { context2d, createCanvas, type AnyCanvas, type AnyContext, type Rect } from './canvas'
+import { context2d, createCanvas, releaseCanvas, type AnyCanvas, type AnyContext, type Rect } from './canvas'
 import type { ArtGeometry, RegionShape } from './geometry'
 import type { ArtSpace } from './space'
 
@@ -42,5 +42,9 @@ export class RegionMask {
     this.regionId = region.id
     this.rect = rect
     return rect
+  }
+
+  dispose() {
+    releaseCanvas(this.canvas)
   }
 }

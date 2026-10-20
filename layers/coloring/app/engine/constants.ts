@@ -20,9 +20,14 @@ export const BRUSH_STAMP_SPACING = 0.15
 /** Opaque core of the brush stamp; the rest of the radius fades out. */
 export const BRUSH_HARDNESS = 0.6
 
-/** Pencil grain: tile size in paint pixels and the alpha range of its grains. */
+/**
+ * Pencil grain: an opaque tile where each pixel is the colour lightened
+ * towards white by up to this share. Opaque on purpose: overlapping parts of
+ * a stroke then look the same however often they are drawn, so live drawing
+ * and replay match.
+ */
 export const PENCIL_GRAIN_TILE = 64
-export const PENCIL_GRAIN_ALPHA_MIN = 0.7
+export const PENCIL_GRAIN_LIGHTEN = 0.35
 
 /** Holding still this long fills (or clears) the whole region. */
 export const HOLD_DURATION_MS = 450
@@ -38,5 +43,11 @@ export const REGION_COMPLETE_RATIO = 0.95
 
 export const ZOOM_MIN = 1
 export const ZOOM_MAX = 5
-/** Zoom change per pixel of wheel delta (Ctrl+wheel, trackpad pinch). */
-export const WHEEL_ZOOM_SPEED = 0.01
+/** Zoom change per normalized wheel pixel (Ctrl+wheel, trackpad pinch). */
+export const WHEEL_ZOOM_SPEED = 0.002
+/** Wheel events in line mode are converted to pixels with this line height. */
+export const WHEEL_LINE_HEIGHT_PX = 16
+/** Per-event cap, so one fast wheel notch cannot jump across the zoom range. */
+export const WHEEL_MAX_DELTA_PX = 100
+/** Fingers closer than this cannot define a pinch reliably. */
+export const PINCH_MIN_DISTANCE_PX = 1
