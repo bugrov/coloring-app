@@ -1,2 +1,33 @@
 # Рабочий план (локально, не в git)
 docs/PLAN.md
+
+# Nuxt dev/build outputs
+.output
+.data
+.nuxt
+.nitro
+.cache
+dist
+.vercel
+
+# Node dependencies
+node_modules
+
+# Tests
+test-results
+playwright-report
+coverage
+
+# Logs
+logs
+*.log
+
+# Misc
+.DS_Store
+.fleet
+.idea
+
+# Local env files
+.env
+.env.*
+!.env.example
