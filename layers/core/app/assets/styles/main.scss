@@ -1,4 +1,4 @@
-@use "tokens";
+@use "tokens" with ($theme-bg: $theme-bg);
 
 // "Game mode": the app must feel like a game, not a web page. No selection,
 // no page scroll or rubber-banding, no pull-to-refresh, no double-tap zoom.
@@ -13,7 +13,10 @@ html {
   height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
-  touch-action: manipulation;
+
+  // Panning stays available to scroll containers; pinch-zoom and double-tap
+  // zoom are not (`manipulation` would still allow pinch-zoom on Android).
+  touch-action: pan-x pan-y;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
