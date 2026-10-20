@@ -2,7 +2,7 @@ import { MAX_STROKE_POINTS } from '../../shared'
 import type { ClearOp, ColoringArt, FillOp, Op, StrokeOp, Tool } from '../../shared'
 import type { Rect } from './canvas'
 import { TOOL_WIDTH } from './constants'
-import { Exporter } from './export'
+import { exportPng } from './export'
 import { ArtGeometry } from './geometry'
 import { Painter, type PaintStroke } from './painter'
 import { ProgressTracker, type Progress } from './progress'
@@ -13,7 +13,8 @@ export {
   HOLD_TOLERANCE_PX,
   PINCH_MIN_DISTANCE_PX,
   WHEEL_LINE_HEIGHT_PX,
-  WHEEL_MAX_DELTA_PX,
+  WHEEL_PAN_MAX_DELTA_PX,
+  WHEEL_ZOOM_MAX_DELTA_PX,
   WHEEL_ZOOM_SPEED,
 } from './constants'
 export { HoldDetector } from './hold'
@@ -33,14 +34,12 @@ export class ColoringEngine {
   readonly geometry: ArtGeometry
   private readonly painter: Painter
   private readonly tracker: ProgressTracker
-  private readonly exporter: Exporter
 
   constructor(art: ColoringArt, canvas: HTMLCanvasElement) {
     this.space = new ArtSpace(art)
     this.geometry = new ArtGeometry(art, this.space)
     this.painter = new Painter(canvas, this.space, this.geometry)
     this.tracker = new ProgressTracker(this.space, this.geometry)
-    this.exporter = new Exporter(this.space, this.geometry)
   }
 
   /** Grid point and region under a position given as a share (0–1) of the rendered art. */
@@ -80,14 +79,13 @@ export class ColoringEngine {
   }
 
   exportPng(): Promise<Blob> {
-    return this.exporter.toPng(this.painter.canvas)
+    return exportPng(this.space, this.geometry, this.painter.canvas)
   }
 
   /** Releases the offscreen canvases right away; iOS limits total canvas memory. */
   dispose() {
     this.painter.dispose()
     this.tracker.dispose()
-    this.exporter.dispose()
   }
 
   private track(rect: Rect | null) {
@@ -131,15 +129,14 @@ export class StrokeRecorder {
     return [...this.completed, this.toOp()]
   }
 
-  /**
-   * Takes back the part of the stroke not yet split off, e.g. when a second
-   * finger starts a zoom gesture. Parts already split off are kept and returned
-   * as ops to commit, so the canvas always matches the recorded ops.
-   */
-  cancel(): StrokeOp[] {
+  /** Whether parts of the stroke were already split off into ops; such a stroke cannot be taken back. */
+  get isSplit(): boolean {
+    return this.completed.length > 0
+  }
+
+  /** Takes the stroke back, e.g. when a second finger starts a zoom gesture. Only valid before a split. */
+  cancel() {
     this.stroke.cancel()
-    if (this.completed.length > 0) this.track(this.stroke.dirty)
-    return [...this.completed]
   }
 
   private toOp(): StrokeOp {

@@ -44,10 +44,14 @@ export const REGION_COMPLETE_RATIO = 0.95
 export const ZOOM_MIN = 1
 export const ZOOM_MAX = 5
 /** Zoom change per normalized wheel pixel (Ctrl+wheel, trackpad pinch). */
-export const WHEEL_ZOOM_SPEED = 0.002
+export const WHEEL_ZOOM_SPEED = 0.01
 /** Wheel events in line mode are converted to pixels with this line height. */
 export const WHEEL_LINE_HEIGHT_PX = 16
-/** Per-event cap, so one fast wheel notch cannot jump across the zoom range. */
-export const WHEEL_MAX_DELTA_PX = 100
+/**
+ * Per-event caps. Trackpad pinches send small deltas and are not affected;
+ * a mouse notch (~100 px) zooms by about 1.28x instead of jumping across the range.
+ */
+export const WHEEL_ZOOM_MAX_DELTA_PX = 25
+export const WHEEL_PAN_MAX_DELTA_PX = 100
 /** Fingers closer than this cannot define a pinch reliably. */
 export const PINCH_MIN_DISTANCE_PX = 1

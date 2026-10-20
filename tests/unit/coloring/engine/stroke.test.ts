@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { MAX_STROKE_POINTS } from '../../../../layers/coloring/shared'
 import { StrokeRecorder } from '../../../../layers/coloring/app/engine'
-import { PaintStroke, type StrokeStyle } from '../../../../layers/coloring/app/engine/painter'
+import { PaintStroke, tracePolylineNear, type StrokeStyle } from '../../../../layers/coloring/app/engine/painter'
 
 const STYLE: StrokeStyle = { tool: 'brush', color: '#e53935', width: 40 }
 
@@ -67,22 +67,42 @@ describe('StrokeRecorder', () => {
     const { stroke, restoredCount } = recordingStroke()
     const recorder = new StrokeRecorder(1, stroke, () => {})
     recorder.add([1, 1])
+    recorder.cancel()
 
-    expect(recorder.cancel()).toEqual([])
+    expect(recorder.isSplit).toBe(false)
     expect(restoredCount()).toBe(1)
   })
 
-  it('keeps the parts of a split stroke when cancelled, so the canvas matches the ops', () => {
-    const { stroke, restoredCount } = recordingStroke()
-    const tracked: unknown[] = []
-    const recorder = new StrokeRecorder(1, stroke, rect => tracked.push(rect))
+  it('reports when a stroke was split and can no longer be taken back', () => {
+    const { stroke } = recordingStroke()
+    const recorder = new StrokeRecorder(1, stroke, () => {})
     recorder.add(line(MAX_STROKE_POINTS + 10))
 
-    const kept = recorder.cancel()
+    expect(recorder.isSplit).toBe(true)
+  })
+})
 
-    expect(kept).toHaveLength(1)
-    expect(kept[0]!.points).toHaveLength(MAX_STROKE_POINTS * 2)
-    expect(restoredCount()).toBe(1)
-    expect(tracked).toHaveLength(1)
+describe('tracePolylineNear', () => {
+  function trace(line: number[], rect = { x: 100, y: 0, width: 10, height: 10 }, reach = 5) {
+    const calls: string[] = []
+    const ctx = {
+      moveTo: (x: number, y: number) => calls.push(`M${x},${y}`),
+      lineTo: (x: number, y: number) => calls.push(`L${x},${y}`),
+    }
+    tracePolylineNear(ctx as unknown as CanvasRenderingContext2D, line, rect, reach)
+    return calls.join(' ')
+  }
+
+  it('draws a dot for a single point', () => {
+    expect(trace([3, 4])).toBe('M3,4 L3,4')
+  })
+
+  it('skips segments far from the rectangle and keeps the ones that can touch it', () => {
+    // 0→50 is far from x 95..115; 50→100 and 100→150 reach into it; 150→200 is far again.
+    expect(trace([0, 5, 50, 5, 100, 5, 150, 5, 200, 5])).toBe('M50,5 L50,5 L100,5 L150,5')
+  })
+
+  it('keeps every segment when the rectangle covers the whole line, as on replay', () => {
+    expect(trace([0, 0, 10, 0, 20, 0], { x: 0, y: 0, width: 30, height: 10 })).toBe('M0,0 L0,0 L10,0 L20,0')
   })
 })

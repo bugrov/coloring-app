@@ -181,12 +181,8 @@ export class Painter {
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
       ctx.strokeStyle = style.tool === 'pencil' && style.color ? this.brushes.pencilPattern(ctx, style.color) : '#000'
-      const line = path ?? (from ? [...from, ...points] : points)
       ctx.beginPath()
-      ctx.moveTo(line[0]!, line[1]!)
-      // A zero-length line with round caps draws a dot for a single tap.
-      ctx.lineTo(line[0]!, line[1]!)
-      for (let i = 2; i + 1 < line.length; i += 2) ctx.lineTo(line[i]!, line[i + 1]!)
+      tracePolylineNear(ctx, path ?? (from ? [...from, ...points] : points), rect, reach)
       ctx.stroke()
     }
     ctx.restore()
@@ -209,6 +205,43 @@ export class Painter {
     this.ctx.globalCompositeOperation = operation
     copyRect(this.ctx, this.scratch, rect)
     this.ctx.globalCompositeOperation = 'source-over'
+  }
+}
+
+/**
+ * Adds the parts of a polyline that can touch `rect` to the current path.
+ * Live strokes redraw their whole path every frame; skipping far segments
+ * keeps that cost independent of the stroke length. Runs only break where
+ * the line is farther than `reach` from the rectangle, so their caps fall
+ * outside the clip and the pixels match drawing the full polyline.
+ */
+export function tracePolylineNear(ctx: AnyContext, line: readonly number[], rect: Rect, reach: number) {
+  // A zero-length line with round caps draws a dot for a single tap.
+  if (line.length < 4) {
+    ctx.moveTo(line[0]!, line[1]!)
+    ctx.lineTo(line[0]!, line[1]!)
+    return
+  }
+  const left = rect.x - reach
+  const top = rect.y - reach
+  const right = rect.x + rect.width + reach
+  const bottom = rect.y + rect.height + reach
+  let inRun = false
+  for (let i = 0; i + 3 < line.length; i += 2) {
+    const x0 = line[i]!
+    const y0 = line[i + 1]!
+    const x1 = line[i + 2]!
+    const y1 = line[i + 3]!
+    if (Math.max(x0, x1) < left || Math.min(x0, x1) > right || Math.max(y0, y1) < top || Math.min(y0, y1) > bottom) {
+      inRun = false
+      continue
+    }
+    if (!inRun) {
+      ctx.moveTo(x0, y0)
+      ctx.lineTo(x0, y0)
+      inRun = true
+    }
+    ctx.lineTo(x1, y1)
   }
 }
 
