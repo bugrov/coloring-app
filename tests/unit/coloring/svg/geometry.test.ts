@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { analyzePath, applyTransforms, transformScale } from '../../../../layers/coloring/shared/svg/geometry'
+import { pathBounds } from '../../../../layers/coloring/shared'
+import { applyTransforms, isClosedPath, transformScale } from '../../../../layers/coloring/shared/svg/geometry'
 
-describe('analyzePath', () => {
+describe('isClosedPath', () => {
   it.each([
     ['explicit close', 'M0 0L10 0L10 10Z', true],
     ['returns to start without Z', 'M0 0L10 0L10 10L0 0', true],
@@ -10,11 +11,25 @@ describe('analyzePath', () => {
     ['one subpath open', 'M0 0H10V10Z M20 20H30', false],
     ['relative commands', 'm0 0 h10 v10 h-10 z', true],
   ])('%s', (_name, d, closed) => {
-    expect(analyzePath(d).closed).toBe(closed)
+    expect(isClosedPath(d)).toBe(closed)
+  })
+})
+
+describe('pathBounds', () => {
+  it('covers straight segments exactly', () => {
+    expect(pathBounds('M5 10H25V40H5Z')).toEqual({ minX: 5, minY: 10, maxX: 25, maxY: 40 })
   })
 
-  it('reports bounds', () => {
-    expect(analyzePath('M5 10H25V40H5Z').bounds).toEqual({ minX: 5, minY: 10, maxX: 25, maxY: 40 })
+  it('includes the bulge of arcs', () => {
+    // A circle of radius 10 around (50, 50) drawn with two arcs.
+    const bounds = pathBounds('M40 50A10 10 0 1 0 60 50A10 10 0 1 0 40 50Z')!
+
+    expect(bounds.minY).toBeLessThanOrEqual(40)
+    expect(bounds.maxY).toBeGreaterThanOrEqual(60)
+  })
+
+  it('returns null for empty paths', () => {
+    expect(pathBounds('')).toBeNull()
   })
 })
 

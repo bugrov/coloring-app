@@ -1,0 +1,1 @@
+export { PALETTE } from './constants'

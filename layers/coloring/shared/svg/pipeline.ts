@@ -1,8 +1,8 @@
 import { DOMParser, type Element } from '@xmldom/xmldom'
-import { ART_FORMAT_VERSION, artSchema, isValidPathData } from '../art'
-import type { ArtItem, ColoringArt, SvgConversion, SvgErrorCode, SvgLimits, SvgWarning, SvgWarningCode } from '../types'
+import { ART_FORMAT_VERSION, artSchema, isValidPathData, pathBounds } from '../art'
+import type { ArtItem, Bounds, ColoringArt, SvgConversion, SvgErrorCode, SvgLimits, SvgWarning, SvgWarningCode } from '../types'
 import { parseColor, relativeLuminance, toHex, type Rgb } from './color'
-import { analyzePath, applyTransforms, roundPath, transformScale, type Bounds } from './geometry'
+import { applyTransforms, isClosedPath, roundPath, transformScale } from './geometry'
 import {
   BACKGROUND_TOLERANCE,
   DEFAULT_SVG_LIMITS,
@@ -219,7 +219,7 @@ class SvgConverter {
       return
     }
 
-    const { closed, bounds } = analyzePath(d)
+    const closed = isClosedPath(d)
     const fillRule = style['fill-rule'] === 'evenodd' ? 'evenodd' : 'nonzero'
     // Lines have no interior, whatever their fill says.
     const fill = tag === 'line' ? { kind: 'none' as const } : this.paint(style.fill, style.color, style['fill-opacity'])
@@ -231,7 +231,7 @@ class SvgConverter {
       this.warn('ignored-dash')
     }
 
-    const coversCanvas = fill.kind !== 'none' && this.isBackground(bounds)
+    const coversCanvas = fill.kind !== 'none' && this.isBackground(pathBounds(d))
     const isInkFill = fill.kind === 'color' && relativeLuminance(fill.rgb) <= INK_LUMINANCE_MAX && !coversCanvas
     const isRegion = !isInkFill && (fill.kind !== 'none' || (hasStroke && (closed || ALWAYS_CLOSED.has(tag))))
 

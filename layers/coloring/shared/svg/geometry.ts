@@ -2,13 +2,6 @@ import svgpath from 'svgpath'
 
 const CLOSE_EPSILON = 0.01
 
-export interface Bounds {
-  minX: number
-  minY: number
-  maxX: number
-  maxY: number
-}
-
 /**
  * Applies transforms from the innermost (the element's own) to the outermost
  * ancestor, which is the order SVG composes them in.
@@ -40,25 +33,8 @@ export function roundPath(d: string, precision: number): string {
   return svgpath(d).round(precision).toString()
 }
 
-interface PathShape {
-  closed: boolean
-  bounds: Bounds | null
-}
-
-/**
- * A path is closed when every subpath ends with Z or returns to its start.
- * Bounds include curve control points: a cheap upper bound, enough for
- * background detection.
- */
-export function analyzePath(d: string): PathShape {
-  const bounds: Bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }
-  const include = (x: number, y: number) => {
-    bounds.minX = Math.min(bounds.minX, x)
-    bounds.minY = Math.min(bounds.minY, y)
-    bounds.maxX = Math.max(bounds.maxX, x)
-    bounds.maxY = Math.max(bounds.maxY, y)
-  }
-
+/** A path is closed when every subpath ends with Z or returns to its start. */
+export function isClosedPath(d: string): boolean {
   let closed = true
   let subpathOpen = false
   let startX = 0
@@ -74,9 +50,8 @@ export function analyzePath(d: string): PathShape {
   }
 
   svgpath(d).abs().unshort().iterate((segment, _index, x, y) => {
-    const command = segment[0]
     const args = segment.slice(1) as number[]
-    switch (command) {
+    switch (segment[0]) {
       case 'M':
         finishSubpath()
         startX = endX = args[0]!
@@ -98,20 +73,11 @@ export function analyzePath(d: string): PathShape {
         endY = args[0]!
         break
       default:
-        for (let i = 0; i + 1 < args.length; i += 2) {
-          // Arc flags/radii are not coordinates; only its end point counts.
-          if (command === 'A' && i < 5) continue
-          include(args[i]!, args[i + 1]!)
-        }
         endX = args[args.length - 2]!
         endY = args[args.length - 1]!
     }
-    include(endX, endY)
   })
   finishSubpath()
 
-  return {
-    closed,
-    bounds: Number.isFinite(bounds.minX) ? bounds : null,
-  }
+  return closed
 }
