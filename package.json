@@ -22,9 +22,12 @@
     "check": "pnpm typecheck && pnpm lint && pnpm lint:css && pnpm test"
   },
   "dependencies": {
+    "@xmldom/xmldom": "^0.9.12",
     "nuxt": "^4.6.2",
+    "svgpath": "^2.6.0",
     "vue": "^3.5.44",
-    "vue-router": "^5.4.0"
+    "vue-router": "^5.4.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.17.0",
