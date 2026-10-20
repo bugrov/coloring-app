@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import octopusSvg from '../../../server/assets/arts/octopus.svg?raw'
 import catSvg from '../../../server/assets/arts/cat.svg?raw'
 import houseSvg from '../../../server/assets/arts/house.svg?raw'
 import type { ArtItem } from '../../../shared/art'
@@ -9,7 +10,7 @@ import { convertSvg, type SvgConversion } from '../../../shared/svg/pipeline'
 // It becomes the admin "preview before publishing" in a later step.
 useHead({ title: 'SVG-лаборатория', meta: [{ name: 'robots', content: 'noindex' }] })
 
-const SAMPLES = { Кошка: catSvg, Дом: houseSvg }
+const SAMPLES = { Осьминог: octopusSvg, Кошка: catSvg, Дом: houseSvg }
 
 /** Golden-angle hues keep neighbouring region ids visually distinct. */
 const GOLDEN_ANGLE = 137.508

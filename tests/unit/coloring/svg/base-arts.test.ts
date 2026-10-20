@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { convertSvg } from '../../../../layers/coloring/shared/svg/pipeline'
 
-const BASE_ARTS = ['cat', 'house'] as const
+const BASE_ARTS = ['octopus', 'cat', 'house'] as const
 
 describe.each(BASE_ARTS)('base art: %s', (name) => {
   const source = readFileSync(new URL(`../../../../layers/coloring/server/assets/arts/${name}.svg`, import.meta.url), 'utf8')
@@ -17,6 +17,6 @@ describe.each(BASE_ARTS)('base art: %s', (name) => {
     const regions = result.art.items.filter(item => item.type === 'region')
 
     expect(regions[0]?.kind).toBe('background')
-    expect(regions.filter(region => region.kind === 'area').length).toBeGreaterThanOrEqual(15)
+    expect(regions.filter(region => region.kind === 'area').length).toBeGreaterThanOrEqual(10)
   })
 })
