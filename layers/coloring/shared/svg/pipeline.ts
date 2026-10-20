@@ -82,6 +82,8 @@ class SvgConverter {
   private deadline = 0
   private visits = 0
   private outputLength = 0
+  /** Path data fed to transforms so far; re-used shapes count every time. */
+  private processedLength = 0
 
   constructor(private readonly limits: SvgLimits) {}
 
@@ -238,6 +240,12 @@ class SvgConverter {
 
     const raw = shapeToPath(element)
     if (!raw) return
+    // Transforms dominate the cost. Without <use> the path data processed never
+    // exceeds the file size, so more than that means heavy re-use: stop early.
+    this.processedLength += raw.length
+    if (this.processedLength > this.limits.maxBytes) {
+      throw new SvgConversionError('too-complex')
+    }
     if (!isValidPathData(raw)) {
       this.warn('invalid-path', tag)
       return
