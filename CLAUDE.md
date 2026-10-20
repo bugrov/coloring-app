@@ -36,7 +36,7 @@
 Если не успеваем, первой упрощаем визуальную часть админки. Движок, историю и синхронизацию не режем.
 
 ## Стек
-- **Nuxt 4 + TypeScript strict**, pnpm.
+- **Nuxt 4 + TypeScript strict**, pnpm 10, Node 24 (`.nvmrc`). TypeScript закреплён на 6.x: vue-tsc пока не работает с TS 7 (нативный порт).
 - **Линт:** `@nuxt/eslint` (flat config, stylistic; Prettier не используем), **Stylelint** (`stylelint-config-standard-scss` + `stylelint-config-recommended-vue`).
 - **Стили:** SCSS, scoped, дизайн-токены в CSS-переменных. Анимации на чистом CSS и встроенных средствах Vue, без библиотек анимаций.
 - **Состояние:** Pinia для сессии, галереи и UI-состояния редактора. Движок раскраски живёт как нереактивный TS-класс (`markRaw`/`shallowRef`) и никогда не попадает в глубокую реактивность.
@@ -49,16 +49,19 @@
 
 ## Архитектура
 ```
-app/                  корневое приложение, глобальные стили «игрового режима»
-layers/core/          общая часть: auth/сессия, оболочка галереи, UI-кит, аналитика, админ-оболочка, хранилище
+nuxt.config.ts        корень: только инструменты (eslint, test-utils); продуктового кода в корне нет
+layers/core/          общая платформа: app.vue, стили «игрового режима» и токены, реестр игр,
+                      auth/сессия, UI-кит, аналитика, админ-оболочка, хранилище
+  app/                assets/styles, components, composables, pages, plugins, app.config.ts
   server/             api/auth, api/admin/*, db (drizzle schema, migrations), utils (requireUser/requireAdmin)
 layers/coloring/      мини-игра «Раскраска»
   engine/             чистый TS без Vue: svg-pipeline, segments, hit-test, render, history, progress
-  components/ pages/ server/api/coloring/*
-shared/               zod-схемы и доменные типы (Art, Segment, Op, User, ...)
-tests/                unit, e2e, fixtures/svg
+  app/ (pages, components, app.config.ts)   server/api/coloring/*
+shared/               zod-схемы, доменные типы и утилиты (types/, utils/) для клиента и сервера
+tests/                unit (node), nuxt (environment nuxt), e2e (Playwright), fixtures/svg
 ```
-- Игры регистрируются через `defineGame({ id, title, routes, adminSections })`. Core строит навигацию и админку из реестра.
+- Игры регистрируются в `app.config.ts` своего слоя: `games.<id>: GameDefinition` (тип в `shared/types/game.ts`). Nuxt мержит app config всех слоёв, core читает реестр через `useGames()`.
+- В конфиге слоя `~` указывает на корень, а не на слой. Пути к файлам слоя строим через `new URL(path, import.meta.url)`.
 - **Зависимости идут только `игра → core`.** Core не импортирует игры, игры не импортируют друг друга (правило ESLint `no-restricted-imports`).
 - Новая мини-игра = новый layer в `layers/<game>/` + регистрация. Код core при этом не трогаем.
 - SSR включён для входа и галереи. Редактор и админка работают только на клиенте (`routeRules: { ssr: false }`).
@@ -109,12 +112,16 @@ tests/                unit, e2e, fixtures/svg
 ## Бюджеты производительности
 JS начальной страницы ≤ 150 КБ gzip. Движок грузится лениво только в редакторе. Кадр рисования ≤ 8 мс на среднем телефоне. Undo на истории из 1000 операций ≤ 16 мс. Память не растёт с длиной истории.
 
-## Команды (появятся на шаге 1)
+## Команды
 ```
 pnpm dev | build | preview
 pnpm typecheck | lint | lint:css | test | test:e2e
-pnpm db:generate | db:migrate | db:seed | db:studio
+pnpm check                      # typecheck + lint + lint:css + test
+pnpm db:generate | db:migrate | db:seed | db:studio   # с шага 4
 ```
+- Stylelint требует BEM-классы (`block__element--modifier`) и запрещает `max-*`-медиа.
+- Playwright WebKit на Windows по умолчанию выключен (системное масштабирование 125% искажает viewport). Он работает в CI, локально включается через `PW_WEBKIT=1`.
+- GitHub CLI (`gh`) не установлен, поэтому PR создаётся по ссылке из вывода `git push`.
 
 ## Какие скиллы и инструменты использовать
 | Задача | Скиллы / агенты |
