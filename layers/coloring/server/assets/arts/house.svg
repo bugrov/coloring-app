@@ -1,0 +1,36 @@
+<svg width="800" height="600" viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_house)">
+<rect width="800" height="600" fill="white"/>
+<circle cx="680" cy="100" r="48" fill="white" stroke="black" stroke-width="4"/>
+<path d="M680 30V8M680 192V170M750 100H772M588 100H610M730 50L746 34M614 166L630 150M730 150L746 166M614 34L630 50" stroke="black" stroke-width="4" stroke-linecap="round"/>
+<path d="M90 120C90 98 108 82 130 86C138 66 168 60 184 78C204 66 232 80 230 104C250 108 254 138 232 144H100C80 144 74 124 90 120Z" fill="white" stroke="black" stroke-width="4" stroke-linejoin="round"/>
+<path d="M0 470C120 450 260 455 400 468C540 480 680 458 800 466V600H0V470Z" fill="white" stroke="black" stroke-width="4" stroke-linejoin="round"/>
+<rect x="452" y="150" width="44" height="90" fill="white" stroke="black" stroke-width="4"/>
+<rect x="436" y="138" width="76" height="20" rx="4" fill="white" stroke="black" stroke-width="4"/>
+<rect x="216" y="262" width="308" height="214" fill="white" stroke="black" stroke-width="4"/>
+<path d="M190 276L370 130L550 276Z" fill="white" stroke="black" stroke-width="4" stroke-linejoin="round"/>
+<circle cx="370" cy="218" r="24" fill="white" stroke="black" stroke-width="4"/>
+<rect x="246" y="300" width="36" height="36" fill="white" stroke="black" stroke-width="4"/>
+<rect x="282" y="300" width="36" height="36" fill="white" stroke="black" stroke-width="4"/>
+<rect x="246" y="336" width="36" height="36" fill="white" stroke="black" stroke-width="4"/>
+<rect x="282" y="336" width="36" height="36" fill="white" stroke="black" stroke-width="4"/>
+<rect x="422" y="300" width="36" height="36" fill="white" stroke="black" stroke-width="4"/>
+<rect x="458" y="300" width="36" height="36" fill="white" stroke="black" stroke-width="4"/>
+<rect x="422" y="336" width="36" height="36" fill="white" stroke="black" stroke-width="4"/>
+<rect x="458" y="336" width="36" height="36" fill="white" stroke="black" stroke-width="4"/>
+<path d="M336 476V382C336 362 352 350 370 350C388 350 404 362 404 382V476H336Z" fill="white" stroke="black" stroke-width="4" stroke-linejoin="round"/>
+<circle cx="390" cy="420" r="5" fill="black"/>
+<path d="M336 476L300 600H440L404 476H336Z" fill="white" stroke="black" stroke-width="4" stroke-linejoin="round"/>
+<rect x="628" y="350" width="28" height="122" fill="white" stroke="black" stroke-width="4"/>
+<path d="M642 360C596 360 576 326 590 300C566 280 582 238 614 244C618 212 666 208 676 238C708 232 726 270 704 292C722 320 696 360 642 360Z" fill="white" stroke="black" stroke-width="4" stroke-linejoin="round"/>
+<circle cx="620" cy="286" r="9" fill="white" stroke="black" stroke-width="3"/>
+<circle cx="664" cy="270" r="9" fill="white" stroke="black" stroke-width="3"/>
+<circle cx="652" cy="322" r="9" fill="white" stroke="black" stroke-width="3"/>
+<path d="M80 476C80 452 96 440 112 448C116 428 144 428 148 448C164 440 180 452 176 476H80Z" fill="white" stroke="black" stroke-width="4" stroke-linejoin="round"/>
+</g>
+<defs>
+<clipPath id="clip0_house">
+<rect width="800" height="600" fill="white"/>
+</clipPath>
+</defs>
+</svg>

@@ -55,26 +55,38 @@ layers/core/          общая платформа: app.vue, стили «иг�
   app/                assets/styles, components, composables, pages, plugins, app.config.ts
   server/             api/auth, api/admin/*, db (drizzle schema, migrations), utils (requireUser/requireAdmin)
 layers/coloring/      мини-игра «Раскраска»
-  engine/             чистый TS без Vue: svg-pipeline, segments, hit-test, render, history, progress
-  app/ (pages, components, app.config.ts)   server/api/coloring/*
+  shared/             чистый TS для клиента и сервера: index.ts, art/ (schema.ts — формат арта), svg/ (конвейер импорта), types/
+  app/engine/         canvas-движок (только клиент): render, hit-test, history, progress
+  app/ (pages, components, app.config.ts)   server/api/coloring/*, server/assets/arts (базовые SVG)
 shared/               zod-схемы, доменные типы и утилиты (types/, utils/) для клиента и сервера
 tests/                unit (node), nuxt (environment nuxt), e2e (Playwright), fixtures/svg
 ```
 - Игры регистрируются в `app.config.ts` своего слоя: `games.<id>: GameDefinition` (тип в `shared/types/game.ts`). Nuxt мержит app config всех слоёв, core читает реестр через `useGames()`.
+- Код вне `app/`, `server/` и `shared/` слоя не попадает ни в один tsconfig и не проверяется typecheck, поэтому кладём его только в эти папки. `shared/` слоя не автоимпортируется (кроме `shared/utils`, `shared/types`), импорты явные.
 - В конфиге слоя `~` указывает на корень, а не на слой. Пути к файлам слоя строим через `new URL(path, import.meta.url)`.
 - **Зависимости идут только `игра → core`.** Core не импортирует игры, игры не импортируют друг друга (правило ESLint `no-restricted-imports`).
 - Новая мини-игра = новый layer в `layers/<game>/` + регистрация. Код core при этом не трогаем.
 - SSR включён для входа и галереи. Редактор и админка работают только на клиенте (`routeRules: { ssr: false }`).
 
+## Организация кода
+- **Модуль = папка с `index.ts`.** Это его публичный вход: снаружи импортируем только из `index.ts`. Внутренние файлы (парсеры, хелперы) в индекс не выставляем, их импортируют напрямую только их тесты.
+- **zod-схемы лежат в `schema.ts`** внутри модуля (`shared/art/schema.ts`). **Типы лежат в подпапке `types/`** (`shared/types/art.ts`, `shared/types/index.ts`). Типы данных выводятся из схем через `z.infer`, руками не дублируются.
+- **Константы модуля лежат в `constants.ts`**, тексты для пользователя в `messages.ts`.
+- **Страницы тонкие.** Состояние и логика живут в composable (`app/composables/useXxx.ts`), повторно используемая разметка в компоненте (`app/components`). Страница только собирает их вместе. Composables и компоненты Nuxt импортирует сам, `index.ts` им не нужен.
+- **Ошибки для пользователя на русском.** Ошибки предметной области (импорт SVG и т. п.) идут как код плюс сообщение из `messages.ts`. Ошибки валидации zod: глобально включаем `z.config(z.locales.ru())` (на сервере и клиенте), для полей форм пишем свои сообщения прямо в схеме. API отдаёт ошибки в едином формате `{ code, message, fields? }`. Сырые сообщения zod и стектрейсы клиенту не уходят.
+
 ## Ключевые решения
 **SVG-конвейер** (одинаков для импорта пользователем и для админки, выполняется на сервере):
 - Лимиты: ≤ 1 МБ, ≤ 3000 элементов, ≤ 500 сегментов, таймаут. `@xmldom/xmldom` без DTD и entities.
-- Фигуры → `d`, transform запекаются (`svgpath`). Замкнутые фигуры с заливкой становятся **сегментами**, тёмные заливки и открытые штрихи становятся **контуром**. Учитываем `fill-rule="evenodd"`, игнорируем clipPath фрейма Figma, разворачиваем только локальные `<use>`.
-- **Исходная разметка SVG не рендерится никогда.** Храним свой нормализованный JSON `{viewBox, segments, lineart}`, `d` проверяется по whitelist.
+- Фигуры → `d`, transform запекаются (`svgpath`). Светлые заливки и замкнутые контуры без заливки становятся **регионами** (`region`), тёмные заливки (яркость ≤ 0.2) и все обводки становятся **ink**. Первая фигура на весь холст (заливка фрейма Figma) превращается в регион-фон, а если её нет, фон синтезируется из viewBox. Учитываем `fill-rule="evenodd"`, CSS-классы из `<style>`, игнорируем clipPath фрейма Figma, разворачиваем только локальные `<use>`.
+- **Исходная разметка SVG не рендерится никогда.** Храним нормализованный JSON `{version, viewBox, items[]}` (`layers/coloring/shared/art/schema.ts`): элементы `region | ink` в исходном z-порядке, `d` проверяется по whitelist.
+- **Рендер:** арт (регионы белые, ink в своих цветах, исходный порядок) рисуется один раз и накладывается на слой краски через `multiply`. Поэтому контур всегда поверх краски без потери z-порядка и без швов.
+- **Ограничение:** регион задаёт замкнутая фигура. Линии, которые визуально делят фигуру, отдельных регионов не создают (нужен flood-fill по растру). Записать в README.
+- Проверить конвейер вручную можно на странице `/coloring/lab`.
 - Неподдерживаемое (text, image, градиенты, маски, фильтры) пропускаем с предупреждением. Если сегментов 0, показываем понятную ошибку.
 
 **Движок** (Canvas 2D):
-- Слои base / paint / lineart.
+- Слои: paint (белая основа + краска) и арт поверх с `mix-blend-mode: multiply`.
 - Карта меток (`Uint16Array`) даёт hit-test за O(1) с учётом z-order.
 - Штрих проходит через маску сегмента (`destination-in`) и не выходит из сегмента до `pointerup`.
 - Pointer Events + `getCoalescedEvents` + батчинг в `rAF`. В простое `rAF` не работает.
