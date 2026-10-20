@@ -1,0 +1,109 @@
+import { describe, expect, it } from 'vitest'
+import { HoldDetector } from '../../../../layers/coloring/app/engine/hold'
+import { computeProgress, regionCode } from '../../../../layers/coloring/app/engine/progress'
+import { ArtSpace } from '../../../../layers/coloring/app/engine/space'
+import { StampWalker } from '../../../../layers/coloring/app/engine/stamps'
+import { clampView, panBy, zoomAt } from '../../../../layers/coloring/app/engine/viewport'
+
+describe('StampWalker', () => {
+  it('stamps the first point and then every `spacing` along the line', () => {
+    expect(new StampWalker(5).walk([0, 0, 12, 0])).toEqual([0, 0, 5, 0, 10, 0])
+  })
+
+  it('gives the same stamps whether a stroke arrives in chunks or at once', () => {
+    const points = [0, 0, 3, 4, 10, 4, 10, 20, 2, 25]
+    const whole = new StampWalker(2.5).walk(points)
+
+    const chunked = new StampWalker(2.5)
+    const pieces = [...chunked.walk(points.slice(0, 4)), ...chunked.walk(points.slice(4, 6)), ...chunked.walk(points.slice(6))]
+
+    expect(pieces.map(n => n.toFixed(6))).toEqual(whole.map(n => n.toFixed(6)))
+  })
+})
+
+describe('HoldDetector', () => {
+  it('stays pending while the pointer stays within the tolerance', () => {
+    const hold = new HoldDetector(6)
+    hold.start(100, 100)
+
+    expect(hold.move(103, 104)).toBe(true)
+    expect(hold.pending).toBe(true)
+  })
+
+  it('turns into a stroke once the pointer moves too far, even if it comes back', () => {
+    const hold = new HoldDetector(6)
+    hold.start(100, 100)
+    hold.move(110, 100)
+
+    expect(hold.move(100, 100)).toBe(false)
+    expect(hold.pending).toBe(false)
+  })
+})
+
+describe('computeProgress', () => {
+  it('weights regions by area', () => {
+    expect(computeProgress([100, 300], [100, 0])).toEqual({ percent: 25, complete: false })
+  })
+
+  it('counts nearly finished regions as complete so 100% is reachable by hand', () => {
+    expect(computeProgress([100, 100], [96, 95])).toEqual({ percent: 100, complete: true })
+  })
+
+  it('never shows 100% before every region is complete', () => {
+    expect(computeProgress([1000, 10], [1000, 0]).percent).toBe(99)
+  })
+
+  it('ignores regions too small to have any cells', () => {
+    expect(computeProgress([0, 50], [0, 50])).toEqual({ percent: 100, complete: true })
+  })
+
+  it('reports zero for an art without countable area', () => {
+    expect(computeProgress([], [])).toEqual({ percent: 0, complete: false })
+  })
+})
+
+describe('regionCode', () => {
+  it('gives distinct non-zero colours to every region', () => {
+    const codes = new Set(Array.from({ length: 500 }, (_, index) => regionCode(index)))
+
+    expect(codes.size).toBe(500)
+    expect(codes.has(0)).toBe(false)
+  })
+})
+
+describe('ArtSpace', () => {
+  const space = new ArtSpace({ viewBox: [10, 20, 800, 400] })
+
+  it('fits the paint canvas to the long side', () => {
+    expect([space.paintWidth, space.paintHeight]).toEqual([2048, 1024])
+  })
+
+  it('maps positions on the rendered art to integer grid units within bounds', () => {
+    expect(space.gridFromRatio(0.5, 0.5)).toEqual([2048, 1024])
+    expect(space.gridFromRatio(-0.1, 1.2)).toEqual([0, 2048])
+  })
+
+  it('maps grid units back to art units', () => {
+    expect(space.gridToArt(4096, 2048)).toEqual([810, 420])
+  })
+})
+
+describe('viewport', () => {
+  const W = 400
+  const H = 200
+
+  it('keeps the point under the fingers in place while zooming', () => {
+    const view = zoomAt({ scale: 1, x: 0, y: 0 }, 2, 100, 50, W, H)
+
+    expect(view).toEqual({ scale: 2, x: -100, y: -50 })
+    // Content point under (100, 50) is still (100 - x) / scale = 100.
+    expect((100 - view.x) / view.scale).toBe(100)
+  })
+
+  it('limits zoom and never shows empty space around the art', () => {
+    expect(zoomAt({ scale: 1, x: 0, y: 0 }, 0.5, 0, 0, W, H)).toEqual({ scale: 1, x: 0, y: 0 })
+    expect(zoomAt({ scale: 4, x: 0, y: 0 }, 10, 0, 0, W, H).scale).toBe(5)
+    expect(panBy({ scale: 2, x: 0, y: 0 }, 50, -1000, W, H)).toEqual({ scale: 2, x: 0, y: -200 })
+    expect(clampView({ scale: 1, x: -30, y: 10 }, W, H)).toEqual({ scale: 1, x: 0, y: 0 })
+  })
+})
