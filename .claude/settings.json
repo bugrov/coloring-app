@@ -1,0 +1,16 @@
+{
+  "enabledPlugins": {
+    "commit-commands@claude-plugins-official": true,
+    "rest-api-design@claude-skills": true,
+    "api-security-hardening@claude-skills": true,
+    "api-pagination@claude-skills": true,
+    "session-management@claude-skills": true,
+    "api-authentication@claude-skills": true,
+    "nuxt-v4@claude-skills": true,
+    "pinia-v3@claude-skills": true,
+    "mobile-first-design@claude-skills": true,
+    "vitest-testing@claude-skills": true,
+    "playwright@claude-skills": true,
+    "zod@claude-skills": true
+  }
+}
