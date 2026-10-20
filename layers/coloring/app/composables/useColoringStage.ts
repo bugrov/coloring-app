@@ -150,8 +150,9 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
 
   function cancelStroke() {
     clearHoldTimer()
-    stroke?.recorder.cancel()
+    const kept = stroke?.recorder.cancel() ?? []
     stroke = null
+    if (kept.length > 0) commit(kept)
   }
 
   function commit(ops: Op[]) {
@@ -172,13 +173,13 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     holdTimer = undefined
     if (!stroke || !hold.pending || !engine.value) return
     const { recorder } = stroke
-    recorder.cancel()
+    const kept = recorder.cancel()
     stroke = null
     const op = options.tool.value === 'eraser'
       ? engine.value.clear(recorder.region)
       : engine.value.fill(recorder.region, options.color.value)
     navigator.vibrate?.(15)
-    commit([op])
+    commit([...kept, op])
   }
 
   function gestureSnapshot(): Gesture {

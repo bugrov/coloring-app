@@ -29,7 +29,7 @@ export function computeProgress(totals: ArrayLike<number>, painted: ArrayLike<nu
     area += total
     covered += done ? total : painted[i]!
   }
-  if (area === 0) return EMPTY_PROGRESS
+  if (area === 0) return { ...EMPTY_PROGRESS }
   return { percent: complete ? 100 : Math.min(99, Math.floor((covered / area) * 100)), complete }
 }
 

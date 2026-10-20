@@ -67,8 +67,22 @@ describe('StrokeRecorder', () => {
     const { stroke, restoredCount } = recordingStroke()
     const recorder = new StrokeRecorder(1, stroke, () => {})
     recorder.add([1, 1])
-    recorder.cancel()
 
+    expect(recorder.cancel()).toEqual([])
     expect(restoredCount()).toBe(1)
+  })
+
+  it('keeps the parts of a split stroke when cancelled, so the canvas matches the ops', () => {
+    const { stroke, restoredCount } = recordingStroke()
+    const tracked: unknown[] = []
+    const recorder = new StrokeRecorder(1, stroke, rect => tracked.push(rect))
+    recorder.add(line(MAX_STROKE_POINTS + 10))
+
+    const kept = recorder.cancel()
+
+    expect(kept).toHaveLength(1)
+    expect(kept[0]!.points).toHaveLength(MAX_STROKE_POINTS * 2)
+    expect(restoredCount()).toBe(1)
+    expect(tracked).toHaveLength(1)
   })
 })

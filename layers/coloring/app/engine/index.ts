@@ -131,9 +131,15 @@ export class StrokeRecorder {
     return [...this.completed, this.toOp()]
   }
 
-  /** Takes the stroke back, e.g. when a second finger starts a zoom gesture. */
-  cancel() {
+  /**
+   * Takes back the part of the stroke not yet split off, e.g. when a second
+   * finger starts a zoom gesture. Parts already split off are kept and returned
+   * as ops to commit, so the canvas always matches the recorded ops.
+   */
+  cancel(): StrokeOp[] {
     this.stroke.cancel()
+    if (this.completed.length > 0) this.track(this.stroke.dirty)
+    return [...this.completed]
   }
 
   private toOp(): StrokeOp {

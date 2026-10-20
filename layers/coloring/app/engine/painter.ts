@@ -77,7 +77,8 @@ export class Painter {
     }
     if (restorable) saveBase()
     return new PaintStroke(style, {
-      draw: (style, from, points, path, walker) => this.drawSegment(rect, style, from, points, restorable ? path : null, walker),
+      // Live strokes redraw the whole path over the saved base; replays draw it once.
+      draw: (strokeStyle, from, points, path, walker) => this.drawSegment(rect, strokeStyle, from, points, restorable ? path : null, walker),
       rebase: () => {
         if (restorable) saveBase()
       },

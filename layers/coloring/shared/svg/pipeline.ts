@@ -77,6 +77,7 @@ class SvgConverter {
   private readonly ids = new Map<string, Element>()
   private classRules = new Map<string, StyleDeclarations>()
   private viewBox: [number, number, number, number] = [0, 0, 1, 1]
+  private longSide = 1
   private regionCount = 0
   private hasBackground = false
   private deadline = 0
@@ -103,6 +104,7 @@ class SvgConverter {
     this.indexDocument(root)
     this.checkDeadline()
     this.viewBox = readViewBox(root)
+    this.longSide = Math.max(this.viewBox[2], this.viewBox[3])
 
     const style = resolveStyle(root, INITIAL_STYLE, this.classRules)
     for (const child of childElements(root)) {
@@ -269,8 +271,7 @@ class SvgConverter {
     const fillRule = style['fill-rule'] === 'evenodd' ? 'evenodd' : 'nonzero'
     const fill = hasInterior ? this.paint(style.fill, style.color, style['fill-opacity']) : { kind: 'none' as const }
     const stroke = this.paint(style.stroke, style.color, style['stroke-opacity'])
-    const longSide = Math.max(this.viewBox[2], this.viewBox[3])
-    const strokeWidth = Math.min(longSide, (Number.parseFloat(style['stroke-width'] ?? '1') || 0) * transformScale(transforms))
+    const strokeWidth = Math.min(this.longSide, (Number.parseFloat(style['stroke-width'] ?? '1') || 0) * transformScale(transforms))
     const hasStroke = stroke.kind !== 'none' && Number.isFinite(strokeWidth) && strokeWidth > 0
 
     if (hasStroke && style['stroke-dasharray'] && style['stroke-dasharray'] !== 'none') {
@@ -313,7 +314,7 @@ class SvgConverter {
   /** Whether the shape is large enough on both axes to be seen and coloured. */
   private hasArea(bounds: Bounds | null): boolean {
     if (!bounds) return false
-    const minSize = Math.max(this.viewBox[2], this.viewBox[3]) * MIN_REGION_SIZE
+    const minSize = this.longSide * MIN_REGION_SIZE
     return bounds.maxX - bounds.minX > minSize && bounds.maxY - bounds.minY > minSize
   }
 

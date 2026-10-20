@@ -32,11 +32,16 @@ export class ArtGeometry {
 
   constructor(art: ColoringArt, private readonly space: ArtSpace) {
     this.items = art.items.map((item): Shape => {
-      const { d, ...rest } = item
-      const path = new Path2D(d)
-      return item.type === 'region'
-        ? { ...rest as Omit<ArtRegion, 'd'>, path, bounds: pathBounds(d) ?? EMPTY_BOUNDS }
-        : { ...rest as Omit<ArtInk, 'd'>, path }
+      switch (item.type) {
+        case 'region': {
+          const { d, ...region } = item
+          return { ...region, path: new Path2D(d), bounds: pathBounds(d) ?? EMPTY_BOUNDS }
+        }
+        case 'ink': {
+          const { d, ...ink } = item
+          return { ...ink, path: new Path2D(d) }
+        }
+      }
     })
     this.regions = this.items.filter((item): item is RegionShape => item.type === 'region')
     for (const region of this.regions) this.byId.set(region.id, region)

@@ -9,7 +9,9 @@ export interface View {
 
 export const IDENTITY_VIEW: Readonly<View> = { scale: 1, x: 0, y: 0 }
 
-const clampScale = (scale: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, scale))
+function clampScale(scale: number): number {
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, scale))
+}
 
 /**
  * Keeps the art covering the stage: at scale s the content is s times the
