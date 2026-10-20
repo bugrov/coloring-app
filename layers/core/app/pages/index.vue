@@ -3,7 +3,7 @@ const games = useGames()
 </script>
 
 <template>
-  <main class="hub">
+  <SafeAreaPage>
     <h1 class="hub__title">
       Игры
     </h1>
@@ -20,22 +20,10 @@ const games = useGames()
         </NuxtLink>
       </li>
     </ul>
-  </main>
+  </SafeAreaPage>
 </template>
 
 <style scoped lang="scss">
-.hub {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  height: 100%;
-  padding:
-    calc(var(--safe-top) + var(--space-4))
-    calc(var(--safe-right) + var(--space-4))
-    calc(var(--safe-bottom) + var(--space-4))
-    calc(var(--safe-left) + var(--space-4));
-}
-
 .hub__title {
   margin: 0;
   font-size: var(--font-size-l);
