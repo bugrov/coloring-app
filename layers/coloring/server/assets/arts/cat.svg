@@ -1,0 +1,38 @@
+<svg width="800" height="600" viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_cat)">
+<rect width="800" height="600" fill="white"/>
+<path d="M0 500H800V600H0V500Z" fill="white" stroke="black" stroke-width="4"/>
+<rect x="60" y="-4" width="85" height="129" fill="white" stroke="black" stroke-width="4"/>
+<rect x="145" y="-4" width="85" height="129" fill="white" stroke="black" stroke-width="4"/>
+<rect x="60" y="125" width="85" height="125" fill="white" stroke="black" stroke-width="4"/>
+<rect x="145" y="125" width="85" height="125" fill="white" stroke="black" stroke-width="4"/>
+<path d="M500 470C580 470 640 420 640 360C640 320 616 300 600 312C588 322 604 340 604 362C604 404 562 436 500 436V470Z" fill="white" stroke="black" stroke-width="4" stroke-linejoin="round"/>
+<path d="M400 516C312 516 270 456 270 380C270 312 322 268 400 268C478 268 530 312 530 380C530 456 488 516 400 516Z" fill="white" stroke="black" stroke-width="4"/>
+<path d="M400 500C350 500 330 456 330 404C330 356 362 330 400 330C438 330 470 356 470 404C470 456 450 500 400 500Z" fill="white" stroke="black" stroke-width="4"/>
+<ellipse cx="350" cy="508" rx="42" ry="22" fill="white" stroke="black" stroke-width="4"/>
+<ellipse cx="450" cy="508" rx="42" ry="22" fill="white" stroke="black" stroke-width="4"/>
+<path d="M336 502V516M350 500V518M364 502V516M436 502V516M450 500V518M464 502V516" stroke="black" stroke-width="3" stroke-linecap="round"/>
+<path d="M300 172L312 70L380 136Z" fill="white" stroke="black" stroke-width="4" stroke-linejoin="round"/>
+<path d="M500 172L488 70L420 136Z" fill="white" stroke="black" stroke-width="4" stroke-linejoin="round"/>
+<circle cx="400" cy="200" r="104" fill="white" stroke="black" stroke-width="4"/>
+<path d="M318 140L322 96L352 124Z" fill="white" stroke="black" stroke-width="3" stroke-linejoin="round"/>
+<path d="M482 140L478 96L448 124Z" fill="white" stroke="black" stroke-width="3" stroke-linejoin="round"/>
+<ellipse cx="362" cy="190" rx="24" ry="28" fill="white" stroke="black" stroke-width="4"/>
+<ellipse cx="438" cy="190" rx="24" ry="28" fill="white" stroke="black" stroke-width="4"/>
+<ellipse cx="366" cy="196" rx="11" ry="16" fill="black"/>
+<ellipse cx="434" cy="196" rx="11" ry="16" fill="black"/>
+<circle cx="370" cy="188" r="4" fill="white"/>
+<circle cx="438" cy="188" r="4" fill="white"/>
+<path d="M388 232H412L400 246Z" fill="white" stroke="black" stroke-width="4" stroke-linejoin="round"/>
+<path d="M400 246C400 262 384 268 372 260M400 246C400 262 416 268 428 260" stroke="black" stroke-width="4" stroke-linecap="round"/>
+<path d="M340 236L268 224M340 248L270 254M460 236L532 224M460 248L530 254" stroke="black" stroke-width="3" stroke-linecap="round"/>
+<circle cx="640" cy="462" r="40" fill="white" stroke="black" stroke-width="4"/>
+<path d="M606 444C626 438 650 446 670 464M604 470C628 462 656 474 676 492M622 426C644 428 664 440 676 456" stroke="black" stroke-width="3" stroke-linecap="round"/>
+<path d="M672 494C700 510 690 540 720 548" stroke="black" stroke-width="3" stroke-linecap="round"/>
+</g>
+<defs>
+<clipPath id="clip0_cat">
+<rect width="800" height="600" fill="white"/>
+</clipPath>
+</defs>
+</svg>
