@@ -13,6 +13,7 @@ import {
   MAX_USE_DEPTH,
   MAX_VISITS_PER_ELEMENT,
   MIN_REGION_SIZE,
+  PROCESSED_PER_SOURCE_BYTE,
   PATH_PRECISION,
   VIEWBOX_MAX_ASPECT,
   VIEWBOX_MAX_SIZE,
@@ -242,10 +243,10 @@ class SvgConverter {
 
     const raw = shapeToPath(element)
     if (!raw) return
-    // Transforms dominate the cost. Without <use> the path data processed never
-    // exceeds the file size, so more than that means heavy re-use: stop early.
+    // Transforms dominate the cost; processing far more path data than the file
+    // holds means heavy <use> re-use, so stop before doing the work.
     this.processedLength += raw.length
-    if (this.processedLength > this.limits.maxBytes) {
+    if (this.processedLength > this.limits.maxBytes * PROCESSED_PER_SOURCE_BYTE) {
       throw new SvgConversionError('too-complex')
     }
     if (!isValidPathData(raw)) {

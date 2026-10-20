@@ -91,7 +91,11 @@ export function parseClassRules(css: string): Map<string, StyleDeclarations> {
     const body = text.slice(open + 1, close)
     if (!body.includes('{')) {
       const declarations = parseDeclarations(body)
-      for (const selector of text.slice(position, open).split(',')) {
+      // After a skipped nested block its outer `}` is still ahead of the next
+      // selector; selectors start after the last brace. The backward scan stops
+      // at `position - 1` at the latest, so the whole parse stays linear.
+      const selectorStart = Math.max(position, text.lastIndexOf('}', open) + 1)
+      for (const selector of text.slice(selectorStart, open).split(',')) {
         const match = /^\s*\.([\w-]+)\s*$/.exec(selector)
         if (match) rules.set(match[1]!, { ...rules.get(match[1]!), ...declarations })
       }

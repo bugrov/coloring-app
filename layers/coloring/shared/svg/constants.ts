@@ -25,9 +25,17 @@ export const MAX_USE_DEPTH = 8
 
 /**
  * Elements visited per element in the document. <use> can revisit the same
- * subtree many times; this bounds the total work independently of the timer.
+ * subtree many times (symbol sheets do it legitimately); together with the
+ * output and processed-data limits this bounds the work independently of the timer.
  */
-export const MAX_VISITS_PER_ELEMENT = 4
+export const MAX_VISITS_PER_ELEMENT = 20
+
+/**
+ * Path data processed per byte of the file. Shapes expand when converted to
+ * paths (polygons by ~25%), so twice the file size leaves room for that while
+ * still stopping heavy <use> re-use of big paths early.
+ */
+export const PROCESSED_PER_SOURCE_BYTE = 2
 
 /** Deeper nesting is rejected with a clear error instead of a stack overflow. */
 export const MAX_NESTING_DEPTH = 256

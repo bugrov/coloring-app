@@ -33,6 +33,12 @@ describe('SVG hardening: CPU', () => {
     expect(ms).toBeLessThan(200)
   })
 
+  it('skips nested blocks but keeps the class rule right after them', () => {
+    const result = convertSvg(svg('<style>@media print{.a{fill:#000}}.light{fill:#fff}</style><rect class="light" width="10" height="10"/>'))
+
+    expect(result.ok && result.art.items.filter(item => item.type === 'region' && item.kind === 'area')).toHaveLength(1)
+  })
+
   it('still applies normal class rules after comments', () => {
     const result = convertSvg(svg('<style>/* x */ .light { fill: #fff } /* y */</style><rect class="light" width="10" height="10"/>'))
 
@@ -54,6 +60,17 @@ describe('SVG hardening: output size', () => {
     }
 
     expect(errorOf(convertSvg(svg(`<defs>${defs}</defs><use href="#l5"/>${SQUARE}`)))).toBe('too-complex')
+  })
+})
+
+describe('SVG hardening: legitimate re-use', () => {
+  it('accepts symbol sheets that place one symbol many times', () => {
+    // 300 placements of a symbol nested 40 groups deep: ~12 000 visits, but only 300 regions.
+    const tile = `${'<g>'.repeat(40)}<rect width="10" height="10" fill="white"/>${'</g>'.repeat(40)}`
+    const uses = Array.from({ length: 300 }, (_, i) => `<use href="#tile" x="${(i % 20) * 15}" y="${Math.floor(i / 20) * 15}"/>`).join('')
+    const result = convertSvg(svg(`<defs><symbol id="tile">${tile}</symbol></defs>${uses}`, 'viewBox="0 0 300 225"'))
+
+    expect(result.ok && result.art.items.filter(item => item.type === 'region' && item.kind === 'area')).toHaveLength(300)
   })
 })
 
