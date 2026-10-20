@@ -1,0 +1,47 @@
+// Design tokens. Colours, radii and type are provisional until synced with
+// the Figma file; components must use these variables, never raw values.
+
+// Configured from layers/core/theme.ts (also used for the theme-color meta).
+$theme-bg: #fff !default;
+
+:root {
+  // Colour
+  --color-bg: #{$theme-bg};
+  --color-surface: #fff;
+  --color-text: #23262f;
+  --color-text-muted: #6b7280;
+  --color-accent: #4cb8ff;
+  --color-overlay: rgb(35 38 47 / 92%);
+  --color-on-overlay: #fff;
+
+  // Type
+  --font-family: system-ui, -apple-system, "Segoe UI", roboto, sans-serif;
+  --font-size-s: 0.875rem;
+  --font-size-m: 1rem;
+  --font-size-l: 1.25rem;
+
+  // Spacing
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+
+  // Shape
+  --radius-m: 16px;
+  --radius-l: 24px;
+
+  // Motion: short and interruptible, compositor-only properties.
+  --duration-fast: 150ms;
+  --duration-base: 220ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  // Safe areas (notch, Dynamic Island on the side in landscape, home indicator).
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
+  // Layers
+  --z-overlay: 100;
+}
