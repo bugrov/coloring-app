@@ -6,7 +6,8 @@ export interface Rgb {
 
 // Enough for hand-written and exported SVGs; unknown names are reported as
 // unparseable and handled by the caller.
-const NAMED_COLORS: Record<string, string> = {
+// A Map, not an object literal: lookups must not reach prototype keys such as `constructor`.
+const NAMED_COLORS = new Map(Object.entries({
   black: '#000000',
   white: '#ffffff',
   gray: '#808080',
@@ -21,14 +22,14 @@ const NAMED_COLORS: Record<string, string> = {
   pink: '#ffc0cb',
   brown: '#a52a2a',
   navy: '#000080',
-}
+}))
 
 const clampByte = (value: number) => Math.min(255, Math.max(0, Math.round(value)))
 
 /** Parses `#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`, `rgb()`, `rgba()` and basic names. Alpha is ignored. */
 export function parseColor(value: string): Rgb | null {
   const input = value.trim().toLowerCase()
-  const hex = NAMED_COLORS[input] ?? input
+  const hex = NAMED_COLORS.get(input) ?? input
 
   const short = /^#([0-9a-f])([0-9a-f])([0-9a-f])[0-9a-f]?$/.exec(hex)
   if (short) {

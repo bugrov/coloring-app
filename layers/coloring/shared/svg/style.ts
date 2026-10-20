@@ -73,18 +73,47 @@ export function parseDeclarations(text: string): StyleDeclarations {
 /**
  * Class rules from `<style>` blocks (Illustrator and some Figma plugins export
  * them). Only plain `.class` selectors, possibly grouped, are supported.
+ *
+ * Scans with indexOf instead of regular expressions: the input is untrusted,
+ * and regex matching over unbalanced braces or comments is quadratic.
  */
 export function parseClassRules(css: string): Map<string, StyleDeclarations> {
   const rules = new Map<string, StyleDeclarations>()
-  const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '')
-  for (const [, selectors, body] of withoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    const declarations = parseDeclarations(body!)
-    for (const selector of selectors!.split(',')) {
-      const match = /^\s*\.([\w-]+)\s*$/.exec(selector)
-      if (match) rules.set(match[1]!, { ...rules.get(match[1]!), ...declarations })
+  const text = stripComments(css)
+  let position = 0
+  while (position < text.length) {
+    const open = text.indexOf('{', position)
+    if (open === -1) break
+    const close = text.indexOf('}', open + 1)
+    if (close === -1) break
+
+    // Blocks with nested braces (@media and the like) are not class rules.
+    const body = text.slice(open + 1, close)
+    if (!body.includes('{')) {
+      const declarations = parseDeclarations(body)
+      for (const selector of text.slice(position, open).split(',')) {
+        const match = /^\s*\.([\w-]+)\s*$/.exec(selector)
+        if (match) rules.set(match[1]!, { ...rules.get(match[1]!), ...declarations })
+      }
     }
+    position = close + 1
   }
   return rules
+}
+
+/** Removes `/* … *\/` comments in a single pass; an unterminated comment ends the text. */
+function stripComments(css: string): string {
+  let result = ''
+  let position = 0
+  while (position < css.length) {
+    const start = css.indexOf('/*', position)
+    if (start === -1) return result + css.slice(position)
+    result += css.slice(position, start)
+    const end = css.indexOf('*/', start + 2)
+    if (end === -1) return result
+    position = end + 2
+  }
+  return result
 }
 
 /**
