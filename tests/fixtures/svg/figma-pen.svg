@@ -1,0 +1,8 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M20 20C60 0 100 40 80 80C60 120 20 100 20 20Z" stroke="black" stroke-width="2"/>
+<path d="M120 20L180 60" stroke="black" stroke-width="2" stroke-linecap="round"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M60 140A40 40 0 1 0 140 140A40 40 0 1 0 60 140ZM70 140A30 30 0 1 0 130 140A30 30 0 1 0 70 140Z" fill="black"/>
+<g transform="translate(10 150) scale(2)">
+<rect width="20" height="10" fill="white" stroke="black"/>
+</g>
+</svg>
