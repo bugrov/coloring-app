@@ -134,8 +134,8 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
   height: 44px;
   border: 0;
   border-radius: 50%;
-  background: var(--color-surface);
-  color: var(--color-text);
+  background: var(--color-progress);
+  color: var(--color-on-overlay);
   font-size: var(--font-size-l);
   line-height: 1;
   cursor: pointer;

@@ -100,7 +100,10 @@ onBeforeUnmount(() => observer?.disconnect())
       :aria-busy="gallery.status !== 'ready' || importing"
     >
       <li>
-        <GalleryAddCard @pick="onPick" />
+        <GalleryAddCard
+          :busy="importing"
+          @pick="onPick"
+        />
       </li>
       <template v-if="gallery.status === 'ready'">
         <li
