@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { adminLoginSchema, loginSchema, usernameKey } from '../../../layers/core/shared/auth'
 import { COUNTRY_CODES } from '../../../layers/core/shared/countries'
 import { readApiError } from '../../../layers/core/shared/errors'
+import { formatAuditLine } from '../../../layers/core/server/utils/audit'
 import { verifyAdminCredentials } from '../../../layers/core/server/services/admin'
 
 const login = (username: unknown, country: unknown = 'RU') => loginSchema.safeParse({ username, country })
@@ -150,5 +151,22 @@ describe('readApiError', () => {
     ['nothing', null],
   ])('falls back to the generic message for %s', (_label, error) => {
     expect(readApiError(error)).toMatchObject({ code: 'internal' })
+  })
+})
+
+describe('formatAuditLine', () => {
+  const at = new Date('2026-10-21T10:00:00Z')
+
+  it('is one line of JSON with the event, the address and the time', () => {
+    const line = formatAuditLine('admin_login_failed', '203.0.113.7', at)
+
+    expect(JSON.parse(line)).toEqual({ audit: 'admin_login_failed', ip: '203.0.113.7', at: '2026-10-21T10:00:00.000Z' })
+    expect(line).not.toContain('\n')
+  })
+
+  it('does not fail without an address and has no room for what the visitor typed', () => {
+    expect(JSON.parse(formatAuditLine('admin_login_disabled', undefined, at)).ip).toBe('unknown')
+    // The signature takes an event name and an address only: nothing else can reach the line.
+    expect(formatAuditLine.length).toBeLessThanOrEqual(3)
   })
 })

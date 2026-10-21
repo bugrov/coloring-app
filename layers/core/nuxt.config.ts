@@ -59,5 +59,8 @@ export default defineNuxtConfig({
     // would also throttle classes sharing a school IP on every page; it is switched
     // on only for the sign-in routes in routeRules.
     rateLimiter: false,
+    // By default the module strips every console call from the build, server included, which
+    // would silence the audit trail (server/utils/audit.ts). ESLint's no-console takes over its job.
+    removeLoggers: false,
   },
 })

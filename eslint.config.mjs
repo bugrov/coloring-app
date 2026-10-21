@@ -34,4 +34,9 @@ const layerBoundaries = [
     })),
 ]
 
-export default withNuxt(...layerBoundaries)
+export default withNuxt(
+  // No stray logging: nuxt-security's removeLoggers is off, so this rule keeps console calls out of the
+  // build. The audit trail (layers/core/server/utils/audit.ts) is the one allowed exception.
+  { rules: { 'no-console': 'error' } },
+  ...layerBoundaries,
+)
