@@ -70,7 +70,7 @@ test.describe('drawing engine (sandbox)', () => {
     test.skip(browserName !== 'chromium' || !hasTouch, 'Real touch input is sent through the Chromium DevTools protocol')
     const [x, y] = await at(page, 0.3, 0.35)
     const client = await page.context().newCDPSession(page)
-    const touch = (type: string, px: number) => client.send('Input.dispatchTouchEvent', {
+    const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', px: number) => client.send('Input.dispatchTouchEvent', {
       type,
       touchPoints: type === 'touchEnd' ? [] : [{ x: px, y }],
     })
