@@ -16,6 +16,8 @@ async function openOctopus(page: Page, suffix: string) {
   await page.goto('/coloring')
   await page.getByRole('link', { name: 'Осьминог' }).click()
   await expect(page.getByRole('button', { name: 'Отменить' })).toBeVisible()
+  // The save status shows once the saved history is on the canvas; before that drawing is locked.
+  await expect(page.locator('.save-status')).toBeVisible()
 }
 
 /** Drags across the art's head, which is one region in the built-in octopus. */
