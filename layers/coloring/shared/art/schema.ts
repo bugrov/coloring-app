@@ -8,7 +8,8 @@ import { z } from 'zod'
  * once (regions white, ink in its colour) and multiplies that over the paint
  * layer, so ink stays on top of paint while honouring the original stacking.
  */
-export const ART_FORMAT_VERSION = 1
+/** 2: regions carry their bounds. */
+export const ART_FORMAT_VERSION = 2
 
 /** Only path commands, numbers and separators: no room for markup or URLs. */
 const PATH_DATA = /^[MmZzLlHhVvCcSsQqTtAa0-9eE.,\s+-]+$/
@@ -28,7 +29,8 @@ export const regionSchema = z.object({
    * [minX, minY, maxX, maxY] in art units, an upper bound of the shape.
    * Computed once on import so the client never has to parse path data again.
    */
-  bounds: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+  bounds: z.tuple([z.number(), z.number(), z.number(), z.number()])
+    .refine(([minX, minY, maxX, maxY]) => minX <= maxX && minY <= maxY, 'Bounds must be ordered'),
 })
 
 /** Non-colourable line art: outlines and dark fills. */

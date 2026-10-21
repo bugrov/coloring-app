@@ -266,14 +266,17 @@ class SvgConverter {
 
     // Checked before any parsing or splitting: their cost grows with length.
     const max = this.limits.maxPathLength
-    const sourceLength = (element.getAttribute(tag === 'path' ? 'd' : 'points') ?? '').length
-    const raw = sourceLength > max ? null : shapeToPath(element)
-    if (sourceLength > max || (raw?.length ?? 0) > max) {
+    if ((element.getAttribute(tag === 'path' ? 'd' : 'points') ?? '').length > max) {
       this.warn('path-too-long', tag)
+      return
     }
-    else if (raw) {
-      this.emitPath(raw, tag, matrix, style)
+    const raw = shapeToPath(element)
+    if (!raw) return
+    if (raw.length > max) {
+      this.warn('path-too-long', tag)
+      return
     }
+    this.emitPath(raw, tag, matrix, style)
   }
 
   private emitPath(raw: string, tag: string, matrix: Matrix, style: StyleDeclarations) {
@@ -335,7 +338,7 @@ class SvgConverter {
 
   /** Adds an output item, enforcing limits on the size of the result. */
   private emit(item: ArtItem) {
-    this.outputLength += item.d.length
+    this.outputLength += item.d.length + (item.type === 'region' ? item.bounds.join(' ').length : 0)
     if (this.items.length >= this.limits.maxItems || this.outputLength > this.outputLimit) {
       throw new SvgConversionError('too-complex')
     }
@@ -359,7 +362,15 @@ class SvgConverter {
     else if (++this.regionCount > this.limits.maxRegions) {
       throw new SvgConversionError('too-many-regions')
     }
-    this.emit({ type: 'region', id: 0, kind, d, fillRule, bounds: [minX, minY, maxX, maxY] })
+    // Rounded outwards so the bounds stay an upper bound of the shape.
+    const step = 10 ** PATH_PRECISION
+    const bounds: [number, number, number, number] = [
+      Math.floor(minX * step) / step,
+      Math.floor(minY * step) / step,
+      Math.ceil(maxX * step) / step,
+      Math.ceil(maxY * step) / step,
+    ]
+    this.emit({ type: 'region', id: 0, kind, d, fillRule, bounds })
   }
 
   private isBackground(bounds: Bounds | null): boolean {

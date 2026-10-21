@@ -1,7 +1,10 @@
-import { context2d, createCanvas, releaseCanvas, type AnyCanvas, type AnyContext, type Rect } from './canvas'
+import { context2d, createCanvas, releaseCanvas, type AnyCanvas, type Rect } from './canvas'
 import { PAINT_LONG_SIDE, PAINTED_ALPHA_MIN, PROGRESS_GRID_LONG_SIDE, REGION_COMPLETE_RATIO } from './constants'
 import { drawArt, type ArtGeometry } from './geometry'
 import type { ArtSpace } from './space'
+
+/** Paint pixels per progress cell side; both grids span the art's long side. */
+const CELL_PAINT_PX = PAINT_LONG_SIDE / PROGRESS_GRID_LONG_SIDE
 
 export interface Progress {
   /** 0–100, reaches 100 only when every region is complete. */
@@ -53,21 +56,15 @@ const NO_REGION = -1
 export class ProgressTracker {
   private readonly gridWidth: number
   private readonly gridHeight: number
-  private readonly cellsPerPaintPx: number
   private readonly labels: Int32Array
   private readonly painted: Uint8Array
   private readonly totals: Uint32Array
   private readonly paintedCounts: Uint32Array
-  private readonly sampler: AnyCanvas
-  private readonly samplerContext: AnyContext
 
   constructor(space: ArtSpace, geometry: ArtGeometry) {
     const scale = PROGRESS_GRID_LONG_SIDE / space.longSide
     this.gridWidth = Math.max(1, Math.round(space.width * scale))
     this.gridHeight = Math.max(1, Math.round(space.height * scale))
-    // Exact ratio, not gridWidth / paintWidth: both are rounded separately and
-    // the error would shift cells against the paint on elongated arts.
-    this.cellsPerPaintPx = PROGRESS_GRID_LONG_SIDE / PAINT_LONG_SIDE
 
     const counted = geometry.regions.filter(region => region.kind === 'area')
     const indexById = new Map(counted.map((region, index) => [region.id, index]))
@@ -75,16 +72,13 @@ export class ProgressTracker {
     this.paintedCounts = new Uint32Array(counted.length)
     this.painted = new Uint8Array(this.gridWidth * this.gridHeight)
 
-    this.sampler = createCanvas(this.gridWidth, this.gridHeight)
-    this.samplerContext = context2d(this.sampler, { willReadFrequently: true })
-    // Averages the whole block of paint pixels behind each cell instead of
-    // sampling a few near its centre, so coverage reflects the painted area.
-    this.samplerContext.imageSmoothingQuality = 'high'
     this.labels = this.renderLabels(space, geometry, indexById, scale)
   }
 
+  /** Renders the label grid once; its canvas is released right after reading it back. */
   private renderLabels(space: ArtSpace, geometry: ArtGeometry, indexById: Map<number, number>, scale: number): Int32Array {
-    const ctx = this.samplerContext
+    const canvas = createCanvas(this.gridWidth, this.gridHeight)
+    const ctx = context2d(canvas, { willReadFrequently: true })
     ctx.setTransform(...space.artTransform(scale))
     ctx.fillStyle = '#000'
     ctx.fillRect(space.x, space.y, space.width, space.height)
@@ -101,6 +95,7 @@ export class ProgressTracker {
     ctx.setTransform(1, 0, 0, 1, 0, 0)
 
     const { data } = ctx.getImageData(0, 0, this.gridWidth, this.gridHeight)
+    releaseCanvas(canvas)
     const labels = new Int32Array(this.gridWidth * this.gridHeight)
     for (let cell = 0; cell < labels.length; cell++) {
       const code = (data[cell * 4]! << 16) | (data[cell * 4 + 1]! << 8) | data[cell * 4 + 2]!
@@ -111,45 +106,56 @@ export class ProgressTracker {
     return labels
   }
 
-  /** Re-reads the cells under a rectangle of the paint canvas (paint pixels). */
-  update(paint: AnyCanvas, { x, y, width, height }: Rect) {
-    const k = this.cellsPerPaintPx
-    const left = Math.max(0, Math.floor(x * k) - 1)
-    const top = Math.max(0, Math.floor(y * k) - 1)
-    const right = Math.min(this.gridWidth, Math.ceil((x + width) * k) + 1)
-    const bottom = Math.min(this.gridHeight, Math.ceil((y + height) * k) + 1)
-    if (right <= left || bottom <= top) return
+  /**
+   * Re-reads the cells under a rectangle of the paint canvas (paint pixels).
+   * A cell counts as painted when at least half of its block of paint pixels
+   * is. Counted here rather than by downscaling with drawImage, whose
+   * filtering differs between browsers: the same history must give the same
+   * progress everywhere.
+   */
+  update(paint: AnyCanvas, rect: Rect) {
+    const cell = CELL_PAINT_PX
+    const left = Math.max(0, Math.floor(rect.x / cell))
+    const top = Math.max(0, Math.floor(rect.y / cell))
+    const right = Math.min(this.gridWidth, Math.ceil((rect.x + rect.width) / cell))
+    const bottom = Math.min(this.gridHeight, Math.ceil((rect.y + rect.height) / cell))
+    // Grid and paint sizes are rounded separately: the last cells may reach past the paint edge.
+    const pixelRight = Math.min(paint.width, right * cell)
+    const pixelBottom = Math.min(paint.height, bottom * cell)
+    if (pixelRight <= left * cell || pixelBottom <= top * cell) return
 
-    const ctx = this.samplerContext
-    const cellsWide = right - left
-    const cellsHigh = bottom - top
-    // Grid and paint sizes are rounded independently, so the last cells may
-    // reach past the paint edge; the source must stay inside the canvas.
-    const sourceWidth = Math.min(cellsWide / k, paint.width - left / k)
-    const sourceHeight = Math.min(cellsHigh / k, paint.height - top / k)
-    ctx.clearRect(left, top, cellsWide, cellsHigh)
-    ctx.drawImage(paint, left / k, top / k, sourceWidth, sourceHeight, left, top, sourceWidth * k, sourceHeight * k)
-    const { data } = ctx.getImageData(left, top, cellsWide, cellsHigh)
-
-    for (let row = 0; row < cellsHigh; row++) {
-      for (let column = 0; column < cellsWide; column++) {
-        const cell = (top + row) * this.gridWidth + left + column
-        const index = this.labels[cell]!
+    const width = pixelRight - left * cell
+    const { data } = context2d(paint).getImageData(left * cell, top * cell, width, pixelBottom - top * cell)
+    for (let row = top; row < bottom; row++) {
+      for (let column = left; column < right; column++) {
+        const index = this.labels[row * this.gridWidth + column]!
         if (index === NO_REGION) continue
-        const isPainted = data[(row * cellsWide + column) * 4 + 3]! >= PAINTED_ALPHA_MIN ? 1 : 0
-        if (isPainted !== this.painted[cell]) {
-          this.painted[cell] = isPainted
-          this.paintedCounts[index]! += isPainted ? 1 : -1
-        }
+        this.setPainted(row * this.gridWidth + column, index, this.isBlockPainted(data, width, (column - left) * cell, (row - top) * cell, pixelRight - column * cell, pixelBottom - row * cell))
       }
     }
   }
 
-  get progress(): Progress {
-    return computeProgress(this.totals, this.paintedCounts)
+  private isBlockPainted(data: Uint8ClampedArray, stride: number, x0: number, y0: number, maxWidth: number, maxHeight: number): boolean {
+    const blockWidth = Math.min(CELL_PAINT_PX, maxWidth)
+    const blockHeight = Math.min(CELL_PAINT_PX, maxHeight)
+    if (blockWidth <= 0 || blockHeight <= 0) return false
+    let painted = 0
+    for (let y = y0; y < y0 + blockHeight; y++) {
+      for (let x = x0; x < x0 + blockWidth; x++) {
+        if (data[(y * stride + x) * 4 + 3]! >= PAINTED_ALPHA_MIN) painted++
+      }
+    }
+    return painted * 2 >= blockWidth * blockHeight
   }
 
-  dispose() {
-    releaseCanvas(this.sampler)
+  private setPainted(cell: number, index: number, isPainted: boolean) {
+    const value = isPainted ? 1 : 0
+    if (value === this.painted[cell]) return
+    this.painted[cell] = value
+    this.paintedCounts[index]! += isPainted ? 1 : -1
+  }
+
+  get progress(): Progress {
+    return computeProgress(this.totals, this.paintedCounts)
   }
 }

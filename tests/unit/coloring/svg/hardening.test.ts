@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { convertSvg } from '../../../../layers/coloring/shared'
+import { ART_FORMAT_VERSION, artSchema, convertSvg } from '../../../../layers/coloring/shared'
 import type { SvgConversion } from '../../../../layers/coloring/shared'
 
 /**
@@ -126,5 +126,37 @@ describe('SVG hardening: attacker text', () => {
 
     // Unknown names are reported as unsupported paint, never treated as colours.
     expect(result.ok && result.warnings.every(w => w.code === 'unsupported-paint')).toBe(true)
+  })
+})
+
+describe('SVG hardening: art format', () => {
+  it('rounds region bounds outwards so they still contain the shape', () => {
+    const result = convertSvg(svg('<rect x="10.123" y="10.127" width="20.001" height="20.003" fill="white"/>'))
+    const area = result.ok ? result.art.items.find(item => item.type === 'region' && item.kind === 'area') : undefined
+
+    if (area?.type !== 'region') throw new Error('Expected an area')
+    // The stored path is rounded to 10.12,10.13 – 30.12,30.13; bounds must contain it.
+    const [minX, minY, maxX, maxY] = area.bounds
+    expect(minX).toBeLessThanOrEqual(10.12)
+    expect(minY).toBeLessThanOrEqual(10.13)
+    expect(maxX).toBeGreaterThanOrEqual(30.12)
+    expect(maxY).toBeGreaterThanOrEqual(30.13)
+    expect(area.bounds.every(value => Math.abs(value * 100 - Math.round(value * 100)) < 1e-6)).toBe(true)
+  })
+
+  it('accepts many small decimal shapes without float artefacts inflating them', () => {
+    const rects = Array.from({ length: 400 }, (_, i) => `<rect x="${(i % 20) * 0.3 + 0.1}" y="${Math.floor(i / 20) * 0.3 + 0.1}" width="0.2" height="0.2" rx="0.1" fill="white"/>`).join('')
+
+    expect(convertSvg(svg(rects, 'viewBox="0 0 6 6"')).ok).toBe(true)
+  })
+
+  it('rejects stored arts with unordered bounds', () => {
+    const art = {
+      version: ART_FORMAT_VERSION,
+      viewBox: [0, 0, 10, 10],
+      items: [{ type: 'region', id: 1, kind: 'area', d: 'M0 0H5V5H0Z', fillRule: 'nonzero', bounds: [5, 5, 0, 0] }],
+    }
+
+    expect(artSchema.safeParse(art).success).toBe(false)
   })
 })

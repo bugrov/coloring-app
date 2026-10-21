@@ -191,6 +191,13 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     stroke = null
   }
 
+  /** Drops every tracked pointer, ending any stroke by the usual rule. */
+  function forgetPointers() {
+    abortStroke()
+    pointers.clear()
+    gesture = null
+  }
+
   /** A pen arriving means any touches are a resting palm: drop them. */
   function dropTouches() {
     if (stroke?.pointerType === 'touch') abortStroke()
@@ -252,6 +259,9 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     // The same pointer pressing again means its pointerup was lost (e.g. the
     // mouse was released outside the window): commit what it drew first.
     if (stroke?.pointerId === event.pointerId) finishStroke()
+    // A primary pointer starts a new contact, so every pointer still tracked
+    // lost its pointerup; left in place they would lock the stage in gesture mode.
+    if (event.isPrimary && pointers.size > 0 && !pointers.has(event.pointerId)) forgetPointers()
 
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY, type: event.pointerType })
     stage.value!.setPointerCapture(event.pointerId)
@@ -352,6 +362,8 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     pointermove: onPointerMove,
     pointerup: onPointerUp,
     pointercancel: onPointerCancel,
+    // Fires when capture is lost without pointerup/pointercancel (focus moved away, for example).
+    lostpointercapture: onPointerCancel,
   } satisfies Partial<Record<keyof HTMLElementEventMap, (event: PointerEvent) => void>>
 
   let resizeObserver: ResizeObserver | undefined
