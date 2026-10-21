@@ -29,11 +29,8 @@ const RADIUS = 64
       :band="BAND"
       :radius="RADIUS"
     />
-    <p
-      class="frame__percent"
-      :aria-label="`Закрашено ${percent}%`"
-    >
-      {{ percent }}%
+    <p class="frame__percent">
+      <span class="frame__hint">Закрашено </span>{{ percent }}%
     </p>
     <div class="frame__plate">
       <slot name="plate" />
@@ -68,6 +65,16 @@ const RADIUS = 64
   line-height: 32px;
   letter-spacing: 0.2px;
   pointer-events: none;
+}
+
+// Read out by screen readers, invisible on screen.
+.frame__hint {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 // The plate overlaps the bottom edge of the white area.

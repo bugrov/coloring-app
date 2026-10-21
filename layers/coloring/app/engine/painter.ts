@@ -59,6 +59,9 @@ export class Painter {
   private readonly scratch: AnyCanvas
   private readonly scratchContext: AnyContext
   private readonly backup: AnyCanvas
+  /** Only for brush strokes at partial opacity; created on first use. */
+  private masked: AnyCanvas | null = null
+  private maskedContext: AnyContext | null = null
   private readonly backupContext: AnyContext
   private readonly masks: RegionMasks
   private readonly brushes = new BrushCache()
@@ -150,6 +153,7 @@ export class Painter {
   dispose() {
     releaseCanvas(this.scratch)
     releaseCanvas(this.backup)
+    if (this.masked) releaseCanvas(this.masked)
     this.masks.dispose()
   }
 
@@ -202,7 +206,7 @@ export class Painter {
     // Redrawn over the saved base each frame: line tools always, an accumulating brush because the
     // scratch already holds the whole stroke so far.
     if (path && (style.tool !== 'brush' || accumulate)) this.restoreBackup(rect)
-    this.composite(mask, rect, style.tool === 'eraser' ? 'destination-out' : 'source-over', alphaOf(style))
+    this.composite(mask, rect, style.tool === 'eraser' ? 'destination-out' : 'source-over', alphaOf(style), accumulate)
     return rect
   }
 
@@ -225,22 +229,34 @@ export class Painter {
     ctx.stroke()
   }
 
-  /** Masks the scratch rectangle and blends it onto the paint. */
-  private composite(mask: PreparedMask, rect: Rect, operation: GlobalCompositeOperation, alpha = 1) {
-    const scratch = this.scratchContext
+  /**
+   * Masks the scratch rectangle and blends it onto the paint. A stroke that keeps building on
+   * the scratch (`keepScratch`) is masked on a copy: masking the scratch itself would multiply
+   * the soft edge of the mask in once per frame, so live drawing and replay would differ there.
+   */
+  private composite(mask: PreparedMask, rect: Rect, operation: GlobalCompositeOperation, alpha = 1, keepScratch = false) {
+    let layer = this.scratch
+    let layerContext = this.scratchContext
+    if (keepScratch) {
+      this.masked ??= createCanvas(this.space.paintWidth, this.space.paintHeight)
+      layer = this.masked
+      layerContext = this.maskedContext ??= context2d(this.masked)
+      layerContext.clearRect(rect.x, rect.y, rect.width, rect.height)
+      copyRect(layerContext, this.scratch, rect)
+    }
     // destination-in affects the whole canvas, not just the drawn rect; the
     // clip keeps the work (and the clearing) inside the rect.
-    scratch.save()
-    scratch.beginPath()
-    scratch.rect(rect.x, rect.y, rect.width, rect.height)
-    scratch.clip()
-    scratch.globalCompositeOperation = 'destination-in'
-    copyRect(scratch, mask.canvas, rect)
-    scratch.restore()
+    layerContext.save()
+    layerContext.beginPath()
+    layerContext.rect(rect.x, rect.y, rect.width, rect.height)
+    layerContext.clip()
+    layerContext.globalCompositeOperation = 'destination-in'
+    copyRect(layerContext, mask.canvas, rect)
+    layerContext.restore()
 
     this.ctx.globalCompositeOperation = operation
     this.ctx.globalAlpha = alpha
-    copyRect(this.ctx, this.scratch, rect)
+    copyRect(this.ctx, layer, rect)
     this.ctx.globalAlpha = 1
     this.ctx.globalCompositeOperation = 'source-over'
   }

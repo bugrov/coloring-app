@@ -39,6 +39,9 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
   }
   onBeforeUnmount(() => clearTimeout(noticeTimer))
 
+  /** True while a restart request is in flight. */
+  const restarting = ref(false)
+
   /** Set when the last stroke completed the picture; the frame plays its celebration once. */
   const celebrating = ref(false)
   watch(() => editor.progress.complete, (complete, was) => {
@@ -71,13 +74,20 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
   /** Starts the art over; the server keeps the old attempt (it is shown in the gallery as a new empty card state). */
   async function restart(): Promise<boolean> {
     notice.value = ''
+    const id = artId.value
+    restarting.value = true
     try {
-      await api(`/api/coloring/arts/${artId.value}/restart`, { method: 'POST' })
+      await api(`/api/coloring/arts/${id}/restart`, { method: 'POST' })
     }
     catch (failure) {
       showNotice(readApiError(failure).message)
       return false
     }
+    finally {
+      restarting.value = false
+    }
+    // The player moved on to another art while the request ran: its picture is not ours to reset.
+    if (artId.value !== id) return false
     editor.resetPicture()
     celebrating.value = false
     rebuild()
@@ -94,5 +104,5 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
     }
   }
 
-  return { art, title, status, loadError, retry: refresh, notice, celebrating, onOps, onProgress, undo, redo, restart, shareImage }
+  return { art, title, status, loadError, retry: refresh, notice, restarting, celebrating, onOps, onProgress, undo, redo, restart, shareImage }
 }

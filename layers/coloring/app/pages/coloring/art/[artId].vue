@@ -9,7 +9,7 @@ const artId = computed(() => String(route.params.artId))
 
 const editor = useEditorStore()
 const stage = useTemplateRef<ColoringStageHandle>('stage')
-const { art, title, status, loadError, retry, notice, celebrating, onOps, onProgress, undo, redo, restart, shareImage } = useColoringEditor(artId, stage)
+const { art, title, status, loadError, retry, notice, restarting, celebrating, onOps, onProgress, undo, redo, restart, shareImage } = useColoringEditor(artId, stage)
 
 useHead({ title: computed(() => title.value || 'Раскраска'), meta: [{ name: 'robots', content: 'noindex' }] })
 
@@ -25,7 +25,7 @@ async function onRestartConfirmed() {
   <main class="editor">
     <EditorActions
       class="editor__actions"
-      :can-restart="editor.canRestart"
+      :can-restart="editor.canRestart && !restarting"
       @share="shareImage"
       @restart="confirmRestart = true"
     />
@@ -49,7 +49,7 @@ async function onRestartConfirmed() {
       <div
         v-else
         class="editor__state"
-        role="status"
+        :role="loadError ? 'alert' : 'status'"
       >
         <template v-if="loadError">
           <p>{{ loadError }}</p>

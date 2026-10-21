@@ -43,13 +43,13 @@ test.describe('editor with the database', () => {
   test('shows the toolbar, history, actions and an empty progress frame', async ({ page }) => {
     await openOctopus(page, 'a')
 
-    await expect(page.getByRole('radio', { name: 'Кисть' })).toBeChecked()
-    await expect(page.getByRole('radio', { name: 'Карандаш' })).toBeVisible()
-    await expect(page.getByRole('radio', { name: 'Резинка' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Кисть' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('button', { name: 'Карандаш' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Резинка' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'К галерее' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Сохранить или поделиться картинкой' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Отменить' })).toBeDisabled()
-    await expect(page.getByText('0%', { exact: true })).toBeVisible()
+    await expect(page.locator('.frame__percent')).toContainText('Закрашено 0%')
     await page.screenshot({ path: process.env.E2E_SHOTS ? `${process.env.E2E_SHOTS}/editor-${test.info().project.name}.png` : undefined })
   })
 
@@ -104,6 +104,71 @@ test.describe('editor with the database', () => {
     await page.mouse.up()
 
     await expect(page.getByRole('button', { name: 'Отменить' })).toBeEnabled()
-    await expect(page.getByText('0%', { exact: true })).toBeHidden()
+    await expect(page.locator('.frame__percent')).not.toContainText('Закрашено 0%')
+  })
+
+  test('the palette works from the keyboard: focus moves in, Escape closes it and focus comes back', async ({ page }) => {
+    await openOctopus(page, 'f')
+
+    await page.getByRole('button', { name: 'Красный, открыть все цвета' }).focus()
+    await page.keyboard.press('Enter')
+    const palette = page.getByRole('group', { name: 'Все цвета' })
+    await expect(palette).toBeVisible()
+    await expect(palette.getByRole('button', { name: 'Красный', exact: true })).toBeFocused()
+
+    await page.keyboard.press('Escape')
+    await expect(palette).toBeHidden()
+    await expect(page.getByRole('button', { name: 'Красный, открыть все цвета' })).toBeFocused()
+  })
+
+  test('a tap on the canvas while the palette is open only closes it', async ({ page }) => {
+    await openOctopus(page, 'g')
+
+    await page.getByRole('button', { name: 'Красный, открыть все цвета' }).click()
+    await expect(page.getByRole('group', { name: 'Все цвета' })).toBeVisible()
+    await scribble(page)
+
+    await expect(page.getByRole('group', { name: 'Все цвета' })).toBeHidden()
+    await expect(page.getByRole('button', { name: 'Отменить' })).toBeDisabled()
+  })
+
+  test('a 50% brush stroke looks the same after undo and redo rebuild it', async ({ page }) => {
+    await openOctopus(page, 'h')
+    await page.getByRole('button', { name: /^Прозрачность краски/ }).click()
+    await page.getByRole('button', { name: /^Прозрачность краски/ }).click()
+    await expect(page.getByRole('button', { name: 'Прозрачность краски 50%, изменить' })).toBeVisible()
+
+    // A long wiggling stroke: many frames, so the live path accumulates over many chunks.
+    const box = (await page.locator('canvas').boundingBox())!
+    await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.2)
+    await page.mouse.down()
+    for (let i = 0; i < 60; i++) {
+      await page.mouse.move(box.x + box.width * (0.4 + 0.2 * Math.abs(Math.sin(i / 7))), box.y + box.height * (0.2 + i * 0.005), { steps: 2 })
+    }
+    await page.mouse.up()
+
+    // Compared inside the page: the paint canvas is millions of pixels.
+    await page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => {
+      const { data } = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height)
+      Object.assign(window, { liveAlpha: data.filter((_, i) => i % 4 === 3) })
+    })
+    await page.getByRole('button', { name: 'Отменить' }).click()
+    await page.getByRole('button', { name: 'Вернуть' }).click()
+    const { differing, worst, painted } = await page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => {
+      const { data } = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height)
+      const live = (window as unknown as { liveAlpha: Uint8ClampedArray }).liveAlpha
+      let differing = 0
+      let worst = 0
+      for (let i = 0; i < live.length; i++) {
+        const diff = Math.abs(live[i]! - data[i * 4 + 3]!)
+        if (diff > 0) differing++
+        worst = Math.max(worst, diff)
+      }
+      return { differing, worst, painted: live.filter(alpha => alpha > 0).length }
+    })
+    // Edge pixels may differ slightly (anti-aliasing); a doubled mask edge would differ a lot.
+    test.info().annotations.push({ type: 'diff', description: `live vs replay: ${differing} pixels differ, worst alpha difference ${worst}` })
+    expect(painted).toBeGreaterThan(1000)
+    expect(worst).toBeLessThan(40)
   })
 })

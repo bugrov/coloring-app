@@ -38,22 +38,41 @@ function pickFromPalette(hex: string) {
   editor.togglePalette(false)
 }
 
-// A tap outside the toolbar or Escape closes the palette.
+// A tap outside the toolbar closes the palette and goes no further: it must not also start a
+// stroke on the canvas. Escape closes it from anywhere.
 function onPointerDown(event: PointerEvent) {
-  if (editor.paletteOpen && root.value && !root.value.contains(event.target as Node)) editor.togglePalette(false)
+  if (!editor.paletteOpen || root.value?.contains(event.target as Node)) return
+  editor.togglePalette(false)
+  event.stopPropagation()
 }
 
-onMounted(() => document.addEventListener('pointerdown', onPointerDown))
-onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown))
+function onKeyDown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && editor.paletteOpen) editor.togglePalette(false)
+}
 
-// Show the chosen colour in the middle of the list when it opens.
-watch(() => editor.paletteOpen, (open) => {
-  if (!open) return
-  nextTick(() => {
+onMounted(() => {
+  document.addEventListener('pointerdown', onPointerDown, { capture: true })
+  document.addEventListener('keydown', onKeyDown)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', onPointerDown, { capture: true })
+  document.removeEventListener('keydown', onKeyDown)
+})
+
+// Opening hides the pressed crayon behind `inert`, so focus moves into the list, on the chosen
+// colour, which is also scrolled to the middle; closing brings focus back to the chosen crayon.
+watch(() => editor.paletteOpen, async (open) => {
+  await nextTick()
+  if (open) {
     const list = palette.value
     const chosen = list?.querySelector<HTMLElement>('[aria-pressed="true"]')
-    if (list && chosen) list.scrollTop = chosen.offsetTop - (list.clientHeight - chosen.offsetHeight) / 2
-  })
+    if (!list || !chosen) return
+    list.scrollTop = chosen.offsetTop - (list.clientHeight - chosen.offsetHeight) / 2
+    chosen.focus({ preventScroll: true })
+  }
+  else if (root.value?.contains(document.activeElement) || document.activeElement === document.body) {
+    root.value?.querySelector<HTMLElement>('.toolbar__recent [aria-pressed="true"]')?.focus()
+  }
 })
 </script>
 
@@ -63,11 +82,10 @@ watch(() => editor.paletteOpen, (open) => {
     class="toolbar"
     :class="{ 'toolbar--palette': editor.paletteOpen }"
     aria-label="Инструменты и цвета"
-    @keydown.esc="editor.togglePalette(false)"
   >
     <div
       class="toolbar__tools"
-      role="radiogroup"
+      role="group"
       aria-label="Инструмент"
       :inert="editor.paletteOpen"
     >
@@ -75,10 +93,9 @@ watch(() => editor.paletteOpen, (open) => {
         v-for="tool in TOOLS"
         :key="tool.name"
         type="button"
-        role="radio"
         class="toolbar__item"
         :class="{ 'toolbar__item--chosen': editor.tool === tool.name }"
-        :aria-checked="editor.tool === tool.name"
+        :aria-pressed="editor.tool === tool.name"
         :aria-label="tool.label"
         @click="editor.tool = tool.name"
       >
@@ -100,18 +117,23 @@ watch(() => editor.paletteOpen, (open) => {
       aria-label="Недавние цвета"
       :inert="editor.paletteOpen"
     >
-      <button
+      <!-- The slot moves when colours swap; the button inside keeps its own sideways offset. -->
+      <div
         v-for="hex in editor.recentColors"
         :key="hex"
-        type="button"
-        class="toolbar__item"
-        :class="{ 'toolbar__item--chosen': hex === editor.color }"
-        :aria-pressed="hex === editor.color"
-        :aria-label="hex === editor.color ? `${colorName(hex)}, открыть все цвета` : colorName(hex)"
-        @click="pickRecent(hex)"
+        class="toolbar__slot"
       >
-        <EditorPencil :color="hex" />
-      </button>
+        <button
+          type="button"
+          class="toolbar__item"
+          :class="{ 'toolbar__item--chosen': hex === editor.color }"
+          :aria-pressed="hex === editor.color"
+          :aria-label="hex === editor.color ? `${colorName(hex)}, открыть все цвета` : colorName(hex)"
+          @click="pickRecent(hex)"
+        >
+          <EditorPencil :color="hex" />
+        </button>
+      </div>
     </TransitionGroup>
 
     <div
@@ -224,9 +246,18 @@ watch(() => editor.paletteOpen, (open) => {
   animation-delay: calc(var(--i) * 12ms);
 }
 
-// Crayons swap places when a colour is picked.
+// Crayons swap places when a colour is picked; the one dropping out leaves at once.
+.toolbar__slot {
+  flex: none;
+}
+
 .toolbar-recent-move {
   transition: transform var(--duration-base) var(--ease-out);
+}
+
+.toolbar-recent-leave-active {
+  position: absolute;
+  transition: none;
 }
 
 @keyframes toolbar-arrive {
