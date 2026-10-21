@@ -8,7 +8,7 @@ export interface GameDefinition {
   id: string
   /** Human-readable name shown in the game list. */
   title: string
-  /** Route the game starts from. */
+  /** Name of the route the game starts from (the game layer's `routes.ts`). */
   entry: string
   /** Position in the game list, ascending. */
   order: number

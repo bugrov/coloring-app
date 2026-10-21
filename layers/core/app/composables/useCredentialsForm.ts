@@ -1,15 +1,16 @@
 import type { ZodType } from 'zod'
 import { API_ERROR_MESSAGES, readApiError } from '../../shared/errors'
+import type { CoreRoute } from '../../shared/routes'
 
 interface CredentialsFormOptions<T extends Record<string, unknown>> {
   endpoint: string
   schema: ZodType<T>
   initial: T
   /**
-   * Where to go after the session is established. A literal of our own pages, never a value
+   * Where to go after the session is established. The name of one of our own pages, never a value
    * from the address bar or a response: it is also used for a full page load (external navigation).
    */
-  redirectTo: '/' | '/admin'
+  redirectTo: CoreRoute
 }
 
 interface CredentialsForm<T> {
@@ -29,6 +30,7 @@ interface CredentialsForm<T> {
  */
 export function useCredentialsForm<T extends Record<string, unknown>>({ endpoint, schema, initial, redirectTo }: CredentialsFormOptions<T>): CredentialsForm<T> {
   const { fetch: refreshSession } = useUserSession()
+  const router = useRouter()
 
   const values = reactive({ ...initial }) as T
   const pending = ref(false)
@@ -69,10 +71,10 @@ export function useCredentialsForm<T extends Record<string, unknown>>({ endpoint
     // The form stays disabled until the page leaves.
     try {
       await refreshSession()
-      await navigateTo(redirectTo)
+      await navigateTo({ name: redirectTo })
     }
     catch {
-      await navigateTo(redirectTo, { external: true })
+      await navigateTo(router.resolve({ name: redirectTo }).href, { external: true })
     }
   }
 

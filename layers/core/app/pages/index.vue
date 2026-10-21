@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { CoreRoutes } from '../../shared/routes'
+
+definePageMeta({ name: CoreRoutes.HOME })
+
 const games = useGames()
 const { user } = useUserSession()
 const signOut = useSignOut()
@@ -28,7 +32,7 @@ const signOut = useSignOut()
       >
         <NuxtLink
           class="hub__link"
-          :to="game.entry"
+          :to="{ name: game.entry }"
         >
           {{ game.title }}
         </NuxtLink>

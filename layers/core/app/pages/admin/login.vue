@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { adminLoginSchema } from '../../../shared/auth'
+import { CoreRoutes } from '../../../shared/routes'
 
-definePageMeta({ auth: 'public' })
+definePageMeta({ name: CoreRoutes.ADMIN_LOGIN, auth: 'public' })
 
 const { values, pending, fieldErrors, formError, submit } = useCredentialsForm({
   endpoint: '/api/admin/login',
   schema: adminLoginSchema,
   initial: { login: '', password: '' },
-  redirectTo: '/admin',
+  redirectTo: CoreRoutes.ADMIN,
 })
 </script>
 
