@@ -24,8 +24,14 @@ const save = (patch: Partial<SaveHistoryRequest> & Pick<SaveHistoryRequest, 'kee
   ...patch,
 })
 
+async function createDatabase() {
+  const db = drizzle(new PGlite())
+  await migrate(db, { migrationsFolder: 'layers/core/server/db/migrations' })
+  return db
+}
+
 describe('history services', () => {
-  let db: ReturnType<typeof drizzle>
+  let db: Awaited<ReturnType<typeof createDatabase>>
   let counter = 0
   let anna: string
   let artId: string
@@ -43,8 +49,7 @@ describe('history services', () => {
   }
 
   beforeAll(async () => {
-    db = drizzle(new PGlite())
-    await migrate(db, { migrationsFolder: 'layers/core/server/db/migrations' })
+    db = await createDatabase()
   })
 
   /** Stored step rows of the current art, whatever the attempt. */
