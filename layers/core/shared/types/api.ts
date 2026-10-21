@@ -1,6 +1,5 @@
 export type ApiErrorCode
   = | 'validation'
-    | 'username_taken'
     | 'rate_limited'
     | 'unauthorized'
     | 'forbidden'

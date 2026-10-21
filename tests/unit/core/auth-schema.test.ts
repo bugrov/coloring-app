@@ -159,9 +159,9 @@ describe('readApiError', () => {
   })
 
   it('reads the error body that the API sends', () => {
-    const error = { data: { data: { code: 'username_taken', message: 'Занято' } } }
+    const error = { data: { data: { code: 'unauthorized', message: 'Занято' } } }
 
-    expect(readApiError(error)).toMatchObject({ code: 'username_taken', message: 'Занято' })
+    expect(readApiError(error)).toMatchObject({ code: 'unauthorized', message: 'Занято' })
   })
 
   it.each([

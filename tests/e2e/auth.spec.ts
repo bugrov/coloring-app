@@ -187,7 +187,7 @@ test.describe('sign-in with the database', () => {
     await expect(page).toHaveURL('/login')
   })
 
-  test('a name taken from another country is refused', async ({ page }) => {
+  test('the same name from another country is another player', async ({ page }) => {
     await ownAddress(page)
     const name = `e2e${Date.now().toString(36)}b`
     const first = await page.request.post('/api/auth/login', { data: { username: name, country: 'RU' } })
@@ -199,7 +199,7 @@ test.describe('sign-in with the database', () => {
     await page.getByLabel('Страна').selectOption('US')
     await page.getByRole('button', { name: 'Играть' }).click()
 
-    await expect(page.getByText('Это имя уже занято в другой стране')).toBeVisible()
-    await expect(page).toHaveURL('/login')
+    await expect(page).toHaveURL('/')
+    await expect(page.getByText(name.toUpperCase())).toBeVisible()
   })
 })
