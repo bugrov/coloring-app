@@ -9,9 +9,22 @@ export interface Reconciliation {
   merged: boolean
 }
 
-function sameStep(a: HistoryStep, b: HistoryStep): boolean {
-  return a === b || JSON.stringify(a) === JSON.stringify(b)
+/**
+ * Deep equality that ignores the order of object keys: Postgres stores ops as jsonb, which hands
+ * the keys back in its own order, so a step the server returns is the same step the editor sent
+ * although its JSON text differs.
+ */
+function same(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false
+  if (Array.isArray(a) !== Array.isArray(b)) return false
+  const left = a as Record<string, unknown>
+  const right = b as Record<string, unknown>
+  const keys = Object.keys(left)
+  return keys.length === Object.keys(right).length && keys.every(key => key in right && same(left[key], right[key]))
 }
+
+const sameStep = (a: HistoryStep, b: HistoryStep) => same(a, b)
 
 /** How many steps two histories share from the start. */
 function commonPrefix(a: readonly HistoryStep[], b: readonly HistoryStep[]): number {
@@ -182,10 +195,7 @@ export class HistoryLog {
   reconcile(server: HistoryState): Reconciliation {
     // The attempt was started over elsewhere: what was drawn here belongs to the old one, which the
     // server keeps. (Attempt 0 is "not started yet": another device creating attempt 1 is a normal conflict.)
-    if (this.attempt !== 0 && server.attempt !== this.attempt) {
-      this.load(server)
-      return { rebuild: true, merged: false }
-    }
+    if (this.attempt !== 0 && server.attempt !== this.attempt) return this.takeServer(server)
     const shared = commonPrefix(this.steps, server.steps)
     const unsent = this.steps.slice(shared, this.position)
 
@@ -198,43 +208,44 @@ export class HistoryLog {
       return { rebuild: !stored, merged: false }
     }
 
-    const base = server.steps.slice(0, server.cursor)
-    this.load({ ...server, steps: [...base, ...unsent], cursor: base.length + unsent.length })
-    this.confirmed = base.length
-    this.serverCursor = server.cursor
+    this.loadOnTop(server, server.cursor, unsent, server.cursor + unsent.length)
     return { rebuild: true, merged: true }
   }
 
   /**
    * Opens an attempt: the server's version plus the work an earlier visit left unsent (it survives
    * a reload or a closed tab). Unsent steps are never dropped unless their attempt was started
-   * over elsewhere. If the server moved on meanwhile, they go on top of its applied steps; if it
+   * over elsewhere (a different attempt than the one they were built on). If the server moved on meanwhile, they go on top of its applied steps; if it
    * already has them (the save arrived, the page died before hearing back), they are not added twice.
    */
   restore(server: HistoryState, unsent: UnsentHistory | null): Reconciliation {
-    if (!unsent || unsent.attempt !== server.attempt || unsent.keep > server.steps.length) {
-      this.load(server)
-      return { rebuild: true, merged: false }
-    }
-    if (unsent.rev === server.rev) {
-      this.load({ ...server, steps: [...server.steps.slice(0, unsent.keep), ...unsent.steps], cursor: unsent.cursor })
-      this.confirmed = unsent.keep
-      this.serverCursor = server.cursor
+    // Another attempt than the one the work was built on: it was started over elsewhere. (Attempt 0 is
+    // "not started yet", so the server having attempt 1 is a normal conflict, handled below.)
+    if (!unsent || (unsent.attempt !== 0 && unsent.attempt !== server.attempt)) return this.takeServer(server)
+    if (unsent.rev === server.rev && unsent.keep <= server.steps.length) {
+      this.loadOnTop(server, unsent.keep, unsent.steps, unsent.cursor)
       return { rebuild: true, merged: false }
     }
     const stored = unsent.steps.every((step, index) => {
       const onServer = server.steps[unsent.keep + index]
       return onServer !== undefined && sameStep(onServer, step)
     })
-    if (stored) {
-      this.load(server)
-      return { rebuild: true, merged: false }
-    }
-    const base = server.steps.slice(0, server.cursor)
+    if (stored) return this.takeServer(server)
     const mine = unsent.steps.slice(0, Math.max(0, unsent.cursor - unsent.keep))
-    this.load({ ...server, steps: [...base, ...mine], cursor: base.length + mine.length })
-    this.confirmed = base.length
-    this.serverCursor = server.cursor
+    this.loadOnTop(server, server.cursor, mine, server.cursor + mine.length)
     return { rebuild: true, merged: mine.length > 0 }
+  }
+
+  /** Takes the server's version as it is. */
+  private takeServer(server: HistoryState): Reconciliation {
+    this.load(server)
+    return { rebuild: true, merged: false }
+  }
+
+  /** Loads the server's version with `mine` after its first `keep` steps; those are not on the server yet. */
+  private loadOnTop(server: HistoryState, keep: number, mine: HistoryStep[], cursor: number) {
+    this.load({ ...server, steps: [...server.steps.slice(0, keep), ...mine], cursor })
+    this.confirmed = keep
+    this.serverCursor = server.cursor
   }
 }

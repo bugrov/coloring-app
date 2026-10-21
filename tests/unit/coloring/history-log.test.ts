@@ -283,3 +283,63 @@ describe('HistoryLog: coming back to unsent work', () => {
     expect(log.dirty).toBe(false)
   })
 })
+
+describe('HistoryLog: jsonb returns keys in its own order', () => {
+  /** The same ops as the editor builds them, with their keys in the order Postgres jsonb hands them back. */
+  const reordered = (value: HistoryStep): HistoryStep => value.map(op => Object.fromEntries(Object.entries(op).reverse()) as typeof op)
+
+  it('recognises a resent save that had arrived, although the server returns the keys in another order', () => {
+    const log = new HistoryLog(state([1]))
+    log.push(step(2))
+    log.nextSave(0)
+    log.failed()
+
+    const result = log.reconcile({ attempt: 1, rev: 2, cursor: 2, steps: [step(1), reordered(step(2))] })
+
+    expect(result).toEqual({ rebuild: false, merged: false })
+    expect(log.length).toBe(2)
+  })
+
+  it('does not add steps twice on opening when they are already on the server in another key order', () => {
+    const before = new HistoryLog(state([1]))
+    before.push(step(2))
+
+    const log = new HistoryLog()
+    log.restore({ attempt: 1, rev: 2, cursor: 2, steps: [reordered(step(1)), reordered(step(2))] }, before.unsent)
+
+    expect(log.length).toBe(2)
+    expect(log.dirty).toBe(false)
+  })
+
+  it('still tells different steps apart', () => {
+    const log = new HistoryLog(state([1]))
+    log.push([{ type: 'fill', region: 2, color: '#e53935', opacity: 50 }])
+
+    const result = log.reconcile({ attempt: 1, rev: 2, cursor: 2, steps: [step(1), step(2)] })
+
+    expect(result.merged).toBe(true)
+    expect(log.length).toBe(3)
+  })
+
+  it('keeps unsent work of a first attempt that another device created meanwhile (attempt 0)', () => {
+    const before = new HistoryLog({ attempt: 0, rev: 0, cursor: 0, steps: [] })
+    before.push(step(5))
+
+    const log = new HistoryLog()
+    const result = log.restore({ attempt: 1, rev: 1, cursor: 1, steps: [step(7)] }, before.unsent)
+
+    expect(result.merged).toBe(true)
+    expect(log.opsBetween(0, log.cursor)).toEqual([...step(7), ...step(5)])
+  })
+
+  it('keeps unsent work when the server history became shorter than the work was built on', () => {
+    const before = new HistoryLog(state([1, 2, 3]))
+    before.push(step(4))
+
+    const log = new HistoryLog()
+    const result = log.restore(state([1], 1, 5), before.unsent)
+
+    expect(result.merged).toBe(true)
+    expect(log.opsBetween(0, log.cursor)).toEqual([...step(1), ...step(4)])
+  })
+})

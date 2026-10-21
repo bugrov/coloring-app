@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { users } from '../../../../layers/core/server/db/schema'
 import { arts, historySteps, progress } from '../../../../layers/coloring/server/db/schema'
 import { deleteImport, importArt, listGallery } from '../../../../layers/coloring/server/services/arts'
+import { HistoryLog } from '../../../../layers/coloring/shared/history'
 import { loadHistory, saveHistory } from '../../../../layers/coloring/server/services/history'
 import { restartArt } from '../../../../layers/coloring/server/services/progress'
 import type { HistoryStep, SaveHistoryRequest } from '../../../../layers/coloring/shared'
@@ -178,6 +179,24 @@ describe('history services', () => {
 
     expect(await saveHistory(db, anna, artId, save({ attempt: 1, rev: 1, keep: 1, steps: [step(2)] }))).toEqual({ ok: false, reason: 'conflict' })
     expect(await saveHistory(db, anna, artId, save({ attempt: 2, rev: 0, keep: 0, steps: [step(5)] }))).toEqual({ ok: true, attempt: 2, rev: 1 })
+  })
+
+  it('hands steps back in jsonb key order, and the client still recognises them as its own', async () => {
+    await fresh()
+    const stroke: HistoryStep = [{ type: 'stroke', region: 1, tool: 'brush', color: '#e53935', width: 40, points: [1, 2, 3, 4] }]
+    const log = new HistoryLog({ attempt: 0, rev: 0, cursor: 0, steps: [] })
+    log.push(stroke)
+    log.push(step(2))
+    const request = log.nextSave(0)!
+    await saveHistory(db, anna, artId, request)
+
+    const stored = await loadHistory(db, anna, artId)
+
+    // Postgres orders the keys of a jsonb object itself: the text differs from what the editor sent.
+    expect(JSON.stringify(stored.steps[0])).not.toBe(JSON.stringify(stroke))
+    log.failed()
+    expect(log.reconcile(stored)).toEqual({ rebuild: false, merged: false })
+    expect(log.length).toBe(2)
   })
 
   it('removes the steps with the art', async () => {
