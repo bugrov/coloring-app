@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { computed, ref, shallowRef } from 'vue'
 import { DEFAULT_COLOR, DEFAULT_OPACITY, OPACITY_LEVELS } from '../../shared'
 import type { Op, Tool } from '../../shared'
 import { EMPTY_PROGRESS, type Progress } from '../engine'
