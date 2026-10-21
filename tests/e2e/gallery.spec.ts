@@ -24,6 +24,7 @@ test.describe('gallery API without a session', () => {
   test('every route answers 401 in the API error shape', async ({ request }) => {
     const calls = [
       request.get('/api/coloring/arts'),
+      request.get(`/api/coloring/arts/${SOME_ID}`),
       request.get(`/api/coloring/arts/${SOME_ID}/preview.svg`),
       request.post(`/api/coloring/arts/${SOME_ID}/restart`),
       request.delete(`/api/coloring/arts/${SOME_ID}`),
@@ -83,9 +84,11 @@ test.describe('gallery with the database', () => {
     const other = await stranger.newPage()
     await signInAs(other, `e2e${Date.now().toString(36)}j`)
 
+    expect((await other.request.get(`/api/coloring/arts/${id}`)).status()).toBe(404)
     expect((await other.request.get(`/api/coloring/arts/${id}/preview.svg`)).status()).toBe(404)
     expect((await other.request.delete(`/api/coloring/arts/${id}`)).status()).toBe(404)
     expect((await other.request.post(`/api/coloring/arts/${id}/restart`)).status()).toBe(404)
+    expect((await page.request.get(`/api/coloring/arts/${id}`)).status()).toBe(200)
     expect((await page.request.get(`/api/coloring/arts/${id}/preview.svg`)).headers()['content-type']).toContain('image/svg+xml')
     await stranger.close()
   })
