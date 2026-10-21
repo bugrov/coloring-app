@@ -1,4 +1,4 @@
-import { MAX_BATCH_STEPS, UNDO_LIMIT } from './constants'
+import { MAX_BATCH_BYTES, MAX_BATCH_STEPS, UNDO_LIMIT } from './constants'
 import type { HistoryState, HistoryStep, SaveHistoryRequest } from '../types'
 
 /** What `HistoryLog.reconcile` did with the server's version. */
@@ -116,11 +116,17 @@ export class HistoryLog {
 
   /**
    * The next save, or null when everything is saved or one is on its way. A backlog goes out in
-   * parts of at most MAX_BATCH_STEPS steps.
+   * parts of at most MAX_BATCH_STEPS steps and MAX_BATCH_BYTES bytes (one step at least).
    */
   nextSave(percent: number): SaveHistoryRequest | null {
     if (this.sending || !this.dirty) return null
-    const steps = this.steps.slice(this.confirmed, this.confirmed + MAX_BATCH_STEPS)
+    const steps: HistoryStep[] = []
+    let bytes = 0
+    for (const step of this.steps.slice(this.confirmed, this.confirmed + MAX_BATCH_STEPS)) {
+      bytes += JSON.stringify(step).length
+      if (steps.length > 0 && bytes > MAX_BATCH_BYTES) break
+      steps.push(step)
+    }
     const cursor = Math.min(this.position, this.confirmed + steps.length)
     this.sending = { keep: this.confirmed, count: steps.length, cursor }
     this.cutDuringSend = Infinity

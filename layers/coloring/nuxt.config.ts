@@ -15,6 +15,9 @@ export default defineNuxtConfig({
     // Every import costs CPU (parsing) even when the file is rejected, so failures count too.
     // The body is an SVG file: the XSS validator of nuxt-security would reject its markup.
     '/api/coloring/imports': { security: { rateLimiter: { tokensPerInterval: 30, interval: 300_000 }, xssValidator: false } },
+    // The editor saves a batch every few seconds while someone draws, and a class may share one IP.
+    // The body is numbers and colours checked by a strict schema: the XSS scan would only cost CPU.
+    '/api/coloring/arts/*/history': { security: { rateLimiter: { tokensPerInterval: 1200, interval: 60_000 }, xssValidator: false } },
   },
 
   // Nuxt (client) and Nitro (server) auto-import every layer's shared/types globally.

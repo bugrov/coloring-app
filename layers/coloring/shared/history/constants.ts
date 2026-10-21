@@ -10,5 +10,8 @@ export const MAX_OPS_PER_STEP = 64
 /** Steps in one save request. A longer backlog (offline work) goes out in several. */
 export const MAX_BATCH_STEPS = 100
 
+/** Size of one save request, below the body limit of the server (nuxt-security: 2 MB). */
+export const MAX_BATCH_BYTES = 900_000
+
 /** Steps one attempt may hold; the server refuses more, the editor tells the player. */
 export const MAX_HISTORY_STEPS = 3000
