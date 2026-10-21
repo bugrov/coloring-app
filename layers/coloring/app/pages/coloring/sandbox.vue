@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { PALETTE, TOOLS } from '../../../shared'
+import { ColoringRoutes } from '../../../shared/routes'
 import type { ColoringStageHandle } from '../../composables/useColoringStage'
 
 // Developer tool for the drawing engine; the real editor UI comes in a later step.
 // It needs no server data, so it stays open without signing in.
-definePageMeta({ auth: 'public' })
+definePageMeta({ name: ColoringRoutes.SANDBOX, auth: 'public' })
 useHead({ title: 'Песочница движка', meta: [{ name: 'robots', content: 'noindex' }] })
 
 const TOOL_LABELS = { pencil: 'Карандаш', brush: 'Кисть', eraser: 'Резинка' } as const

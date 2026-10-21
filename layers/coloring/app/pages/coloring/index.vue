@@ -1,3 +1,10 @@
+<script setup lang="ts">
+import { CoreRoutes } from '#layers/core/shared/routes'
+import { ColoringRoutes } from '../../../shared/routes'
+
+definePageMeta({ name: ColoringRoutes.GALLERY })
+</script>
+
 <template>
   <SafeAreaPage>
     <h1 class="coloring-gallery__title">
@@ -6,7 +13,7 @@
     <p class="coloring-gallery__note">
       Галерея появится на шаге 5.
     </p>
-    <NuxtLink to="/">
+    <NuxtLink :to="{ name: CoreRoutes.HOME }">
       ← К играм
     </NuxtLink>
   </SafeAreaPage>

@@ -8,6 +8,13 @@
       "when": 1792547710739,
       "tag": "0000_dry_phalanx",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792569924089,
+      "tag": "0001_shiny_smasher",
+      "breakpoints": true
     }
   ]
 }

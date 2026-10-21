@@ -1,6 +1,10 @@
 <script setup lang="ts">
+import { CoreRoutes } from '../../../shared/routes'
+
+definePageMeta({ name: CoreRoutes.ADMIN, auth: 'admin' })
+
 const { user } = useUserSession()
-const signOut = useSignOut('/admin/login')
+const signOut = useSignOut(CoreRoutes.ADMIN_LOGIN)
 </script>
 
 <template>

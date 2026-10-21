@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { GameDefinition } from '../../../shared/types/game'
 import { listGames } from '../../../shared/utils/games'
 
-const game = (id: string, order: number): GameDefinition => ({ id, title: id, entry: `/${id}`, order })
+const game = (id: string, order: number): GameDefinition => ({ id, title: id, entry: `${id}-gallery`, order })
 
 describe('listGames', () => {
   it('returns an empty list when no games are registered', () => {
