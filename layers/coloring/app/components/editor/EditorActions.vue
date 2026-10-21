@@ -94,11 +94,8 @@ const editor = useEditorStore()
 .actions__camera {
   display: grid;
   place-items: center;
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+
+  @include plain-button;
 }
 
 .actions__home img {
@@ -133,16 +130,15 @@ const editor = useEditorStore()
   place-items: center;
   width: 48px;
   height: 48px;
-  padding: 0;
-  border: 0;
   border-radius: 50%;
-  background: var(--color-surface);
   color: var(--color-text);
   font: inherit;
   font-size: 0.75rem;
   font-weight: 700;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+
+  @include plain-button;
+
+  background: var(--color-surface);
 }
 
 .actions__round:disabled {
@@ -168,7 +164,6 @@ const editor = useEditorStore()
 .actions__home:focus-visible,
 .actions__camera:focus-visible,
 .actions__round:focus-visible {
-  outline: 3px solid var(--color-progress);
-  outline-offset: 2px;
+  @include focus-ring;
 }
 </style>

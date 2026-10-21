@@ -209,15 +209,12 @@ watch(() => editor.paletteOpen, async (open) => {
   flex: none;
   width: var(--rail-width);
   height: var(--pencil-height);
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
+
+  @include plain-button;
 
   // Idle crayons hide behind the screen edge and leave their tip; the chosen one comes out.
   transform: translateX(var(--pencil-hidden));
   transition: transform var(--duration-base) var(--ease-out);
-  -webkit-tap-highlight-color: transparent;
 }
 
 .toolbar__item--chosen {
@@ -225,8 +222,8 @@ watch(() => editor.paletteOpen, async (open) => {
 }
 
 .toolbar__item:focus-visible {
-  outline: 3px solid var(--color-progress);
-  outline-offset: -3px;
+  @include focus-ring(-3px);
+
   border-radius: var(--radius-m);
 }
 

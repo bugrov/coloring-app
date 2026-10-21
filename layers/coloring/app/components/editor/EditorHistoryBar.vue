@@ -51,12 +51,9 @@ const emit = defineEmits<{ undo: [], redo: [] }>()
   place-items: center;
   width: 56px;
   height: 56px;
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
   transition: opacity var(--duration-fast);
-  -webkit-tap-highlight-color: transparent;
+
+  @include plain-button;
 }
 
 .history__button:disabled {
@@ -76,8 +73,7 @@ const emit = defineEmits<{ undo: [], redo: [] }>()
 }
 
 .history__button:focus-visible {
-  outline: 3px solid var(--color-progress);
-  outline-offset: -3px;
+  @include focus-ring(-3px);
 }
 
 @media (prefers-reduced-motion: reduce) {
