@@ -13,3 +13,10 @@ export interface Bounds {
   maxX: number
   maxY: number
 }
+
+/** What `GET /api/coloring/arts/:id` returns: the art the editor draws on. */
+export interface ArtDetails {
+  id: string
+  title: string
+  art: ColoringArt
+}
