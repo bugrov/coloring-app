@@ -113,6 +113,8 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
 
 .gallery-card__link {
   display: grid;
+  // A definite track: otherwise the image sizes the track by its width and overflows the tile.
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   height: 100%;
   place-items: center;
   overflow: hidden;
@@ -121,6 +123,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
 }
 
 .gallery-card__art {
+  padding: var(--space-2);
   width: 100%;
   height: 100%;
   object-fit: contain;
