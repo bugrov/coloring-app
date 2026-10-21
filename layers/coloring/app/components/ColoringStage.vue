@@ -1,13 +1,16 @@
 <script setup lang="ts">
+import { DEFAULT_OPACITY } from '../../shared'
 import type { ColoringArt, Op, Tool } from '../../shared'
-import type { Progress } from '../engine'
-import type { ColoringStageHandle } from '../composables/useColoringStage'
+import { HOLD_DURATION_MS, type Progress } from '../engine'
+import type { ColoringStageHandle, HoldFeedback } from '../composables/useColoringStage'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   art: ColoringArt
   tool: Tool
   color: string
-}>()
+  /** Paint opacity in percent. */
+  opacity?: number
+}>(), { opacity: DEFAULT_OPACITY })
 
 const emit = defineEmits<{
   ops: [ops: Op[]]
@@ -18,10 +21,19 @@ const stage = useTemplateRef<HTMLElement>('stage')
 const content = useTemplateRef<HTMLElement>('content')
 const canvas = useTemplateRef<HTMLCanvasElement>('canvas')
 
+/** Long-press feedback: a ring that closes while the finger rests, a burst of colour when it fills. */
+const hold = ref<(Pick<HoldFeedback, 'x' | 'y' | 'color'> & { kind: 'ring' | 'burst' }) | null>(null)
+
+function onHold({ phase, ...spot }: HoldFeedback) {
+  hold.value = phase === 'cancel' ? null : { ...spot, kind: phase === 'start' ? 'ring' : 'burst' }
+}
+
 const { contentStyle, handle } = useColoringStage({ stage, content, canvas }, {
   art: toRef(props, 'art'),
   tool: toRef(props, 'tool'),
   color: toRef(props, 'color'),
+  opacity: toRef(props, 'opacity'),
+  onHold,
   onOps: ops => emit('ops', ops),
   onProgress: progress => emit('progress', progress),
 })
@@ -51,6 +63,14 @@ defineExpose<ColoringStageHandle>(handle)
         :art="art"
       />
     </div>
+    <span
+      v-if="hold"
+      :key="hold.kind"
+      class="coloring-stage__hold"
+      :class="`coloring-stage__hold--${hold.kind}`"
+      :style="{ '--x': `${hold.x}px`, '--y': `${hold.y}px`, '--hold-color': hold.color ?? 'var(--color-text-muted)', '--hold-duration': `${HOLD_DURATION_MS}ms` }"
+      @animationend="hold?.kind === 'burst' && (hold = null)"
+    />
   </div>
 </template>
 
@@ -61,9 +81,67 @@ defineExpose<ColoringStageHandle>(handle)
   width: 100%;
   height: 100%;
   overflow: hidden;
+  position: relative;
   container-type: size;
   touch-action: none;
   cursor: crosshair;
+}
+
+.coloring-stage__hold {
+  --size: 56px;
+
+  position: absolute;
+  top: calc(var(--y) - var(--size) / 2);
+  left: calc(var(--x) - var(--size) / 2);
+  width: var(--size);
+  height: var(--size);
+  border: 4px solid var(--hold-color);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.coloring-stage__hold--ring {
+  animation: hold-ring var(--hold-duration) linear forwards;
+}
+
+.coloring-stage__hold--burst {
+  background: var(--hold-color);
+  animation: hold-burst 250ms ease-out forwards;
+}
+
+@keyframes hold-ring {
+  from {
+    opacity: 0.2;
+    transform: scale(1.6);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes hold-burst {
+  from {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  // Without motion the ring is simply there while the finger rests; the fill itself is instant.
+  .coloring-stage__hold--ring {
+    animation: none;
+  }
+
+  .coloring-stage__hold--burst {
+    display: none;
+  }
 }
 
 .coloring-stage__content {

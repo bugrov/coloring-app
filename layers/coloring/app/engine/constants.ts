@@ -40,9 +40,10 @@ export const HOLD_VIBRATION_MS = 15
 export const PROGRESS_GRID_LONG_SIDE = 256
 /**
  * A paint pixel counts as painted from this alpha (0–255); a grid cell is
- * painted when at least half of its sampled pixels are.
+ * painted when at least half of its sampled pixels are. Just under 25%
+ * opacity (64), the faintest preset, so even that paint counts.
  */
-export const PAINTED_ALPHA_MIN = 128
+export const PAINTED_ALPHA_MIN = 60
 /** Every n-th paint pixel per axis is sampled inside a cell: 16 samples per 8×8 block. */
 export const PROGRESS_SAMPLE_STEP = 2
 /** A region this covered counts as fully coloured, so 100% is reachable by hand. */

@@ -13,6 +13,21 @@ export interface StrokeStyle {
   color: string | null
   /** Line width in grid units. */
   width: number
+  /** Percent, 100 when absent; the eraser always removes paint completely. */
+  opacity?: number
+}
+
+/** The share of the paint a mark keeps when composited. */
+function alphaOf(style: StrokeStyle): number {
+  return style.tool === 'eraser' ? 1 : (style.opacity ?? 100) / 100
+}
+
+/**
+ * A soft brush stamped at partial opacity builds the whole stroke on the
+ * scratch canvas, so overlapping stamps never add up on the paint itself.
+ */
+function accumulatesOnScratch(style: StrokeStyle): boolean {
+  return style.tool === 'brush' && alphaOf(style) < 1
 }
 
 /** Extra pixels around a segment's bounds so caps and soft edges are not cut. */
@@ -75,16 +90,18 @@ export class Painter {
     if (!mask) return null
     const { rect } = mask
     if (live) this.saveBackup(rect)
+    if (accumulatesOnScratch(style)) this.scratchContext.clearRect(rect.x, rect.y, rect.width, rect.height)
     return new PaintStroke(style, {
       draw: (from, points, path, walker) => this.drawSegment(regionId, style, from, points, live ? path : null, walker),
       rebase: () => {
         if (live) this.saveBackup(rect)
+        if (accumulatesOnScratch(style)) this.scratchContext.clearRect(rect.x, rect.y, rect.width, rect.height)
       },
       restore: () => this.restoreBackup(rect),
     })
   }
 
-  fill(regionId: number, color: string): Rect | null {
+  fill(regionId: number, color: string, opacity = 100): Rect | null {
     const mask = this.prepare(regionId)
     if (!mask) return null
     const { rect } = mask
@@ -92,7 +109,7 @@ export class Painter {
     ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
     ctx.fillStyle = color
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height)
-    this.composite(mask, rect, 'source-over')
+    this.composite(mask, rect, 'source-over', opacity / 100)
     return rect
   }
 
@@ -113,7 +130,7 @@ export class Painter {
         return stroke?.dirty ?? null
       }
       case 'fill':
-        return this.fill(op.region, op.color)
+        return this.fill(op.region, op.color, op.opacity)
       case 'clear':
         return this.clear(op.region)
     }
@@ -165,7 +182,8 @@ export class Painter {
     ctx.beginPath()
     ctx.rect(rect.x, rect.y, rect.width, rect.height)
     ctx.clip()
-    ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
+    const accumulate = accumulatesOnScratch(style)
+    if (!accumulate) ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
     if (style.tool === 'brush') {
       this.stampBrush(style.color ?? '#000000', widthPx, walker.walk(points))
     }
@@ -174,8 +192,10 @@ export class Painter {
     }
     ctx.restore()
 
-    if (path && style.tool !== 'brush') this.restoreBackup(rect)
-    this.composite(mask, rect, style.tool === 'eraser' ? 'destination-out' : 'source-over')
+    // Redrawn over the saved base each frame: line tools always, an accumulating brush because the
+    // scratch already holds the whole stroke so far.
+    if (path && (style.tool !== 'brush' || accumulate)) this.restoreBackup(rect)
+    this.composite(mask, rect, style.tool === 'eraser' ? 'destination-out' : 'source-over', alphaOf(style))
     return rect
   }
 
@@ -199,7 +219,7 @@ export class Painter {
   }
 
   /** Masks the scratch rectangle and blends it onto the paint. */
-  private composite(mask: PreparedMask, rect: Rect, operation: GlobalCompositeOperation) {
+  private composite(mask: PreparedMask, rect: Rect, operation: GlobalCompositeOperation, alpha = 1) {
     const scratch = this.scratchContext
     // destination-in affects the whole canvas, not just the drawn rect; the
     // clip keeps the work (and the clearing) inside the rect.
@@ -212,7 +232,9 @@ export class Painter {
     scratch.restore()
 
     this.ctx.globalCompositeOperation = operation
+    this.ctx.globalAlpha = alpha
     copyRect(this.ctx, this.scratch, rect)
+    this.ctx.globalAlpha = 1
     this.ctx.globalCompositeOperation = 'source-over'
   }
 }
