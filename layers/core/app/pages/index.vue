@@ -1,12 +1,26 @@
 <script setup lang="ts">
 const games = useGames()
+const { user } = useUserSession()
+const signOut = useSignOut()
 </script>
 
 <template>
   <SafeAreaPage>
-    <h1 class="hub__title">
-      Игры
-    </h1>
+    <header class="hub__header">
+      <h1 class="hub__title">
+        Игры
+      </h1>
+      <p class="hub__user">
+        {{ user?.username }}
+      </p>
+      <button
+        class="button button--ghost"
+        type="button"
+        @click="signOut"
+      >
+        Выйти
+      </button>
+    </header>
     <ul class="hub__list">
       <li
         v-for="game in games"
@@ -24,9 +38,20 @@ const games = useGames()
 </template>
 
 <style scoped lang="scss">
+.hub__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 .hub__title {
   margin: 0;
   font-size: var(--font-size-l);
+}
+
+.hub__user {
+  margin: 0 0 0 auto;
+  color: var(--color-text-muted);
 }
 
 .hub__list {
