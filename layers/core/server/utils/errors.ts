@@ -14,6 +14,15 @@ export function apiError(statusCode: number, code: ApiErrorCode, extra: Pick<Api
 }
 
 /**
+ * An error with a code and message a game defines (its own messages.ts), for failures that
+ * are not part of the platform's codes.
+ */
+export function domainError(statusCode: number, code: string, message: string) {
+  const data: ApiErrorData = { code, message }
+  return createError({ statusCode, statusMessage: code, data })
+}
+
+/**
  * Reads the JSON body and validates it. A body that cannot be read at all is a
  * 400; a body that is read but wrong becomes a 422 with a message per field.
  */
