@@ -51,17 +51,21 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
   /** The congratulation card; it goes away by itself, or at once if the picture is no longer complete. */
   const congratulating = ref(false)
   let congratsTimer: ReturnType<typeof setTimeout> | undefined
+  // Runs the moment the progress changes (not on the next tick), so it can tell a finished picture that
+  // is being opened or rebuilt from one the player has just finished.
   watch(() => editor.progress.complete, (complete, was) => {
-    // A finished picture that is only being opened is not news.
-    if (!editor.historyReady) return
     clearTimeout(congratsTimer)
+    if (!editor.historyReady || editor.rebuilding) {
+      congratulating.value = false
+      return
+    }
     congratulating.value = complete
     if (!complete) return
     if (!was) celebrating.value = true
     congratsTimer = setTimeout(() => {
       congratulating.value = false
     }, CONGRATS_MS)
-  })
+  }, { flush: 'sync' })
   onBeforeUnmount(() => clearTimeout(congratsTimer))
 
   const history = useEditorHistory(artId, stage, { onChanged: prepareShare, notify: showNotice })

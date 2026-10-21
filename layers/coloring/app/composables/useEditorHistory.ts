@@ -186,8 +186,10 @@ export function useEditorHistory(
         if (mine === generation) editor.rebuilding = rebuilding
       },
     })
-    editor.historyReady = true
+    // The progress of what was loaded is reported while the editor still counts as "not ready", so a
+    // picture that was already finished does not play its victory when it is opened.
     publish()
+    editor.historyReady = true
     if (result.merged || opened.log.dirty) sync.changed()
   }
 
