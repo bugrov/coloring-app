@@ -2,3 +2,9 @@ onlyBuiltDependencies:
   - "@parcel/watcher"
   - esbuild
   - unrs-resolver
+
+overrides:
+  # nuxt-security 2.6.0 crashes with xss 1.0.16 ("escapeHtml is not a function": every POST
+  # answers 500). Fix pending: https://github.com/Baroshem/nuxt-security/pull/765
+  # Remove this pin once nuxt-security supports xss 1.0.16.
+  xss: 1.0.15

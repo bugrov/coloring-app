@@ -19,21 +19,30 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "check": "pnpm typecheck && pnpm lint && pnpm lint:css && pnpm test"
+    "check": "pnpm typecheck && pnpm lint && pnpm lint:css && pnpm test",
+    "db:generate": "node --env-file-if-exists=.env ./node_modules/drizzle-kit/bin.cjs generate",
+    "db:migrate": "node --env-file-if-exists=.env ./node_modules/drizzle-kit/bin.cjs migrate",
+    "db:studio": "node --env-file-if-exists=.env ./node_modules/drizzle-kit/bin.cjs studio"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
     "@xmldom/xmldom": "^0.9.12",
+    "drizzle-orm": "^0.45.4",
     "nuxt": "^4.6.2",
+    "nuxt-auth-utils": "^0.5.32",
+    "nuxt-security": "^2.6.0",
     "svgpath": "^2.6.0",
     "vue": "^3.5.44",
     "vue-router": "^5.4.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.10",
     "@nuxt/eslint": "^1.17.0",
     "@nuxt/test-utils": "^4.3.4",
     "@playwright/test": "^1.64.1",
     "@vue/test-utils": "^2.5.1",
+    "drizzle-kit": "^0.31.11",
     "eslint": "^10.13.0",
     "happy-dom": "^21.0.4",
     "postcss-html": "^2.0.0",
