@@ -2,6 +2,9 @@ import { defineConfig, devices } from '@playwright/test'
 
 const PORT = 3000
 
+// Secrets of the test server only; real ones live in .env and Vercel.
+export const E2E_ADMIN = { login: 'e2e-admin', password: 'e2e-admin-password' }
+
 // WebKit on Windows applies the OS display scaling to the emulated viewport
 // (e.g. 750px becomes 600px at 125%), which breaks layout assertions. CI runs
 // WebKit on Linux; locally on Windows it is opt-in via PW_WEBKIT=1.
@@ -31,7 +34,13 @@ export default defineConfig({
   webServer: {
     command: 'pnpm build && pnpm preview',
     url: `http://localhost:${PORT}`,
-    reuseExistingServer: !process.env.CI,
+    // Always a fresh server: a leftover one would not have the test secrets below.
+    reuseExistingServer: false,
     timeout: 300_000,
+    env: {
+      ADMIN_LOGIN: E2E_ADMIN.login,
+      ADMIN_PASSWORD: E2E_ADMIN.password,
+      NUXT_SESSION_PASSWORD: 'e2e-session-password-at-least-32-characters-long',
+    },
   },
 })

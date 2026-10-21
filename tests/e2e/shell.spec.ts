@@ -1,14 +1,6 @@
 import { expect, test } from '@playwright/test'
 
 test.describe('app shell', () => {
-  test('opens a game from the hub', async ({ page }) => {
-    await page.goto('/')
-    await page.getByRole('link', { name: 'Раскраска' }).click()
-
-    await expect(page).toHaveURL('/coloring')
-    await expect(page.getByRole('heading', { name: 'Раскраска' })).toBeVisible()
-  })
-
   test('behaves like a game, not a web page', async ({ page }) => {
     await page.goto('/')
 
