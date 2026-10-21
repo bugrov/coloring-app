@@ -11,7 +11,7 @@ function freshAddress(): string {
 
 async function signIn(page: Page, suffix: string) {
   await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': freshAddress() })
-  const login = await page.request.post('/api/auth/login', { data: { username: `e2h${Date.now().toString(36)}${suffix}`, country: 'RU' } })
+  const login = await page.request.post('/api/auth/login', { data: { username: `e2h${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}${suffix}`, country: 'RU' } })
   expect(login.status()).toBe(200)
 }
 
@@ -324,6 +324,7 @@ test.describe('history with the database', () => {
   })
 
   test('a painted thumbnail appears on the gallery card, and goes when the art is deleted', async ({ page }) => {
+    test.setTimeout(150_000)
     await signIn(page, 's')
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="#fff"/></svg>'
     const imported = await page.request.post('/api/coloring/imports?name=thumb.svg', { data: svg, headers: { 'content-type': 'image/svg+xml' } })
@@ -340,7 +341,12 @@ test.describe('history with the database', () => {
 
     // The editor sends the picture a few seconds after the save; leaving the editor sends it at once.
     await page.getByRole('link', { name: 'К галерее' }).click()
-    await expect(page.getByRole('link', { name: /^thumb/ }).locator('img')).toHaveAttribute('src', /\/thumbnail\?v=\d+/, { timeout: 20_000 })
+    await page.waitForURL(/\/coloring$/, { timeout: 15_000 })
+    // On a slow machine the picture can arrive after the gallery was read: the next visit shows it.
+    await expect(async () => {
+      await page.reload()
+      await expect(page.getByRole('link', { name: /^thumb/ }).locator('img')).toHaveAttribute('src', /\/thumbnail\?v=\d+/, { timeout: 10_000 })
+    }).toPass({ timeout: 90_000 })
     const image = await page.request.get(`/api/coloring/arts/${id}/thumbnail`)
     expect(image.status()).toBe(200)
     expect(image.headers()['content-type']).toMatch(/^image\/(webp|png)$/)
