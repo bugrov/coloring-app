@@ -1,7 +1,9 @@
 import { readApiError } from '#layers/core/shared/errors'
 import type { ArtDetails, Op } from '../../shared'
-import type { Progress } from '../engine'
+import type { PaintDelta, Progress } from '../engine'
+import { HISTORY_ERROR_MESSAGES } from '../../shared'
 import { useEditorStore } from '../stores/editor'
+import { useEditorHistory } from './useEditorHistory'
 import type { ColoringStageHandle } from './useColoringStage'
 import { useShareImage } from './useShareImage'
 
@@ -18,7 +20,7 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
   const editor = useEditorStore()
   const api = useRequestFetch()
 
-  const { data, status, error, refresh } = useFetch<ArtDetails>(() => `/api/coloring/arts/${artId.value}`, { key: () => `coloring-art-${artId.value}` })
+  const { data, error, refresh } = useFetch<ArtDetails>(() => `/api/coloring/arts/${artId.value}`, { key: () => `coloring-art-${artId.value}` })
   const art = computed(() => data.value?.art ?? null)
   const title = computed(() => data.value?.title ?? '')
 
@@ -50,6 +52,8 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
   const congratulating = ref(false)
   let congratsTimer: ReturnType<typeof setTimeout> | undefined
   watch(() => editor.progress.complete, (complete, was) => {
+    // A finished picture that is only being opened is not news.
+    if (!editor.historyReady) return
     clearTimeout(congratsTimer)
     congratulating.value = complete
     if (!complete) return
@@ -60,28 +64,16 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
   })
   onBeforeUnmount(() => clearTimeout(congratsTimer))
 
-  function onOps(ops: Op[]) {
-    editor.record(ops)
-    prepareShare()
-  }
+  const history = useEditorHistory(artId, stage, { onChanged: prepareShare, notify: showNotice })
 
   function onProgress(progress: Progress) {
     editor.progress = progress
   }
 
-  /** Rebuilds the picture from the steps that are applied now. A stroke in progress is dropped by the stage. */
-  function rebuild() {
-    stage.value?.replay(editor.activeOps)
-    prepareShare()
-  }
-
-  function undo() {
-    if (editor.undo()) rebuild()
-  }
-
-  function redo() {
-    if (editor.redo()) rebuild()
-  }
+  // The player cannot go on drawing in a history that is full; say why, once.
+  watch(() => editor.historyFull, (full) => {
+    if (full) showNotice(HISTORY_ERROR_MESSAGES.history_full)
+  })
 
   /** Starts the art over; the server keeps the old attempt (it is shown in the gallery as a new empty card state). */
   async function restart(): Promise<boolean> {
@@ -89,7 +81,12 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
     const id = artId.value
     restarting.value = true
     try {
-      await api(`/api/coloring/arts/${id}/restart`, { method: 'POST' })
+      // Unsaved work goes out first; when the player moved on to another art meanwhile its picture is not ours to reset.
+      const done = await history.startOver(async () => {
+        await api(`/api/coloring/arts/${id}/restart`, { method: 'POST' })
+      })
+      if (done) celebrating.value = false
+      return done
     }
     catch (failure) {
       showNotice(readApiError(failure).message)
@@ -98,12 +95,6 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
     finally {
       restarting.value = false
     }
-    // The player moved on to another art while the request ran: its picture is not ours to reset.
-    if (artId.value !== id) return false
-    editor.resetPicture()
-    celebrating.value = false
-    rebuild()
-    return true
   }
 
   async function shareImage() {
@@ -116,5 +107,23 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
     }
   }
 
-  return { art, title, status, loadError, retry: refresh, notice, restarting, celebrating, congratulating, onOps, onProgress, undo, redo, restart, shareImage }
+  return {
+    art,
+    title,
+    loadError,
+    retry: refresh,
+    historyError: history.loadError,
+    retryHistory: history.open,
+    notice,
+    restarting,
+    celebrating,
+    congratulating,
+    onStageReady: history.open,
+    onOps: (ops: Op[], delta: PaintDelta | null) => history.record(ops, delta),
+    onProgress,
+    undo: history.undo,
+    redo: history.redo,
+    restart,
+    shareImage,
+  }
 }

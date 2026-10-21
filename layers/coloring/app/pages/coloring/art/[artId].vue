@@ -9,9 +9,12 @@ const artId = computed(() => String(route.params.artId))
 
 const editor = useEditorStore()
 const stage = useTemplateRef<ColoringStageHandle>('stage')
-const { art, title, status, loadError, retry, notice, restarting, celebrating, congratulating, onOps, onProgress, undo, redo, restart, shareImage } = useColoringEditor(artId, stage)
+const { art, title, loadError, retry, historyError, retryHistory, notice, restarting, celebrating, congratulating, onStageReady, onOps, onProgress, undo, redo, restart, shareImage } = useColoringEditor(artId, stage)
 
 useHead({ title: computed(() => title.value || 'Раскраска'), meta: [{ name: 'robots', content: 'noindex' }] })
+
+/** The message of whatever stopped the editor from opening: the art, or its saved history. */
+const failure = computed(() => loadError.value || historyError.value)
 
 const confirmRestart = ref(false)
 
@@ -44,20 +47,23 @@ async function onRestartConfirmed() {
         :color="editor.color"
         :opacity="editor.opacity"
         :thickness="editor.thickness"
+        :locked="editor.locked"
+        @ready="onStageReady"
         @ops="onOps"
         @progress="onProgress"
       />
       <div
-        v-else
+        v-if="!art || !editor.historyReady"
         class="editor__state"
-        :role="loadError ? 'alert' : 'status'"
+        :class="{ 'editor__state--over': art }"
+        :role="failure ? 'alert' : 'status'"
       >
-        <template v-if="loadError">
-          <p>{{ loadError }}</p>
+        <template v-if="failure">
+          <p>{{ failure }}</p>
           <button
             type="button"
             class="editor__retry"
-            @click="retry()"
+            @click="loadError ? retry() : retryHistory()"
           >
             Повторить
           </button>
@@ -65,14 +71,20 @@ async function onRestartConfirmed() {
             К галерее
           </NuxtLink>
         </template>
-        <p v-else-if="status === 'pending'">
+        <p v-else>
           Загружаем рисунок…
         </p>
       </div>
+      <template #status>
+        <EditorSaveStatus
+          v-if="editor.historyReady"
+          :status="editor.saveStatus"
+        />
+      </template>
       <template #plate>
         <EditorHistoryBar
-          :can-undo="editor.canUndo"
-          :can-redo="editor.canRedo"
+          :can-undo="editor.canUndo && !editor.locked"
+          :can-redo="editor.canRedo && !editor.locked"
           @undo="undo"
           @redo="redo"
         />
@@ -126,6 +138,12 @@ async function onRestartConfirmed() {
   height: 100%;
   padding: var(--space-4);
   text-align: center;
+}
+
+.editor__state--over {
+  position: absolute;
+  inset: 0;
+  background: var(--color-surface);
 }
 
 .editor__state p {

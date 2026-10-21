@@ -150,6 +150,59 @@ export class Painter {
     this.ctx.clearRect(0, 0, this.space.paintWidth, this.space.paintHeight)
   }
 
+  /** Copies the whole paint onto `target`, a canvas of the same size. */
+  copyPaintTo(target: AnyCanvas) {
+    const ctx = context2d(target)
+    ctx.globalCompositeOperation = 'copy'
+    ctx.drawImage(this.canvas, 0, 0)
+    ctx.globalCompositeOperation = 'source-over'
+  }
+
+  /** Replaces the whole paint with `source`, a canvas of the same size (a copy made by `copyPaintTo`). */
+  restorePaintFrom(source: AnyCanvas) {
+    this.ctx.globalCompositeOperation = 'copy'
+    this.ctx.drawImage(source, 0, 0)
+    this.ctx.globalCompositeOperation = 'source-over'
+  }
+
+  /**
+   * The paint of the regions' areas as it is now: what a step on these regions is about to change.
+   * Null when none of them exists.
+   */
+  captureRegions(regionIds: readonly number[]): PaintDelta | null {
+    let area: Rect | null = null
+    for (const id of regionIds) area = unionRect(area, this.prepare(id)?.rect ?? null)
+    return area ? copyOut(this.canvas, area, this.fullRect) : null
+  }
+
+  /** `rect` of the pixels saved before the live stroke began (see `beginStroke`); null when it is empty. */
+  captureBackup(rect: Rect | null): PaintDelta | null {
+    return rect ? copyOut(this.backup, rect, this.fullRect) : null
+  }
+
+  /**
+   * Exchanges the delta's pixels with the same area of the paint: what was there goes into the
+   * delta. Done once it takes a step back, again it takes the step forward. Returns the area.
+   */
+  swapRect(delta: PaintDelta): Rect {
+    const { canvas, rect } = delta
+    const current = crop(this.canvas, rect)
+    // The delta is exactly `rect` big, so drawing it over the cleared area touches nothing else.
+    this.ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
+    this.ctx.drawImage(canvas, rect.x, rect.y)
+
+    const inside = context2d(canvas)
+    inside.clearRect(0, 0, rect.width, rect.height)
+    inside.drawImage(current, 0, 0)
+    releaseCanvas(current)
+    return rect
+  }
+
+  /** A blank canvas of the paint's size, for a snapshot. */
+  createSnapshotCanvas(): AnyCanvas {
+    return createCanvas(this.space.paintWidth, this.space.paintHeight)
+  }
+
   dispose() {
     releaseCanvas(this.scratch)
     releaseCanvas(this.backup)
@@ -315,6 +368,27 @@ export function tracePolylineNear(ctx: AnyContext, line: readonly number[], rect
 }
 
 /** A stroke in progress. Points are in grid units, as stored in ops. */
+/** A piece of the paint kept to undo (and redo) one step without replaying anything: see `Painter.swapRect`. */
+export interface PaintDelta {
+  readonly canvas: AnyCanvas
+  /** Where the piece belongs on the paint canvas (whole pixels). */
+  readonly rect: Rect
+}
+
+/** Copies the part of `source` under `area` (kept inside `bounds`); null when nothing is left. */
+function copyOut(source: AnyCanvas, area: Rect, bounds: Rect): PaintDelta | null {
+  const rect = intersectRect(area, bounds)
+  if (!rect) return null
+  return { canvas: crop(source, rect), rect }
+}
+
+/** A new canvas holding the part of `source` under `rect`. */
+function crop(source: AnyCanvas, rect: Rect): AnyCanvas {
+  const canvas = createCanvas(rect.width, rect.height)
+  context2d(canvas).drawImage(source, rect.x, rect.y, rect.width, rect.height, 0, 0, rect.width, rect.height)
+  return canvas
+}
+
 export class PaintStroke {
   private readonly gridPoints: number[] = []
   private readonly paintPath: number[] = []

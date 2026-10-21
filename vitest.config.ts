@@ -10,6 +10,9 @@ export default defineConfig({
           name: 'unit',
           include: ['tests/unit/**/*.test.ts'],
           environment: 'node',
+          // Server tests start PGlite and run every migration; with all test files in parallel that outlasts the default 5 s.
+          testTimeout: 20_000,
+          hookTimeout: 30_000,
         },
       },
       await defineVitestProject({

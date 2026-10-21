@@ -12,3 +12,9 @@ export const DEFAULT_IMPORT_TITLE = 'Мой рисунок'
 
 /** Progress, whole percent. A region counts as painted at the engine's own threshold. */
 export const PERCENT_MAX = 100
+
+/** Longest side of a gallery thumbnail of the painted picture, in pixels. */
+export const THUMBNAIL_LONG_SIDE = 512
+
+/** Largest thumbnail the server accepts, in bytes (a 512 px WebP is some 20-40 KB). */
+export const THUMBNAIL_MAX_BYTES = 200_000

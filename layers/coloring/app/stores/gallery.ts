@@ -113,7 +113,7 @@ export const useGalleryStore = defineStore('coloring-gallery', () => {
     if (done) {
       // The new attempt starts empty; the server keeps the old one and says which attempt is current.
       const card = items.value.find(item => item.id === id)
-      if (card) Object.assign(card, { percent: 0, completed: false, attempt })
+      if (card) Object.assign(card, { percent: 0, completed: false, thumbnail: null, attempt })
     }
     return done
   }

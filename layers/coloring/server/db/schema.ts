@@ -1,6 +1,6 @@
-import { bigint, boolean, index, integer, jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
+import { bigint, boolean, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
 import { users } from '../../../core/server/db/schema'
-import type { ColoringArt } from '../../shared'
+import type { ColoringArt, HistoryStep } from '../../shared'
 
 export const ART_SOURCES = ['builtin', 'user'] as const
 export type ArtSource = typeof ART_SOURCES[number]
@@ -34,10 +34,28 @@ export const progress = pgTable('progress', {
   /** Whole percent of the drawing painted, 0-100. */
   percent: integer().notNull().default(0),
   completed: boolean().notNull().default(false),
+  /** Steps applied now (`history_steps` with a lower or equal `seq`); the rest is the redo branch. */
+  cursor: integer().notNull().default(0),
+  /** Steps stored in `history_steps` (their highest `seq`). */
+  stepCount: integer('step_count').notNull().default(0),
+  /** Counts accepted saves of the history: a save made on an older one is a conflict. */
+  rev: integer().notNull().default(0),
+  /** When the gallery thumbnail was last stored; null while there is none. */
+  thumbnailAt: timestamp('thumbnail_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, table => [
   unique('progress_user_art_attempt_unique').on(table.userId, table.artId, table.attempt),
+])
+
+/** The steps of an attempt, in order: one row is one user action (its ops are undone together). */
+export const historySteps = pgTable('history_steps', {
+  progressId: uuid('progress_id').notNull().references(() => progress.id, { onDelete: 'cascade' }),
+  /** 1-based position in the attempt. */
+  seq: integer().notNull(),
+  ops: jsonb().$type<HistoryStep>().notNull(),
+}, table => [
+  primaryKey({ columns: [table.progressId, table.seq] }),
 ])
 
 export type ArtRow = typeof arts.$inferSelect

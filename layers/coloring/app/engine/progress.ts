@@ -12,6 +12,12 @@ export interface Progress {
   complete: boolean
 }
 
+/** The tracker's counts at a moment, so progress need not be measured again after going back to it. */
+export interface ProgressState {
+  painted: Uint8Array
+  counts: Uint32Array
+}
+
 export const EMPTY_PROGRESS: Readonly<Progress> = { percent: 0, complete: false }
 
 /**
@@ -157,6 +163,22 @@ export class ProgressTracker {
     if (value === this.painted[cell]) return
     this.painted[cell] = value
     this.paintedCounts[index]! += isPainted ? 1 : -1
+  }
+
+  /** Forgets everything painted (the paint canvas was cleared). */
+  reset() {
+    this.painted.fill(0)
+    this.paintedCounts.fill(0)
+  }
+
+  /** Which cells count as painted; a copy that `restoreState` takes back. */
+  saveState(): ProgressState {
+    return { painted: this.painted.slice(), counts: this.paintedCounts.slice() }
+  }
+
+  restoreState(state: ProgressState) {
+    this.painted.set(state.painted)
+    this.paintedCounts.set(state.counts)
   }
 
   get progress(): Progress {

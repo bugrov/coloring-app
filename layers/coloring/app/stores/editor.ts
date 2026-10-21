@@ -1,7 +1,9 @@
 import { defineStore } from 'pinia'
-import { computed, ref, shallowRef } from 'vue'
+import { computed, ref } from 'vue'
 import { DEFAULT_COLOR, DEFAULT_OPACITY, OPACITY_LEVELS } from '../../shared'
-import type { Op, Tool } from '../../shared'
+import type { Tool } from '../../shared'
+import { MAX_HISTORY_STEPS, type HistoryLog } from '../../shared/history'
+import type { SyncStatus } from '../sync'
 import { DEFAULT_THICKNESS, EMPTY_PROGRESS, THICKNESS_SCALES, type Progress } from '../engine'
 
 /** How many colours the toolbar keeps within reach next to the full palette. */
@@ -11,9 +13,9 @@ export const RECENT_COLOR_COUNT = 3
 const INITIAL_RECENT = ['#1e88e5', '#fdd835', DEFAULT_COLOR]
 
 /**
- * What the player has chosen in the editor (tool, colour, opacity, thickness, the open palette), the picture's
- * progress and an in-session undo history. The history is not saved anywhere yet; the sync step
- * replaces it with the stored one.
+ * What the player has chosen in the editor (tool, colour, opacity, thickness, the open palette), the
+ * picture's progress, and what the interface needs to know about the history and its saving. The
+ * history itself lives in the engine's `Timeline`; this store only mirrors what the buttons show.
  */
 export const useEditorStore = defineStore('coloring-editor', () => {
   const tool = ref<Tool>('brush')
@@ -25,19 +27,23 @@ export const useEditorStore = defineStore('coloring-editor', () => {
   const paletteOpen = ref(false)
   const progress = ref<Progress>({ ...EMPTY_PROGRESS })
 
-  /** One entry per user action (a long stroke may be several ops, but one undo step). */
-  const steps = shallowRef<Op[][]>([])
-  /** Number of steps currently applied; the rest is the redo branch. */
-  const cursor = ref(0)
+  const canUndo = ref(false)
+  const canRedo = ref(false)
+  /** Steps in the history, including the undone ones. */
+  const historyLength = ref(0)
+  /** False until the saved history has been loaded and drawn; the player cannot draw before. */
+  const historyReady = ref(false)
+  /** The picture is being rebuilt (a conflict was settled): drawing waits. */
+  const rebuilding = ref(false)
+  /** The attempt holds as many steps as it may; nothing more can be drawn until it is started over. */
+  const historyFull = ref(false)
+  const saveStatus = ref<SyncStatus>('saved')
 
   const color = computed(() => recentColors.value.at(-1)!)
-  const canUndo = computed(() => cursor.value > 0)
-  const canRedo = computed(() => cursor.value < steps.value.length)
+  /** Drawing is possible only on a loaded picture that is not being rebuilt. */
+  const locked = computed(() => !historyReady.value || rebuilding.value || historyFull.value)
   /** Starting over makes sense once something was drawn (or undone) in this picture. */
-  const canRestart = computed(() => canUndo.value || canRedo.value || progress.value.percent > 0)
-  /** Every op that makes up the picture now. */
-  const activeOps = computed(() => steps.value.slice(0, cursor.value).flat())
-
+  const canRestart = computed(() => historyLength.value > 0 || progress.value.percent > 0)
   function selectColor(hex: string) {
     recentColors.value = [...recentColors.value.filter(entry => entry !== hex), hex].slice(-RECENT_COLOR_COUNT)
   }
@@ -58,34 +64,29 @@ export const useEditorStore = defineStore('coloring-editor', () => {
     thickness.value = THICKNESS_SCALES[(index + 1) % THICKNESS_SCALES.length] ?? DEFAULT_THICKNESS
   }
 
-  /** Records a finished action; a new one cuts off the redo branch. */
-  function record(ops: Op[]) {
-    steps.value = [...steps.value.slice(0, cursor.value), ops]
-    cursor.value = steps.value.length
-  }
-
-  function undo(): boolean {
-    if (!canUndo.value) return false
-    cursor.value -= 1
-    return true
-  }
-
-  function redo(): boolean {
-    if (!canRedo.value) return false
-    cursor.value += 1
-    return true
+  /** Takes over what the history allows right now. */
+  function syncHistory(log: HistoryLog) {
+    canUndo.value = log.canUndo
+    canRedo.value = log.canRedo
+    historyLength.value = log.length
+    historyFull.value = log.cursor >= MAX_HISTORY_STEPS
   }
 
   /** A fresh picture: no history, no progress. The tool, colour, opacity and thickness stay. */
   function resetPicture() {
-    steps.value = []
-    cursor.value = 0
+    canUndo.value = false
+    canRedo.value = false
+    historyLength.value = 0
+    historyFull.value = false
     progress.value = { ...EMPTY_PROGRESS }
   }
 
   /** Called when an art is opened: nothing of the previous one carries over. */
   function open() {
     resetPicture()
+    historyReady.value = false
+    rebuilding.value = false
+    saveStatus.value = 'saved'
     paletteOpen.value = false
   }
 
@@ -100,14 +101,17 @@ export const useEditorStore = defineStore('coloring-editor', () => {
     canUndo,
     canRedo,
     canRestart,
-    activeOps,
+    historyLength,
+    historyReady,
+    historyFull,
+    rebuilding,
+    saveStatus,
+    locked,
     selectColor,
     togglePalette,
     cycleOpacity,
     cycleThickness,
-    record,
-    undo,
-    redo,
+    syncHistory,
     resetPicture,
     open,
   }

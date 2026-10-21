@@ -1,5 +1,6 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { HistoryLog } from '../../../layers/coloring/shared/history'
 import type { Op } from '../../../layers/coloring/shared'
 import { useEditorStore } from '../../../layers/coloring/app/stores/editor'
 
@@ -53,36 +54,45 @@ describe('editor store', () => {
     expect(seen).toEqual([100, 75, 50, 25, 100])
   })
 
-  it('undoes and redoes whole actions, and a new action cuts off the redo branch', () => {
+  it('mirrors what the history allows, and starting over needs something to start over from', () => {
     const editor = useEditorStore()
-    editor.record([fill(1), fill(1)])
-    editor.record([fill(2)])
-    expect(editor.activeOps).toHaveLength(3)
+    expect(editor.canRestart).toBe(false)
 
-    expect(editor.undo()).toBe(true)
-    expect(editor.activeOps).toHaveLength(2)
+    const log = new HistoryLog()
+    log.push([fill(1)])
+    log.push([fill(2)])
+    log.undo()
+    editor.syncHistory(log)
+
+    expect(editor.canUndo).toBe(true)
     expect(editor.canRedo).toBe(true)
-
-    editor.record([fill(3)])
-    expect(editor.canRedo).toBe(false)
-    expect(editor.activeOps.map(op => op.region)).toEqual([1, 1, 3])
+    expect(editor.canRestart).toBe(true)
   })
 
-  it('refuses to undo or redo past the ends', () => {
+  it('locks drawing until the saved history is on the canvas, and while the canvas is rebuilt', () => {
     const editor = useEditorStore()
-    expect(editor.undo()).toBe(false)
-    expect(editor.redo()).toBe(false)
+    expect(editor.locked).toBe(true)
+
+    editor.historyReady = true
+    expect(editor.locked).toBe(false)
+
+    editor.rebuilding = true
+    expect(editor.locked).toBe(true)
   })
 
   it('opening an art drops the history and closes the palette but keeps the choices', () => {
     const editor = useEditorStore()
+    const log = new HistoryLog()
+    log.push([fill(1)])
     editor.selectColor('#43a047')
-    editor.record([fill(1)])
+    editor.syncHistory(log)
+    editor.historyReady = true
     editor.togglePalette(true)
 
     editor.open()
 
     expect(editor.canUndo).toBe(false)
+    expect(editor.historyReady).toBe(false)
     expect(editor.paletteOpen).toBe(false)
     expect(editor.color).toBe('#43a047')
   })

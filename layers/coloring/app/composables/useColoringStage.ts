@@ -9,12 +9,16 @@ import {
   HoldDetector,
   IDENTITY_VIEW,
   panBy,
+  releaseCanvas,
   PINCH_MIN_DISTANCE_PX,
   WHEEL_LINE_HEIGHT_PX,
   WHEEL_PAN_MAX_DELTA_PX,
   WHEEL_ZOOM_MAX_DELTA_PX,
   WHEEL_ZOOM_SPEED,
   zoomAt,
+  type PaintDelta,
+  type PaintHost,
+  type PaintSnapshot,
   type Progress,
   type StrokeRecorder,
   type View,
@@ -28,9 +32,14 @@ export interface ColoringStageOptions {
   opacity: Ref<number>
   /** Multiplier of the tool's line width. */
   thickness: Ref<number>
+  /** While true the player cannot draw (the picture is being rebuilt, or the history is full). */
+  locked?: Ref<boolean>
   /** Feedback for a long press; position is in px relative to the stage. */
   onHold?: (feedback: HoldFeedback) => void
-  onOps: (ops: Op[]) => void
+  /** A finished action; `delta` lets the history take it back without replaying (see `Timeline`). */
+  onOps: (ops: Op[], delta: PaintDelta | null) => void
+  /** A fresh engine is ready on a blank canvas (a new art, or the first one): the picture can be rebuilt. */
+  onReady?: () => void
   onProgress: (progress: Progress) => void
 }
 
@@ -65,9 +74,15 @@ export function createFrameStats(): FrameStats {
 export interface ColoringStageHandle {
   stats: Readonly<FrameStats>
   resetView: () => void
-  /** Rebuilds the picture from ops (undo/redo, restoring a session); drops a stroke in progress. */
+  /** Rebuilds the picture from ops; drops a stroke in progress. For the sandbox, the editor uses `paint`. */
   replay: (ops: readonly Op[]) => void
+  /** What the history (`Timeline`) needs from the picture; each call drops a stroke in progress. */
+  paint: PaintHost<PaintSnapshot, PaintDelta>
+  /** Reports the progress of the picture as it is now; call it after the history changed the picture. */
+  publishProgress: () => void
   exportPng: () => Promise<Blob>
+  /** A small image of the picture for the gallery card. */
+  exportThumbnail: (longSide: number) => Promise<Blob>
   /** Whether a stroke is in progress (its pixels are not final yet). */
   isDrawing: () => boolean
 }
@@ -138,7 +153,10 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     view.value = IDENTITY_VIEW
     Object.assign(stats, createFrameStats())
     // The content box changes with the art's proportions; remember it once laid out.
-    nextTick(rememberContentSize)
+    nextTick(() => {
+      rememberContentSize()
+      options.onReady?.()
+    })
     options.onProgress(engine.value.progress)
   }, { immediate: true })
 
@@ -226,8 +244,8 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     gesture = null
   }
 
-  function commit(ops: Op[]) {
-    options.onOps(ops)
+  function commit(ops: Op[], delta: PaintDelta | null) {
+    options.onOps(ops, delta)
     if (engine.value) options.onProgress(engine.value.progress)
   }
 
@@ -235,9 +253,9 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     if (!stroke) return
     flushStroke()
     clearHoldTimer()
-    const ops = stroke.recorder.finish()
+    const { ops, delta } = stroke.recorder.finish()
     stroke = null
-    commit(ops)
+    commit(ops, delta)
   }
 
   function onHold() {
@@ -247,12 +265,12 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     const { recorder } = stroke
     recorder.cancel()
     stroke = null
-    const op = options.tool.value === 'eraser'
+    const { op, delta } = options.tool.value === 'eraser'
       ? engine.value.clear(recorder.region)
       : engine.value.fill(recorder.region, options.color.value, options.opacity.value)
     navigator.vibrate?.(HOLD_VIBRATION_MS)
     options.onHold?.({ phase: 'fill', ...holdAt })
-    commit([op])
+    commit([op], delta)
   }
 
   function gestureSnapshot(): Gesture {
@@ -293,6 +311,8 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
       return
     }
 
+    // Zoom and pan stay possible while locked; drawing does not.
+    if (options.locked?.value) return
     const ratio = ratioOf(event, canvas.value!.getBoundingClientRect())
     if (!isOnArt(ratio)) return
     const { point, region } = engine.value.locate(...ratio)
@@ -422,6 +442,16 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     engine.value = null
   })
 
+  /**
+   * The engine, with a stroke in progress taken back: the picture is about to change under it, and
+   * the pixels of a half-drawn stroke must not stay on it (an undo tapped by a second finger).
+   */
+  function ready(): ColoringEngine {
+    if (!engine.value) throw new Error('Engine is not ready')
+    abortStroke()
+    return engine.value
+  }
+
   const handle: ColoringStageHandle = {
     stats,
     resetView: () => {
@@ -434,6 +464,23 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
       engine.value.replay(ops)
       options.onProgress(engine.value.progress)
     },
+    paint: {
+      clear: () => ready().clearPaint(),
+      apply: step => ready().applyOps(step),
+      settle: () => ready().settle(),
+      snapshot: () => ready().snapshot(),
+      restore: snapshot => ready().restore(snapshot),
+      // Freed whether or not the engine is still there: the history lets go of them while the stage goes away.
+      release: snapshot => releaseCanvas(snapshot.canvas),
+      capture: step => ready().captureBefore(step),
+      swap: delta => ready().swapDelta(delta),
+      discard: delta => releaseCanvas(delta.canvas),
+      cost: delta => delta.rect.width * delta.rect.height,
+    },
+    publishProgress: () => {
+      if (engine.value) options.onProgress(engine.value.progress)
+    },
+    exportThumbnail: longSide => engine.value?.exportThumbnail(longSide) ?? Promise.reject(new Error('Engine is not ready')),
     exportPng: () => engine.value?.exportPng() ?? Promise.reject(new Error('Engine is not ready')),
     isDrawing: () => stroke !== null,
   }
