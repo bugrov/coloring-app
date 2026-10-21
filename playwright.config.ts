@@ -1,6 +1,10 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = 3000
+// A port of its own: a dev server on 3000 must neither be reused nor collide.
+const PORT = 3100
+
+// Real-database scenarios are opt-in: E2E_WITH_DB=1 pnpm test:e2e
+const withDb = process.env.E2E_WITH_DB === '1'
 
 // Secrets of the test server only; real ones live in .env and Vercel.
 export const E2E_ADMIN = { login: 'e2e-admin', password: 'e2e-admin-password' }
@@ -32,12 +36,14 @@ export default defineConfig({
     { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } },
   ],
   webServer: {
-    command: 'pnpm build && pnpm preview',
+    // The default run never loads .env, so it cannot reach a real database; only E2E_WITH_DB=1 does.
+    command: `pnpm build && node ${withDb ? '--env-file=.env ' : ''}.output/server/index.mjs`,
     url: `http://localhost:${PORT}`,
     // Always a fresh server: a leftover one would not have the test secrets below.
     reuseExistingServer: false,
     timeout: 300_000,
     env: {
+      PORT: String(PORT),
       ADMIN_LOGIN: E2E_ADMIN.login,
       ADMIN_PASSWORD: E2E_ADMIN.password,
       NUXT_SESSION_PASSWORD: 'e2e-session-password-at-least-32-characters-long',

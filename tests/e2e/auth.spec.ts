@@ -1,16 +1,14 @@
 import { expect, test, type Page } from '@playwright/test'
 import { E2E_ADMIN } from '../../playwright.config'
 
-// Needs DATABASE_URL (a migrated Neon branch) in .env; off by default so a
-// run never touches a real database unasked: E2E_WITH_DB=1 pnpm test:e2e
+// Needs DATABASE_URL (a migrated Neon branch) in .env. Off by default: the test
+// server then never even loads .env, so a run cannot touch a real database unasked.
 const withDb = process.env.E2E_WITH_DB === '1'
 
-let ipCounter = 0
-
+/** A random private address: tests running in parallel never share a rate limit bucket. */
 function freshAddress(): string {
-  const octet = (process.pid % 200) + 1
-  ipCounter += 1
-  return `10.${octet}.${Math.floor(ipCounter / 250)}.${ipCounter % 250}`
+  const octet = () => Math.floor(Math.random() * 254) + 1
+  return `10.${octet()}.${octet()}.${octet()}`
 }
 
 /**
@@ -72,10 +70,11 @@ test.describe('sign-in API', () => {
   })
 
   test('refuses a body that is not JSON of the expected shape', async ({ request }) => {
-    const response = await request.post('/api/auth/login', { data: 'just text', headers: { 'x-forwarded-for': freshAddress() } })
+    const response = await request.post('/api/auth/login', { data: '{', headers: { 'x-forwarded-for': freshAddress(), 'content-type': 'application/json' } })
 
-    expect(response.status()).toBeGreaterThanOrEqual(400)
-    expect(response.status()).toBeLessThan(500)
+    // Still the single error shape of the API, not the framework's own.
+    expect(response.status()).toBe(422)
+    expect((await response.json()).data).toMatchObject({ code: 'validation' })
   })
 })
 
@@ -152,8 +151,9 @@ test.describe('administrator', () => {
       statuses.push(response.status())
     }
 
-    // The limiter allows the configured budget (5 per window, the library lets one more through),
-    // then answers 429 until the window passes.
+    // The limiter allows about the configured budget (5 per window; it was observed to let one more
+    // through, which its documentation does not promise), then answers 429 until the window passes.
+    // The client is told apart by x-forwarded-for, which only a proxy such as Vercel's edge makes trustworthy.
     const refused = statuses.filter(status => status === 401).length
     expect(refused).toBeGreaterThanOrEqual(5)
     expect(refused).toBeLessThanOrEqual(6)
@@ -177,6 +177,11 @@ test.describe('sign-in with the database', () => {
     await expect(page.getByText(name)).toBeVisible()
     await page.reload()
     await expect(page.getByText(name)).toBeVisible()
+
+    // The hub leads into the game.
+    await page.getByRole('link', { name: 'Раскраска' }).click()
+    await expect(page).toHaveURL('/coloring')
+    await page.goto('/')
 
     await page.getByRole('button', { name: 'Выйти' }).click()
     await expect(page).toHaveURL('/login')

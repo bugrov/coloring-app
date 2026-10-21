@@ -7,7 +7,8 @@ import { verifyAdminCredentials } from '../../../layers/core/server/services/adm
 const login = (username: unknown, country: unknown = 'RU') => loginSchema.safeParse({ username, country })
 
 describe('loginSchema', () => {
-  it.each(['Маша', 'kate_2', 'Anna-Maria', 'abc', '日本語名前', 'a'.repeat(20)])('accepts %s', (name) => {
+  // Vowel signs in Devanagari and Thai are combining marks, not letters: they must be allowed.
+  it.each(['Маша', 'kate_2', 'Anna-Maria', 'abc', '日本語名前', 'हिमांशु', 'สมชาย', 'مُحَمَّد', 'a'.repeat(20)])('accepts %s', (name) => {
     expect(login(name).success).toBe(true)
   })
 
@@ -19,6 +20,8 @@ describe('loginSchema', () => {
     ['with markup', '<script>'],
     ['with quotes (SQL-looking)', 'x\' OR \'1\'=\'1'],
     ['empty', ''],
+    ['made of invisible Hangul fillers', 'ㅤㅤㅤ'],
+    ['starting with a combining mark', '\u0301abc'],
   ])('rejects a name %s', (_label, name) => {
     expect(login(name).success).toBe(false)
   })
@@ -54,6 +57,10 @@ describe('loginSchema', () => {
 })
 
 describe('usernameKey', () => {
+  it('stays stable when lower-casing produces characters that normalize differently', () => {
+    expect(usernameKey('İstanbul')).toBe(usernameKey(usernameKey('İstanbul')))
+  })
+
   it('is case-insensitive and composed', () => {
     expect(usernameKey('KATE')).toBe(usernameKey('kate'))
     // Full-width "Ｋａｔｅ" is the same name as "Kate" after NFKC.
@@ -101,6 +108,13 @@ describe('verifyAdminCredentials', () => {
 })
 
 describe('readApiError', () => {
+  it('shows the rate limit message for the 429 that the limiter sends without our body', () => {
+    expect(readApiError({ statusCode: 429, data: { statusCode: 429 } })).toMatchObject({
+      code: 'rate_limited',
+      message: expect.stringContaining('Слишком много попыток'),
+    })
+  })
+
   it('reads the error body that the API sends', () => {
     const error = { data: { data: { code: 'username_taken', message: 'Занято' } } }
 

@@ -1,4 +1,5 @@
 import { PGlite } from '@electric-sql/pglite'
+import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/pglite'
 import { migrate } from 'drizzle-orm/pglite/migrator'
 import { beforeAll, describe, expect, it } from 'vitest'
@@ -45,7 +46,7 @@ describe('signIn', () => {
     const intruder = await signIn(db, { username: 'anna', country: 'FR' })
 
     expect(intruder).toEqual({ ok: false, reason: 'username_taken' })
-    const [owner] = await db.select().from(users).where((await import('drizzle-orm')).eq(users.usernameKey, 'anna'))
+    const [owner] = await db.select().from(users).where(eq(users.usernameKey, 'anna'))
     expect(owner?.country).toBe('DE')
   })
 
@@ -60,11 +61,18 @@ describe('signIn', () => {
     expect(results.filter(result => result.ok && result.created)).toHaveLength(1)
   })
 
-  it('treats compatibility forms of a name as the same name (NFKC)', async () => {
-    // Full-width Latin letters normalize to plain ones in the schema; the key stays consistent.
+  it('treats compatibility forms of a name as the same name (NFKC) and stores the plain form', async () => {
     const plain = await signIn(db, { username: 'Ivan', country: 'BG' })
-    const lower = await signIn(db, { username: 'ivan', country: 'BG' })
+    // Full-width Latin letters with spaces around: what a caller that skipped the schema might pass.
+    const fullWidth = await signIn(db, { username: '  Ｉｖａｎ ', country: 'BG' })
 
-    expect(plain.ok && lower.ok && plain.user.id === lower.user.id).toBe(true)
+    expect(plain.ok && fullWidth.ok && plain.user.id === fullWidth.user.id).toBe(true)
+    expect(fullWidth.ok && fullWidth.user.username).toBe('Ivan')
+  })
+
+  it('stores a display name that a caller passed unnormalized in its plain form', async () => {
+    const result = await signIn(db, { username: '  Ｌｉｚａ  ', country: 'PL' })
+
+    expect(result.ok && result.user.username).toBe('Liza')
   })
 })
