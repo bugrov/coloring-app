@@ -1,10 +1,5 @@
-import catSvg from '../../server/assets/arts/cat.svg?raw'
-import houseSvg from '../../server/assets/arts/house.svg?raw'
-import octopusSvg from '../../server/assets/arts/octopus.svg?raw'
 import { convertSvg } from '../../shared'
 import type { SvgConversion } from '../../shared'
-
-const SAMPLES = { Осьминог: octopusSvg, Кошка: catSvg, Дом: houseSvg }
 
 /** Runs the SVG pipeline on samples or user files and keeps the latest result. */
 export function useSvgLab() {
@@ -31,5 +26,5 @@ export function useSvgLab() {
     }
   })
 
-  return { samples: SAMPLES, result, fileName, durationMs, stats, convert, convertFile }
+  return { samples: BASE_ART_SAMPLES, result, fileName, durationMs, stats, convert, convertFile }
 }

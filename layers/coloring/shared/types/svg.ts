@@ -10,6 +10,12 @@ export interface SvgLimits {
   maxRegions: number
   /** Characters of path data in a single output item. */
   maxPathLength: number
+  /** Output items (regions and line art) in total. */
+  maxItems: number
+  /** Characters of path data in the whole output. */
+  maxOutputLength: number
+  /** Characters of CSS in <style> blocks; longer CSS is ignored. */
+  maxCssLength: number
   /** Wall-clock budget for the whole conversion. */
   timeBudgetMs: number
 }
@@ -21,6 +27,8 @@ export type SvgErrorCode
     | 'not-svg'
     | 'too-many-elements'
     | 'no-dimensions'
+    | 'invalid-dimensions'
+    | 'too-complex'
     | 'no-regions'
     | 'too-many-regions'
     | 'timeout'
@@ -34,6 +42,9 @@ export type SvgWarningCode
     | 'external-reference'
     | 'invalid-path'
     | 'path-too-long'
+    | 'ignored-styles'
+    | 'invalid-transform'
+    | 'truncated-path'
 
 export interface SvgWarning {
   code: SvgWarningCode

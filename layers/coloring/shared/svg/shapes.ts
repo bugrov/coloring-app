@@ -1,4 +1,5 @@
 import type { Element } from '@xmldom/xmldom'
+import { roundTo } from './number'
 
 /** Numeric attribute; lengths with `px` are accepted, other units are not. */
 export function numberAttr(element: Element, name: string, fallback = 0): number {
@@ -6,6 +7,13 @@ export function numberAttr(element: Element, name: string, fallback = 0): number
   if (!raw) return fallback
   const value = Number.parseFloat(raw.endsWith('px') ? raw.slice(0, -2) : raw)
   return Number.isFinite(value) ? value : fallback
+}
+
+/** Decimals kept when shapes are converted to paths: removes float artefacts (0.30000000000000004 → 0.3). */
+const SHAPE_DIGITS = 6
+
+function tidy(value: number): number {
+  return roundTo(value, SHAPE_DIGITS)
 }
 
 function pointsToPath(points: string, close: boolean): string | null {
@@ -32,25 +40,25 @@ function rectToPath(element: Element): string | null {
   const ry = Math.min(Math.max(ryAttr ?? rxAttr ?? 0, 0), height / 2)
 
   if (rx === 0 || ry === 0) {
-    return `M${x} ${y}H${x + width}V${y + height}H${x}Z`
+    return `M${x} ${y}H${tidy(x + width)}V${tidy(y + height)}H${x}Z`
   }
   return [
-    `M${x + rx} ${y}`,
-    `H${x + width - rx}`,
-    `A${rx} ${ry} 0 0 1 ${x + width} ${y + ry}`,
-    `V${y + height - ry}`,
-    `A${rx} ${ry} 0 0 1 ${x + width - rx} ${y + height}`,
-    `H${x + rx}`,
-    `A${rx} ${ry} 0 0 1 ${x} ${y + height - ry}`,
-    `V${y + ry}`,
-    `A${rx} ${ry} 0 0 1 ${x + rx} ${y}`,
+    `M${tidy(x + rx)} ${y}`,
+    `H${tidy(x + width - rx)}`,
+    `A${rx} ${ry} 0 0 1 ${tidy(x + width)} ${tidy(y + ry)}`,
+    `V${tidy(y + height - ry)}`,
+    `A${rx} ${ry} 0 0 1 ${tidy(x + width - rx)} ${tidy(y + height)}`,
+    `H${tidy(x + rx)}`,
+    `A${rx} ${ry} 0 0 1 ${x} ${tidy(y + height - ry)}`,
+    `V${tidy(y + ry)}`,
+    `A${rx} ${ry} 0 0 1 ${tidy(x + rx)} ${y}`,
     'Z',
   ].join('')
 }
 
 function ellipseToPath(cx: number, cy: number, rx: number, ry: number): string | null {
   if (rx <= 0 || ry <= 0) return null
-  return `M${cx - rx} ${cy}A${rx} ${ry} 0 1 0 ${cx + rx} ${cy}A${rx} ${ry} 0 1 0 ${cx - rx} ${cy}Z`
+  return `M${tidy(cx - rx)} ${cy}A${rx} ${ry} 0 1 0 ${tidy(cx + rx)} ${cy}A${rx} ${ry} 0 1 0 ${tidy(cx - rx)} ${cy}Z`
 }
 
 /**
