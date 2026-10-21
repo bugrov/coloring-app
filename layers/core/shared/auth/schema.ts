@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { COUNTRY_CODES } from '../countries'
-import { ADMIN_LOGIN_MAX_LENGTH, ADMIN_PASSWORD_MAX_LENGTH, INVISIBLE_CHARACTERS, TOO_MANY_MARKS, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH, USERNAME_PATTERN } from './constants'
+import { ADMIN_LOGIN_MAX_LENGTH, ADMIN_PASSWORD_MAX_LENGTH, CYRILLIC_LETTER, LATIN_LETTER, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH, USERNAME_PATTERN } from './constants'
 import { normalizeUsername } from './username'
 
 const username = z.string({ error: 'Введите имя' })
@@ -8,9 +8,9 @@ const username = z.string({ error: 'Введите имя' })
   .pipe(z.string()
     .min(USERNAME_MIN_LENGTH, `Имя должно быть не короче ${USERNAME_MIN_LENGTH} символов`)
     .max(USERNAME_MAX_LENGTH, `Имя должно быть не длиннее ${USERNAME_MAX_LENGTH} символов`)
-    .regex(USERNAME_PATTERN, 'Имя может содержать буквы, цифры, «_» и «-» и должно начинаться с буквы или цифры')
-    .refine(value => !INVISIBLE_CHARACTERS.test(value), 'Имя не должно содержать невидимых символов')
-    .refine(value => !TOO_MANY_MARKS.test(value), 'В имени слишком много надстрочных знаков'))
+    .regex(USERNAME_PATTERN, 'Имя: русские или английские буквы, цифры, «_» и «-»; начинаться должно с буквы или цифры')
+    // Cyrillic "а" and Latin "a" look the same: a name from both alphabets could imitate another.
+    .refine(value => !(LATIN_LETTER.test(value) && CYRILLIC_LETTER.test(value)), 'Не смешивайте русские и английские буквы в одном имени'))
 
 const country = z.enum(COUNTRY_CODES, { error: 'Выберите страну из списка' })
 

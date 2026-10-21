@@ -4,13 +4,10 @@ export function normalizeUsername(value: string): string {
 }
 
 /**
- * Uniqueness key: case-insensitive. Two names with the same key are the same name.
- *
- * Each character goes up and down again: lower-casing alone keeps a final
- * sigma (ς) and a sharp s (ß) apart from σ and ss, so `ΟΔΟΣ` and `οδοσ`
- * would be two names. Normalizing last keeps the key canonical.
+ * Uniqueness key: case-insensitive, and "ё" is "е" (`Ёлка` and `Елка` are one
+ * name, as they are for the people who type them). Two names with the same key
+ * are the same name; the display name keeps what was typed.
  */
 export function usernameKey(value: string): string {
-  const folded = Array.from(normalizeUsername(value), character => character.toUpperCase().toLowerCase())
-  return folded.join('').normalize('NFKC')
+  return normalizeUsername(value).toLowerCase().replaceAll('ё', 'е')
 }

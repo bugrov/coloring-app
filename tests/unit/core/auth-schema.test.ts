@@ -7,8 +7,7 @@ import { verifyAdminCredentials } from '../../../layers/core/server/services/adm
 const login = (username: unknown, country: unknown = 'RU') => loginSchema.safeParse({ username, country })
 
 describe('loginSchema', () => {
-  // Vowel signs in Devanagari and Thai are combining marks, not letters: they must be allowed.
-  it.each(['Маша', 'kate_2', 'Anna-Maria', 'abc', '日本語名前', 'हिमांशु', 'สมชาย', 'مُحَمَّد', 'a'.repeat(20)])('accepts %s', (name) => {
+  it.each(['Маша', 'kate_2', 'Anna-Maria', 'abc', 'Ёлка', 'Олег-2', 'Їжак', 'Қайрат', 'a'.repeat(20)])('accepts %s', (name) => {
     expect(login(name).success).toBe(true)
   })
 
@@ -20,15 +19,31 @@ describe('loginSchema', () => {
     ['with markup', '<script>'],
     ['with quotes (SQL-looking)', 'x\' OR \'1\'=\'1'],
     ['empty', ''],
+    ['in Devanagari', 'हिमांशु'],
+    ['in Thai', 'สมชาย'],
+    ['in Arabic', 'مُحَمَّد'],
+    ['in Chinese', '日本語名前'],
+    ['in Greek', 'Ελένη'],
+    ['with a Latin accent', 'José'],
     ['made of invisible Hangul fillers', 'ㅤㅤㅤ'],
     ['with a zero-width space', 'ab\u200Bc'],
-    ['with a combining grapheme joiner', 'ab\u034Fc'],
+    ['with a combining mark', 'Маша\u0301'],
     ['with a variation selector', 'ab\uFE0Fc'],
-    // NFKC joins the first mark with the letter, so more than four marks are needed to leave four.
-    ['with stacked marks ("zalgo")', 'a\u0300\u0301\u0302\u0303\u0304\u0305\u0306bc'],
-    ['starting with a combining mark', '\u0301abc'],
   ])('rejects a name %s', (_label, name) => {
     expect(login(name).success).toBe(false)
+  })
+
+  it('does not let Latin and Cyrillic letters mix, so one name cannot imitate another', () => {
+    // The first letter is Cyrillic "А", the rest Latin: it looks like "Anna".
+    const result = login('\u0410nna')
+
+    expect(result.success).toBe(false)
+    expect(!result.success && result.error.issues[0]?.message).toBe('Не смешивайте русские и английские буквы в одном имени')
+  })
+
+  it('lets digits and separators go with either alphabet', () => {
+    expect(login('Олег_2024').success).toBe(true)
+    expect(login('Oleg-2024').success).toBe(true)
   })
 
   it('trims and composes the name before checking it', () => {
@@ -62,20 +77,16 @@ describe('loginSchema', () => {
 })
 
 describe('usernameKey', () => {
-  it('folds case the way Unicode does, not only by lower-casing', () => {
-    // Final and medial sigma, sharp s: written differently, the same name.
-    expect(usernameKey('ΟΔΟΣ')).toBe(usernameKey('οδοσ'))
-    expect(usernameKey('οδος')).toBe(usernameKey('οδοσ'))
-    expect(usernameKey('STRASSE')).toBe(usernameKey('Straße'))
-  })
-
-  it('stays stable when lower-casing produces characters that normalize differently', () => {
-    expect(usernameKey('İstanbul')).toBe(usernameKey(usernameKey('İstanbul')))
-  })
-
-  it('is case-insensitive and composed', () => {
+  it('is case-insensitive', () => {
     expect(usernameKey('KATE')).toBe(usernameKey('kate'))
-    // Full-width "Ｋａｔｅ" is the same name as "Kate" after NFKC.
+    expect(usernameKey('МАША')).toBe(usernameKey('маша'))
+  })
+
+  it('treats "ё" as "е"', () => {
+    expect(usernameKey('Ёлка')).toBe(usernameKey('Елка'))
+  })
+
+  it('composes compatibility forms: full-width letters are the plain ones', () => {
     expect(usernameKey('Ｋａｔｅ')).toBe('kate')
   })
 })

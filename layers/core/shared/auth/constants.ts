@@ -1,21 +1,18 @@
 export const USERNAME_MIN_LENGTH = 3
 export const USERNAME_MAX_LENGTH = 20
 
-/**
- * Letters of any script, combining marks (vowel signs in Devanagari, Thai and
- * others are marks), digits, `_` and `-`; starts with a letter or digit.
- */
-export const USERNAME_PATTERN = /^[\p{L}\p{N}][\p{L}\p{M}\p{N}_-]*$/u
+// Only the two alphabets of the audience, plus digits. Every other script brings invisible
+// characters, stacked marks and case rules that make two names look alike; a child with another
+// alphabet writes the name in Latin letters.
+const LATIN = 'A-Za-z'
+/** Cyrillic letters of Russian, Ukrainian, Belarusian, Kazakh and others, without the combining marks (U+0483–U+0489). */
+const CYRILLIC = '\u0400-\u0481\u048A-\u052F'
 
-/**
- * Code points that render as nothing (Hangul fillers, zero-width and joiner
- * characters, variation selectors, the combining grapheme joiner): they would
- * make two different names look the same, or a name look empty.
- */
-export const INVISIBLE_CHARACTERS = /\p{Default_Ignorable_Code_Point}/u
+/** Letters, digits, `_` and `-`; starts with a letter or digit. */
+export const USERNAME_PATTERN = new RegExp(`^[${LATIN}${CYRILLIC}0-9][${LATIN}${CYRILLIC}0-9_-]*$`)
 
-/** Real scripts stack at most a few marks on a letter (Thai: vowel and tone mark); more is "zalgo" text. */
-export const TOO_MANY_MARKS = /\p{M}{4,}/u
+export const LATIN_LETTER = new RegExp(`[${LATIN}]`)
+export const CYRILLIC_LETTER = new RegExp(`[${CYRILLIC}]`)
 
 export const ADMIN_LOGIN_MAX_LENGTH = 64
 export const ADMIN_PASSWORD_MAX_LENGTH = 256
