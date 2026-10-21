@@ -1,7 +1,7 @@
 import { readApiError } from '#layers/core/shared/errors'
 import type { HistoryState, HistoryStep } from '../../shared'
 import { HISTORY_ERROR_MESSAGES } from '../../shared'
-import { Timeline, type PaintSnapshot } from '../engine'
+import { Timeline, type PaintDelta, type PaintSnapshot } from '../engine'
 import { useEditorStore } from '../stores/editor'
 import { HistorySync, IndexedDbOutbox, SyncConflict, SyncRejected, type SyncApi } from '../sync'
 import type { ColoringStageHandle } from './useColoringStage'
@@ -36,7 +36,7 @@ export function useEditorHistory(
   /** Why the saved history could not be loaded, for the player; empty when it loaded or is loading. */
   const loadError = ref('')
 
-  let timeline: Timeline<PaintSnapshot> | null = null
+  let timeline: Timeline<PaintSnapshot, PaintDelta> | null = null
   let sync: HistorySync | null = null
   /** Counts the opens, so that a slow one for an art the player has left is dropped. */
   let generation = 0
@@ -140,10 +140,10 @@ export function useEditorHistory(
     if (result.merged || opened.log.dirty) sync.changed()
   }
 
-  /** A step the player just drew. */
-  function record(step: HistoryStep) {
+  /** A step the player just drew; `delta` is what it covered before, for an instant undo. */
+  function record(step: HistoryStep, delta: PaintDelta | null) {
     if (!timeline || !sync) return
-    timeline.record(step)
+    timeline.record(step, delta)
     publish()
     sync.changed()
   }

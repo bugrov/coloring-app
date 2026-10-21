@@ -6,6 +6,12 @@ import type { HistoryState, HistoryStep } from '../../../../layers/coloring/shar
 const step = (region: number): HistoryStep => [{ type: 'fill', region, color: '#e53935' }]
 const regionOf = (value: HistoryStep) => value[0]!.region
 
+/** The pixels a step covered: here the whole fake picture as it was, and a memory cost. */
+interface FakeDelta {
+  saved: number[]
+  pixels: number
+}
+
 /** A "picture" that is the list of regions applied so far; counts the work done. */
 function fakeHost() {
   const host = {
@@ -19,6 +25,22 @@ function fakeHost() {
       host.picture.push(regionOf(value))
       host.applied++
     },
+    settle: () => undefined,
+    swapped: 0,
+    discarded: 0,
+    swap(delta: FakeDelta) {
+      host.swapped++
+      const current = host.picture
+      host.picture = [...delta.saved]
+      delta.saved = current
+    },
+    discard() {
+      host.discarded++
+    },
+    cost: (delta: FakeDelta) => delta.pixels,
+    capture(): FakeDelta | null {
+      return { saved: [...host.picture], pixels: 10 }
+    },
     snapshot() {
       host.snapshots++
       return [...host.picture]
@@ -29,7 +51,7 @@ function fakeHost() {
     },
     release() { host.released++ },
   }
-  return host satisfies PaintHost<number[]> & Record<string, unknown>
+  return host satisfies PaintHost<number[], FakeDelta> & Record<string, unknown>
 }
 
 const history = (count: number, cursor = count, rev = 1): HistoryState => ({
@@ -43,7 +65,7 @@ const upTo = (count: number) => Array.from({ length: count }, (_, i) => i + 1)
 describe('Timeline: a long history', () => {
   it('rebuilds the picture up to the cursor and holds only the snapshots of the undo window', async () => {
     const host = fakeHost()
-    const timeline = new Timeline(host)
+    const timeline = new Timeline<number[], FakeDelta>(host)
 
     await timeline.load(history(1000))
 
@@ -54,7 +76,7 @@ describe('Timeline: a long history', () => {
 
   it('goes back and forth with a restore and fewer than CHECKPOINT_EVERY steps of replay', async () => {
     const host = fakeHost()
-    const timeline = new Timeline(host)
+    const timeline = new Timeline<number[], FakeDelta>(host)
     await timeline.load(history(1000))
 
     for (let i = 0; i < UNDO_LIMIT; i++) {
@@ -75,7 +97,7 @@ describe('Timeline: a long history', () => {
 
   it('does not hold more snapshots as the player keeps drawing', async () => {
     const host = fakeHost()
-    const timeline = new Timeline(host)
+    const timeline = new Timeline<number[], FakeDelta>(host)
     await timeline.load(history(0))
 
     for (let i = 1; i <= 1000; i++) {
@@ -91,7 +113,7 @@ describe('Timeline: a long history', () => {
 describe('Timeline: undo, redo and new steps', () => {
   it('shows the picture of the cursor after an undo, a redo and a new step', async () => {
     const host = fakeHost()
-    const timeline = new Timeline(host)
+    const timeline = new Timeline<number[], FakeDelta>(host)
     await timeline.load(history(0))
 
     for (let i = 1; i <= 60; i++) {
@@ -117,7 +139,7 @@ describe('Timeline: undo, redo and new steps', () => {
 
   it('forgets the snapshots of an undone branch when a new step replaces it', async () => {
     const host = fakeHost()
-    const timeline = new Timeline(host)
+    const timeline = new Timeline<number[], FakeDelta>(host)
     await timeline.load(history(80))
     for (let i = 0; i < 40; i++) timeline.undo()
 
@@ -133,7 +155,7 @@ describe('Timeline: undo, redo and new steps', () => {
 
   it('starts blank on reset', async () => {
     const host = fakeHost()
-    const timeline = new Timeline(host)
+    const timeline = new Timeline<number[], FakeDelta>(host)
     await timeline.load(history(60))
 
     timeline.reset(2)
@@ -145,10 +167,120 @@ describe('Timeline: undo, redo and new steps', () => {
   })
 })
 
+describe('Timeline: the pixels of single steps', () => {
+  /** Draws a step the way the editor does: the picture changes, the delta is what it was before. */
+  const draw = (host: ReturnType<typeof fakeHost>, timeline: Timeline<number[], FakeDelta>, region: number, pixels = 10) => {
+    const delta = { saved: [...host.picture], pixels }
+    host.picture.push(region)
+    timeline.record(step(region), delta)
+  }
+
+  it('undoes and redoes the latest steps by swapping pixels, without replaying anything', async () => {
+    const host = fakeHost()
+    const timeline = new Timeline<number[], FakeDelta>(host)
+    await timeline.load(history(0))
+    for (let i = 1; i <= 30; i++) draw(host, timeline, i)
+    host.applied = 0
+    host.restores = 0
+
+    for (let i = 29; i >= 10; i--) {
+      timeline.undo()
+      expect(host.picture).toEqual(upTo(i))
+    }
+    for (let i = 11; i <= 30; i++) {
+      timeline.redo()
+      expect(host.picture).toEqual(upTo(i))
+    }
+
+    expect(host.applied).toBe(0)
+    expect(host.restores).toBe(0)
+    expect(host.swapped).toBe(40)
+  })
+
+  it('saves the pixels of the latest steps while a history loads, so they undo quickly after a reload', async () => {
+    const host = fakeHost()
+    const timeline = new Timeline<number[], FakeDelta>(host)
+    await timeline.load(history(150))
+    host.applied = 0
+
+    for (let i = 149; i >= 50; i--) {
+      timeline.undo()
+      expect(host.picture).toEqual(upTo(i))
+    }
+
+    expect(timeline.deltaCount).toBe(100)
+    expect(host.applied).toBe(0)
+    expect(host.swapped).toBe(100)
+  })
+
+  it('falls back to a snapshot and replay for a step that has no pixels saved', async () => {
+    const host = fakeHost()
+    host.capture = () => null
+    const timeline = new Timeline<number[], FakeDelta>(host)
+    await timeline.load(history(60))
+    host.applied = 0
+
+    timeline.undo()
+
+    expect(host.picture).toEqual(upTo(59))
+    expect(host.swapped).toBe(0)
+    expect(host.restores).toBe(1)
+  })
+
+  it('keeps the memory of the saved pixels within the budget, dropping the oldest first', async () => {
+    const host = fakeHost()
+    const timeline = new Timeline<number[], FakeDelta>(host)
+    await timeline.load(history(0))
+
+    for (let i = 1; i <= 10; i++) draw(host, timeline, i, 5_000_000)
+
+    expect(timeline.deltaCount).toBe(2)
+    expect(host.discarded).toBe(8)
+    // The newest steps still undo by swapping; the older ones by replay, and the picture is right either way.
+    timeline.undo()
+    timeline.undo()
+    expect(host.swapped).toBe(2)
+    timeline.undo()
+    expect(host.picture).toEqual(upTo(7))
+  })
+
+  it('drops the pixels of an undone branch when a new step replaces it', async () => {
+    const host = fakeHost()
+    const timeline = new Timeline<number[], FakeDelta>(host)
+    await timeline.load(history(0))
+    for (let i = 1; i <= 5; i++) draw(host, timeline, i)
+    timeline.undo()
+    timeline.undo()
+    expect(timeline.deltaCount).toBe(5)
+
+    draw(host, timeline, 99)
+
+    expect(timeline.deltaCount).toBe(4)
+    timeline.undo()
+    expect(host.picture).toEqual(upTo(3))
+    timeline.redo()
+    expect(host.picture).toEqual([...upTo(3), 99])
+  })
+
+  it('forgets the pixels when the history is replaced', async () => {
+    const host = fakeHost()
+    const timeline = new Timeline<number[], FakeDelta>(host)
+    await timeline.load(history(0))
+    for (let i = 1; i <= 3; i++) draw(host, timeline, i)
+
+    // The new history brings its own pixels (saved while it loads), none of the old ones remain.
+    host.capture = () => null
+    await timeline.load(history(5))
+
+    expect(timeline.deltaCount).toBe(0)
+    expect(host.discarded).toBeGreaterThanOrEqual(3)
+  })
+})
+
 describe('Timeline: a conflict', () => {
   it('rebuilds the picture from the server steps with the local ones on top', async () => {
     const host = fakeHost()
-    const timeline = new Timeline(host)
+    const timeline = new Timeline<number[], FakeDelta>(host)
     await timeline.load(history(3))
     host.picture.push(10)
     timeline.record(step(10))
@@ -161,7 +293,7 @@ describe('Timeline: a conflict', () => {
 
   it('leaves the picture alone for a resent save that had arrived', async () => {
     const host = fakeHost()
-    const timeline = new Timeline(host)
+    const timeline = new Timeline<number[], FakeDelta>(host)
     await timeline.load(history(2))
     host.picture.push(3)
     timeline.record(step(3))

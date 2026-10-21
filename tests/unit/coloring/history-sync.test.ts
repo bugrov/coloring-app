@@ -7,12 +7,17 @@ import type { HistoryState, HistoryStep, SaveHistoryRequest } from '../../../lay
 
 const step = (region: number): HistoryStep => [{ type: 'fill', region, color: '#e53935' }]
 
-const blankHost: PaintHost<number> = {
+const blankHost: PaintHost<number, never> = {
   clear: () => undefined,
   apply: () => undefined,
+  settle: () => undefined,
   snapshot: () => 0,
   restore: () => undefined,
   release: () => undefined,
+  capture: () => null,
+  swap: () => undefined,
+  discard: () => undefined,
+  cost: () => 0,
 }
 
 /** A server that keeps one history and applies saves the way the real one does. */

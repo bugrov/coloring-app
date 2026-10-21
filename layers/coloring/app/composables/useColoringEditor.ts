@@ -1,6 +1,6 @@
 import { readApiError } from '#layers/core/shared/errors'
 import type { ArtDetails, Op } from '../../shared'
-import type { Progress } from '../engine'
+import type { PaintDelta, Progress } from '../engine'
 import { HISTORY_ERROR_MESSAGES } from '../../shared'
 import { useEditorStore } from '../stores/editor'
 import { useEditorHistory } from './useEditorHistory'
@@ -119,7 +119,7 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
     celebrating,
     congratulating,
     onStageReady: history.open,
-    onOps: (ops: Op[]) => history.record(ops),
+    onOps: (ops: Op[], delta: PaintDelta | null) => history.record(ops, delta),
     onProgress,
     undo: history.undo,
     redo: history.redo,

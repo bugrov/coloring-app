@@ -1,10 +1,10 @@
 import { DEFAULT_OPACITY, MAX_STROKE_POINTS } from '../../shared'
 import type { ClearOp, ColoringArt, FillOp, Op, StrokeOp, Tool } from '../../shared'
-import { releaseCanvas, type AnyCanvas, type Rect } from './canvas'
+import { releaseCanvas, unionRect, type AnyCanvas, type Rect } from './canvas'
 import { DEFAULT_THICKNESS, TOOL_WIDTH } from './constants'
 import { exportPng } from './export'
 import { ArtGeometry } from './geometry'
-import { Painter, type PaintStroke, type StrokeStyle } from './painter'
+import { Painter, type PaintDelta, type PaintStroke, type StrokeStyle } from './painter'
 import { ProgressTracker, type Progress, type ProgressState } from './progress'
 import { ArtSpace, gridLength } from './space'
 
@@ -21,6 +21,7 @@ export {
   WHEEL_ZOOM_SPEED,
 } from './constants'
 export { HoldDetector } from './hold'
+export type { PaintDelta } from './painter'
 export { EMPTY_PROGRESS, type Progress } from './progress'
 export { Timeline, type PaintHost } from './timeline'
 export { clampView, IDENTITY_VIEW, panBy, zoomAt, type View } from './viewport'
@@ -40,6 +41,7 @@ export interface PaintSnapshot {
 }
 
 export class ColoringEngine {
+  private unsettled: Rect | null = null
   readonly space: ArtSpace
   private readonly geometry: ArtGeometry
   private readonly painter: Painter
@@ -67,19 +69,22 @@ export class ColoringEngine {
     const style: StrokeStyle = { tool, color: tool === 'eraser' ? null : color, width: gridLength(TOOL_WIDTH[tool] * thickness) }
     if (tool !== 'eraser' && opacity !== DEFAULT_OPACITY) style.opacity = opacity
     const stroke = this.painter.beginStroke(region, style, true)
-    return stroke ? new StrokeRecorder(region, stroke, rect => this.track(rect)) : null
+    return stroke ? new StrokeRecorder(region, stroke, rect => this.track(rect), rect => this.painter.captureBackup(rect)) : null
   }
 
-  fill(region: number, color: string, opacity = DEFAULT_OPACITY): FillOp {
+  /** Fills the region; the delta is what was there before (null for an unknown region). */
+  fill(region: number, color: string, opacity = DEFAULT_OPACITY): { op: FillOp, delta: PaintDelta | null } {
     const op: FillOp = opacity === DEFAULT_OPACITY ? { type: 'fill', region, color } : { type: 'fill', region, color, opacity }
+    const delta = this.painter.captureRegions([region])
     this.track(this.painter.apply(op))
-    return op
+    return { op, delta }
   }
 
-  clear(region: number): ClearOp {
+  clear(region: number): { op: ClearOp, delta: PaintDelta | null } {
     const op: ClearOp = { type: 'clear', region }
+    const delta = this.painter.captureRegions([region])
     this.track(this.painter.apply(op))
-    return op
+    return { op, delta }
   }
 
   /** Rebuilds the paint from scratch; the basis for undo/redo and restoring a session. */
@@ -89,15 +94,41 @@ export class ColoringEngine {
     this.track(this.painter.fullRect)
   }
 
-  /** Applies ops on top of what is painted, keeping the progress up to date. */
+  /**
+   * Applies ops on top of what is painted. The progress is measured once for all of them, by
+   * `settle`: reading the canvas back is the costly part, and a replay of many steps would do it
+   * for every one.
+   */
   applyOps(ops: readonly Op[]) {
-    for (const op of ops) this.track(this.painter.apply(op))
+    for (const op of ops) this.unsettled = unionRect(this.unsettled, this.painter.apply(op))
+  }
+
+  /** Measures the progress of what `applyOps` painted since the last call. */
+  settle() {
+    this.track(this.unsettled)
+    this.unsettled = null
+  }
+
+  /** What the picture shows where `ops` are about to paint: the delta that takes them back. */
+  captureBefore(ops: readonly Op[]): PaintDelta | null {
+    return this.painter.captureRegions(ops.map(op => op.region))
+  }
+
+  /** Exchanges a step's saved pixels with the picture (see `Painter.swapRect`); settled with the progress by `settle`. */
+  swapDelta(delta: PaintDelta) {
+    this.unsettled = unionRect(this.unsettled, this.painter.swapRect(delta))
+  }
+
+  /** Frees a delta's pixels now. */
+  discardDelta(delta: PaintDelta) {
+    releaseCanvas(delta.canvas)
   }
 
   /** A blank picture. */
   clearPaint() {
     this.painter.clearAll()
     this.tracker.reset()
+    this.unsettled = null
   }
 
   /** The picture as it is now, to come back to without replaying the steps that led to it. */
@@ -147,6 +178,7 @@ export class StrokeRecorder {
     readonly region: number,
     private readonly stroke: PaintStroke,
     private readonly track: (rect: Rect | null) => void,
+    private readonly captureDelta: (rect: Rect | null) => PaintDelta | null,
   ) {}
 
   add(points: readonly number[]) {
@@ -165,10 +197,14 @@ export class StrokeRecorder {
     }
   }
 
-  /** Commits the stroke. */
-  finish(): StrokeOp[] {
+  /**
+   * Commits the stroke. The delta is what the stroke covered before it was drawn, so it can be
+   * taken back without replaying; null for a split stroke (its base was saved again midway).
+   */
+  finish(): { ops: StrokeOp[], delta: PaintDelta | null } {
     this.track(this.stroke.dirty)
-    return [...this.completed, this.toOp()]
+    const delta = this.isSplit ? null : this.captureDelta(this.stroke.dirty)
+    return { ops: [...this.completed, this.toOp()], delta }
   }
 
   /** Whether parts of the stroke were already split off into ops; such a stroke cannot be taken back. */

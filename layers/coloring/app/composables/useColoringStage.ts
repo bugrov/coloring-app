@@ -15,6 +15,7 @@ import {
   WHEEL_ZOOM_MAX_DELTA_PX,
   WHEEL_ZOOM_SPEED,
   zoomAt,
+  type PaintDelta,
   type PaintHost,
   type PaintSnapshot,
   type Progress,
@@ -34,7 +35,8 @@ export interface ColoringStageOptions {
   locked?: Ref<boolean>
   /** Feedback for a long press; position is in px relative to the stage. */
   onHold?: (feedback: HoldFeedback) => void
-  onOps: (ops: Op[]) => void
+  /** A finished action; `delta` lets the history take it back without replaying (see `Timeline`). */
+  onOps: (ops: Op[], delta: PaintDelta | null) => void
   /** A fresh engine is ready on a blank canvas (a new art, or the first one): the picture can be rebuilt. */
   onReady?: () => void
   onProgress: (progress: Progress) => void
@@ -74,7 +76,7 @@ export interface ColoringStageHandle {
   /** Rebuilds the picture from ops; drops a stroke in progress. For the sandbox, the editor uses `paint`. */
   replay: (ops: readonly Op[]) => void
   /** What the history (`Timeline`) needs from the picture; each call drops a stroke in progress. */
-  paint: PaintHost<PaintSnapshot>
+  paint: PaintHost<PaintSnapshot, PaintDelta>
   /** Reports the progress of the picture as it is now; call it after the history changed the picture. */
   publishProgress: () => void
   exportPng: () => Promise<Blob>
@@ -239,8 +241,8 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     gesture = null
   }
 
-  function commit(ops: Op[]) {
-    options.onOps(ops)
+  function commit(ops: Op[], delta: PaintDelta | null) {
+    options.onOps(ops, delta)
     if (engine.value) options.onProgress(engine.value.progress)
   }
 
@@ -248,9 +250,9 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     if (!stroke) return
     flushStroke()
     clearHoldTimer()
-    const ops = stroke.recorder.finish()
+    const { ops, delta } = stroke.recorder.finish()
     stroke = null
-    commit(ops)
+    commit(ops, delta)
   }
 
   function onHold() {
@@ -260,12 +262,12 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     const { recorder } = stroke
     recorder.cancel()
     stroke = null
-    const op = options.tool.value === 'eraser'
+    const { op, delta } = options.tool.value === 'eraser'
       ? engine.value.clear(recorder.region)
       : engine.value.fill(recorder.region, options.color.value, options.opacity.value)
     navigator.vibrate?.(HOLD_VIBRATION_MS)
     options.onHold?.({ phase: 'fill', ...holdAt })
-    commit([op])
+    commit([op], delta)
   }
 
   function gestureSnapshot(): Gesture {
@@ -459,9 +461,14 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     paint: {
       clear: () => ready().clearPaint(),
       apply: step => ready().applyOps(step),
+      settle: () => ready().settle(),
       snapshot: () => ready().snapshot(),
       restore: snapshot => ready().restore(snapshot),
       release: snapshot => engine.value?.releaseSnapshot(snapshot),
+      capture: step => ready().captureBefore(step),
+      swap: delta => ready().swapDelta(delta),
+      discard: delta => engine.value?.discardDelta(delta),
+      cost: delta => delta.rect.width * delta.rect.height,
     },
     publishProgress: () => {
       if (engine.value) options.onProgress(engine.value.progress)

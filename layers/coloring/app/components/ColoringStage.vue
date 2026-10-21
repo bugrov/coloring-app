@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { DEFAULT_OPACITY } from '../../shared'
 import type { ColoringArt, Op, Tool } from '../../shared'
-import { DEFAULT_THICKNESS, HOLD_DURATION_MS, type Progress } from '../engine'
+import { DEFAULT_THICKNESS, HOLD_DURATION_MS, type PaintDelta, type Progress } from '../engine'
 import type { ColoringStageHandle, HoldFeedback } from '../composables/useColoringStage'
 
 const props = withDefaults(defineProps<{
@@ -17,7 +17,7 @@ const props = withDefaults(defineProps<{
 }>(), { opacity: DEFAULT_OPACITY, thickness: DEFAULT_THICKNESS, locked: false })
 
 const emit = defineEmits<{
-  ops: [ops: Op[]]
+  ops: [ops: Op[], delta: PaintDelta | null]
   progress: [progress: Progress]
   /** The canvas is ready for a picture to be put on it. */
   ready: []
@@ -47,7 +47,7 @@ const { contentStyle, handle } = useColoringStage({ stage, content, canvas }, {
   locked: toRef(props, 'locked'),
   onReady: () => emit('ready'),
   onHold,
-  onOps: ops => emit('ops', ops),
+  onOps: (ops, delta) => emit('ops', ops, delta),
   onProgress: progress => emit('progress', progress),
 })
 

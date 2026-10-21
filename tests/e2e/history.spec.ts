@@ -194,4 +194,129 @@ test.describe('history with the database', () => {
     expect((await page.request.put(foreign, { data: { attempt: 0, rev: 0, keep: 0, steps: [step], cursor: 1, percent: 0 } })).status()).toBe(404)
     await other.close()
   })
+
+  test('undo and redo give back exactly the pixels of every step: strokes of each tool and a long-press fill', async ({ page }) => {
+    await signIn(page, 'q')
+    await openOctopus(page)
+    const keep = (index: number) => page.locator('canvas').evaluate((canvas: HTMLCanvasElement, at) => {
+      const { data } = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height)
+      const store = ((window as unknown as { states?: Uint8ClampedArray[] }).states ??= [])
+      store[at] = new Uint8ClampedArray(data)
+    }, index)
+    const sameAsKept = (index: number) => page.locator('canvas').evaluate((canvas: HTMLCanvasElement, at) => {
+      const { data } = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height)
+      const kept = (window as unknown as { states: Uint8ClampedArray[] }).states[at]!
+      for (let i = 0; i < data.length; i++) if (data[i] !== kept[i]) return false
+      return true
+    }, index)
+
+    await keep(0)
+    await scribble(page)
+    await keep(1)
+    await page.getByRole('button', { name: 'Карандаш' }).click()
+    await scribble(page, 0.08)
+    await keep(2)
+    await page.getByRole('button', { name: /^Прозрачность краски/ }).click()
+    await page.getByRole('button', { name: 'Кисть' }).click()
+    const box = (await page.locator('canvas').boundingBox())!
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5)
+    await page.mouse.down()
+    await page.waitForTimeout(700)
+    await page.mouse.up()
+    await expect(page.getByRole('button', { name: 'Отменить' })).toBeEnabled()
+    await keep(3)
+
+    for (const target of [2, 1, 0]) {
+      await page.getByRole('button', { name: 'Отменить' }).click()
+      expect(await sameAsKept(target)).toBe(true)
+    }
+    for (const target of [1, 2, 3]) {
+      await page.getByRole('button', { name: 'Вернуть' }).click()
+      expect(await sameAsKept(target)).toBe(true)
+    }
+  })
+
+  test('the picture and its progress agree after an undo: the percent follows the canvas', async ({ page }) => {
+    await signIn(page, 'r')
+    await openOctopus(page)
+    await expect(page.locator('.frame__percent')).toContainText('Закрашено 0%')
+    const box = (await page.locator('canvas').boundingBox())!
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.3)
+    await page.mouse.down()
+    await page.waitForTimeout(700)
+    await page.mouse.up()
+    await expect(page.locator('.frame__percent')).not.toContainText('Закрашено 0%')
+
+    await page.getByRole('button', { name: 'Отменить' }).click()
+    await expect(page.locator('.frame__percent')).toContainText('Закрашено 0%')
+    await page.getByRole('button', { name: 'Вернуть' }).click()
+    await expect(page.locator('.frame__percent')).not.toContainText('Закрашено 0%')
+  })
+
+  test('a history of 1000 steps opens, and undo and redo stay within the frame budget', async ({ page }) => {
+    test.setTimeout(120_000)
+    await signIn(page, 'p')
+    await openOctopus(page)
+    const id = artIdOf(page)
+    const url = `/api/coloring/arts/${id}/history`
+    const art = await (await page.request.get(`/api/coloring/arts/${id}`)).json()
+    const regions = (art.art.items as { type: string, id: number, kind: string }[]).filter(item => item.type === 'region' && item.kind === 'area').map(item => item.id)
+    const stroke = (region: number, n: number) => [{
+      type: 'stroke',
+      region,
+      tool: 'brush',
+      color: '#43a047',
+      width: 120,
+      points: Array.from({ length: 40 }, (_, i) => [600 + ((n * 37 + i * 29) % 2400), 600 + ((n * 53 + i * 41) % 2400)]).flat(),
+    }]
+
+    // Built through the API: 10 saves of 100 steps each.
+    let rev = 0
+    for (let batch = 0; batch < 10; batch++) {
+      const steps = Array.from({ length: 100 }, (_, i) => stroke(regions[(batch * 100 + i) % regions.length]!, batch * 100 + i))
+      const response = await page.request.put(url, { data: { attempt: batch === 0 ? 0 : 1, rev, keep: batch * 100, steps, cursor: batch * 100 + 100, percent: 50 } })
+      expect(response.status()).toBe(200)
+      rev = (await response.json()).rev
+    }
+
+    const opened = Date.now()
+    await page.reload()
+    await expect(page.locator('.save-status')).toBeVisible({ timeout: 60_000 })
+    const openMs = Date.now() - opened
+    expect(await paintedPixels(page)).toBeGreaterThan(1000)
+
+    // The click handler does the whole undo synchronously: restore a snapshot, replay a few steps.
+    const clicks = (count: number) => page.evaluate((times) => {
+      const click = (label: string) => {
+        const button = document.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!
+        const started = performance.now()
+        button.click()
+        return performance.now() - started
+      }
+      return { undo: Array.from({ length: times }, () => click('Отменить')), redo: Array.from({ length: times }, () => click('Вернуть')) }
+    }, count)
+    const mean = (timings: { undo: number[], redo: number[] }) => [...timings.undo, ...timings.redo].reduce((sum, value) => sum + value, 0) / (timings.undo.length * 2)
+    const worstOf = (timings: { undo: number[], redo: number[] }) => Math.max(...timings.undo, ...timings.redo)
+
+    const loaded = await clicks(100)
+
+    // Steps drawn in this session also carry their own pixels: undo is a swap, not a replay.
+    const box = (await page.locator('canvas').boundingBox())!
+    for (let i = 0; i < 30; i++) {
+      await page.mouse.move(box.x + box.width * (0.3 + (i % 7) * 0.05), box.y + box.height * (0.25 + (i % 5) * 0.04))
+      await page.mouse.down()
+      await page.mouse.move(box.x + box.width * (0.35 + (i % 6) * 0.05), box.y + box.height * (0.3 + (i % 4) * 0.04), { steps: 4 })
+      await page.mouse.up()
+    }
+    const live = await clicks(30)
+
+    test.info().annotations.push({
+      type: 'perf',
+      description: `open ${openMs} ms; loaded steps: undo/redo average ${mean(loaded).toFixed(1)} ms, worst ${worstOf(loaded).toFixed(1)} ms; live steps: average ${mean(live).toFixed(1)} ms, worst ${worstOf(live).toFixed(1)} ms`,
+    })
+    // The budget is 16 ms on a mid-range phone with a GPU; this runs in software-rendered Chromium on a CI
+    // machine, so only a gross regression fails here. The numbers are in the report annotations.
+    expect(mean(loaded)).toBeLessThan(120)
+    expect(mean(live)).toBeLessThan(40)
+  })
 })
