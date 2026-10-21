@@ -15,6 +15,8 @@ import {
   WHEEL_ZOOM_MAX_DELTA_PX,
   WHEEL_ZOOM_SPEED,
   zoomAt,
+  type PaintHost,
+  type PaintSnapshot,
   type Progress,
   type StrokeRecorder,
   type View,
@@ -28,6 +30,8 @@ export interface ColoringStageOptions {
   opacity: Ref<number>
   /** Multiplier of the tool's line width. */
   thickness: Ref<number>
+  /** While true the player cannot draw (the picture is being rebuilt, or the history is full). */
+  locked?: Ref<boolean>
   /** Feedback for a long press; position is in px relative to the stage. */
   onHold?: (feedback: HoldFeedback) => void
   onOps: (ops: Op[]) => void
@@ -65,8 +69,12 @@ export function createFrameStats(): FrameStats {
 export interface ColoringStageHandle {
   stats: Readonly<FrameStats>
   resetView: () => void
-  /** Rebuilds the picture from ops (undo/redo, restoring a session); drops a stroke in progress. */
+  /** Rebuilds the picture from ops; drops a stroke in progress. For the sandbox, the editor uses `paint`. */
   replay: (ops: readonly Op[]) => void
+  /** What the history (`Timeline`) needs from the picture; each call drops a stroke in progress. */
+  paint: PaintHost<PaintSnapshot>
+  /** Reports the progress of the picture as it is now; call it after the history changed the picture. */
+  publishProgress: () => void
   exportPng: () => Promise<Blob>
   /** Whether a stroke is in progress (its pixels are not final yet). */
   isDrawing: () => boolean
@@ -293,6 +301,8 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
       return
     }
 
+    // Zoom and pan stay possible while locked; drawing does not.
+    if (options.locked?.value) return
     const ratio = ratioOf(event, canvas.value!.getBoundingClientRect())
     if (!isOnArt(ratio)) return
     const { point, region } = engine.value.locate(...ratio)
@@ -422,6 +432,13 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     engine.value = null
   })
 
+  /** The engine, with a stroke in progress dropped: the picture is about to change under it. */
+  function ready(): ColoringEngine {
+    if (!engine.value) throw new Error('Engine is not ready')
+    discardStroke()
+    return engine.value
+  }
+
   const handle: ColoringStageHandle = {
     stats,
     resetView: () => {
@@ -433,6 +450,16 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
       discardStroke()
       engine.value.replay(ops)
       options.onProgress(engine.value.progress)
+    },
+    paint: {
+      clear: () => ready().clearPaint(),
+      apply: step => ready().applyOps(step),
+      snapshot: () => ready().snapshot(),
+      restore: snapshot => ready().restore(snapshot),
+      release: snapshot => engine.value?.releaseSnapshot(snapshot),
+    },
+    publishProgress: () => {
+      if (engine.value) options.onProgress(engine.value.progress)
     },
     exportPng: () => engine.value?.exportPng() ?? Promise.reject(new Error('Engine is not ready')),
     isDrawing: () => stroke !== null,

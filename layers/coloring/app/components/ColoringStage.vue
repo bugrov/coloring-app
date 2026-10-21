@@ -12,7 +12,9 @@ const props = withDefaults(defineProps<{
   opacity?: number
   /** Multiplier of the tool's line width. */
   thickness?: number
-}>(), { opacity: DEFAULT_OPACITY, thickness: DEFAULT_THICKNESS })
+  /** The player cannot draw while true; zoom and pan still work. */
+  locked?: boolean
+}>(), { opacity: DEFAULT_OPACITY, thickness: DEFAULT_THICKNESS, locked: false })
 
 const emit = defineEmits<{
   ops: [ops: Op[]]
@@ -40,6 +42,7 @@ const { contentStyle, handle } = useColoringStage({ stage, content, canvas }, {
   color: toRef(props, 'color'),
   opacity: toRef(props, 'opacity'),
   thickness: toRef(props, 'thickness'),
+  locked: toRef(props, 'locked'),
   onHold,
   onOps: ops => emit('ops', ops),
   onProgress: progress => emit('progress', progress),
