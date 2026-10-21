@@ -1,5 +1,5 @@
 import { context2d, createCanvas, releaseCanvas, type AnyCanvas, type AnyContext, type Rect } from './canvas'
-import { PAINTED_ALPHA_MIN, PROGRESS_GRID_LONG_SIDE, REGION_COMPLETE_RATIO } from './constants'
+import { PAINT_LONG_SIDE, PAINTED_ALPHA_MIN, PROGRESS_GRID_LONG_SIDE, REGION_COMPLETE_RATIO } from './constants'
 import { drawArt, type ArtGeometry } from './geometry'
 import type { ArtSpace } from './space'
 
@@ -65,7 +65,9 @@ export class ProgressTracker {
     const scale = PROGRESS_GRID_LONG_SIDE / space.longSide
     this.gridWidth = Math.max(1, Math.round(space.width * scale))
     this.gridHeight = Math.max(1, Math.round(space.height * scale))
-    this.cellsPerPaintPx = this.gridWidth / space.paintWidth
+    // Exact ratio, not gridWidth / paintWidth: both are rounded separately and
+    // the error would shift cells against the paint on elongated arts.
+    this.cellsPerPaintPx = PROGRESS_GRID_LONG_SIDE / PAINT_LONG_SIDE
 
     const counted = geometry.regions.filter(region => region.kind === 'area')
     const indexById = new Map(counted.map((region, index) => [region.id, index]))
@@ -75,6 +77,9 @@ export class ProgressTracker {
 
     this.sampler = createCanvas(this.gridWidth, this.gridHeight)
     this.samplerContext = context2d(this.sampler, { willReadFrequently: true })
+    // Averages the whole block of paint pixels behind each cell instead of
+    // sampling a few near its centre, so coverage reflects the painted area.
+    this.samplerContext.imageSmoothingQuality = 'high'
     this.labels = this.renderLabels(space, geometry, indexById, scale)
   }
 

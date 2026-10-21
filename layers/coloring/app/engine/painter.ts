@@ -71,8 +71,9 @@ export class Painter {
    * redraw their path over that base every frame so caps never accumulate.
    */
   beginStroke(regionId: number, style: StrokeStyle, live = false): PaintStroke | null {
-    const { rect } = this.prepare(regionId) ?? {}
-    if (!rect) return null
+    const mask = this.prepare(regionId)
+    if (!mask) return null
+    const { rect } = mask
     if (live) this.saveBackup(rect)
     return new PaintStroke(style, {
       draw: (from, points, path, walker) => this.drawSegment(regionId, style, from, points, live ? path : null, walker),
@@ -200,9 +201,15 @@ export class Painter {
   /** Masks the scratch rectangle and blends it onto the paint. */
   private composite(mask: PreparedMask, rect: Rect, operation: GlobalCompositeOperation) {
     const scratch = this.scratchContext
+    // destination-in affects the whole canvas, not just the drawn rect; the
+    // clip keeps the work (and the clearing) inside the rect.
+    scratch.save()
+    scratch.beginPath()
+    scratch.rect(rect.x, rect.y, rect.width, rect.height)
+    scratch.clip()
     scratch.globalCompositeOperation = 'destination-in'
     copyRect(scratch, mask.canvas, rect)
-    scratch.globalCompositeOperation = 'source-over'
+    scratch.restore()
 
     this.ctx.globalCompositeOperation = operation
     copyRect(this.ctx, this.scratch, rect)

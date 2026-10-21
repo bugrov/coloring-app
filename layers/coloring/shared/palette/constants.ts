@@ -1,5 +1,8 @@
 import type { PaletteColor } from '../types'
 
+/** Red: the first colour selected, clearly visible on any art. */
+export const DEFAULT_COLOR = '#e53935'
+
 /**
  * The 32 basic colours. Provisional crayon-box set (the design has no exact
  * palette): rainbow hues in light/base/dark, skin tones, browns, greys,
@@ -7,7 +10,7 @@ import type { PaletteColor } from '../types'
  */
 export const PALETTE: readonly PaletteColor[] = [
   { hex: '#ff8a80', name: 'Светло-красный' },
-  { hex: '#e53935', name: 'Красный' },
+  { hex: DEFAULT_COLOR, name: 'Красный' },
   { hex: '#b71c1c', name: 'Тёмно-красный' },
   { hex: '#ffb74d', name: 'Светло-оранжевый' },
   { hex: '#fb8c00', name: 'Оранжевый' },

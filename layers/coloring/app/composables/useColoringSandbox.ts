@@ -1,13 +1,10 @@
-import { convertSvg, PALETTE } from '../../shared'
+import { convertSvg, DEFAULT_COLOR } from '../../shared'
 import type { ColoringArt, Op, Tool } from '../../shared'
 import { EMPTY_PROGRESS, type Progress } from '../engine'
 import { createFrameStats, type ColoringStageHandle, type FrameStats } from './useColoringStage'
 
 /** Idle time after the last change before the share image is re-rendered. */
 const EXPORT_IDLE_MS = 800
-/** Red: a clearly visible first colour. */
-const DEFAULT_COLOR = PALETTE.find(swatch => swatch.name === 'Красный')?.hex ?? '#e53935'
-const STATS_INTERVAL_MS = 500
 
 /**
  * State of the developer sandbox: the built-in arts, the current tool and
@@ -64,6 +61,8 @@ export function useColoringSandbox(stage: Readonly<Ref<ColoringStageHandle | nul
 
   function addOps(newOps: Op[]) {
     ops.value = [...ops.value, ...newOps]
+    // Read after each committed action; nothing polls while the user is idle.
+    if (stage.value) frameStats.value = { ...stage.value.stats }
     prepareExport()
   }
 
@@ -82,13 +81,7 @@ export function useColoringSandbox(stage: Readonly<Ref<ColoringStageHandle | nul
     if (png) await shareOrDownload(png, `coloring-${artName.value}-${new Date().toISOString().slice(0, 10)}.png`)
   }
 
-  const statsTimer = setInterval(() => {
-    if (stage.value) frameStats.value = { ...stage.value.stats }
-  }, STATS_INTERVAL_MS)
-  onBeforeUnmount(() => {
-    clearInterval(statsTimer)
-    clearTimeout(exportTimer)
-  })
+  onBeforeUnmount(() => clearTimeout(exportTimer))
 
   return { arts, artName, art, tool, color, ops, progress, frameStats, addOps, onProgress, replay, clear, share }
 }

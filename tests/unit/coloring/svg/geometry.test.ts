@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { pathBounds } from '../../../../layers/coloring/shared'
 import { processPath } from '../../../../layers/coloring/shared/svg/geometry'
 import { explicitPathData } from '../../../../layers/coloring/shared/svg/path-data'
 import { IDENTITY, matrixScale, multiply, parseTransform } from '../../../../layers/coloring/shared/svg/transform'
@@ -17,11 +16,17 @@ describe('explicitPathData', () => {
   })
 
   it.each([
-    ['numbers after Z', 'M0 0L1 1Z 5 5'],
-    ['missing parameters', 'M0 0L1'],
-    ['bad arc flag', 'M0 0a1 1 0 2 1 1 1'],
-    ['garbage', 'M0 0 javascript:alert(1)'],
+    ['numbers after Z', 'M0 0L1 1Z 5 5', 'M0 0L1 1Z'],
+    ['missing parameters', 'M0 0L5 5L1', 'M0 0L5 5'],
+    ['bad arc flag', 'M0 0L5 5a1 1 0 2 1 1 1', 'M0 0L5 5'],
+    ['garbage', 'M0 0L5 5 javascript:alert(1)', 'M0 0L5 5'],
+  ])('keeps the valid part before an error, as browsers do: %s', (_name, input, expected) => {
+    expect(explicitPathData(input)).toBe(expected)
+  })
+
+  it.each([
     ['not starting with a move', 'L1 1'],
+    ['an error before anything valid', 'Mx'],
     ['empty', ''],
   ])('rejects %s', (_name, input) => {
     expect(explicitPathData(input)).toBeNull()
@@ -38,12 +43,19 @@ describe('parseTransform', () => {
     expect(parseTransform('matrix(1,0,0,1,5,6)')).toEqual([1, 0, 0, 1, 5, 6])
   })
 
+  it('accepts numbers without separators, as browsers do', () => {
+    expect(parseTransform('translate(1-2)')).toEqual([1, 0, 0, 1, 1, -2])
+  })
+
   it.each([
     'skewX(skewX(skewX(',
     'rotate(abc)',
     'constructor(1)',
     'scale(1 2 3)',
     'translate(1e999)',
+    'translate(1,)',
+    'scale(1e)',
+    'translate(1,,2)',
   ])('rejects %s', (input) => {
     expect(parseTransform(input)).toBeNull()
   })
@@ -86,16 +98,6 @@ describe('processPath', () => {
   })
 
   it('returns null for malformed data', () => {
-    expect(processPath('M0 0L', IDENTITY, 2)).toBeNull()
-  })
-})
-
-describe('pathBounds', () => {
-  it('covers straight segments exactly', () => {
-    expect(pathBounds('M5 10H25V40H5Z')).toEqual({ minX: 5, minY: 10, maxX: 25, maxY: 40 })
-  })
-
-  it('returns null for empty paths', () => {
-    expect(pathBounds('')).toBeNull()
+    expect(processPath('Mx', IDENTITY, 2)).toBeNull()
   })
 })

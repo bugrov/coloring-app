@@ -31,9 +31,10 @@ export const MAX_USE_DEPTH = 8
 export const MAX_VISITS_PER_ELEMENT = 20
 
 /**
- * Path data processed per byte of the file. Shapes expand when converted to
- * paths (polygons by ~25%), so twice the file size leaves room for that while
- * still stopping heavy <use> re-use of big paths early.
+ * Path data processed per byte of the file (plus OUTPUT_ALLOWANCE). Shapes
+ * expand when converted to paths (circles roughly double), so twice the file
+ * size leaves room for that while still stopping heavy <use> re-use of big
+ * paths early.
  */
 export const PROCESSED_PER_SOURCE_BYTE = 2
 

@@ -1,1 +1,1 @@
-export { PALETTE } from './constants'
+export { DEFAULT_COLOR, PALETTE } from './constants'

@@ -1,3 +1,5 @@
+import { isSeparator, numberMatcher } from './number'
+
 /** 2D affine matrix [a, b, c, d, e, f]: x' = a·x + c·y + e, y' = b·x + d·y + f. */
 export type Matrix = [number, number, number, number, number, number]
 
@@ -30,12 +32,10 @@ export function translation(x: number, y: number): Matrix {
   return [1, 0, 0, 1, x, y]
 }
 
-const NUMBER = /[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g
-const SEPARATORS = /[\s,]/
-const ARGUMENT_CHARACTERS = /^[\s,\d.eE+-]*$/
+const NUMBER = numberMatcher()
 
 /** Argument counts each transform function accepts. A Map: names must not reach prototype keys. */
-const ARITY = new Map<string, readonly number[]>([
+const FUNCTION_ARITY = new Map<string, readonly number[]>([
   ['matrix', [6]],
   ['translate', [1, 2]],
   ['scale', [1, 2]],
@@ -44,8 +44,11 @@ const ARITY = new Map<string, readonly number[]>([
   ['skewY', [1]],
 ])
 
+function radians(degrees: number): number {
+  return (degrees * Math.PI) / 180
+}
+
 function toMatrix(name: string, args: number[]): Matrix {
-  const radians = (degrees: number) => (degrees * Math.PI) / 180
   switch (name) {
     case 'matrix':
       return args as Matrix
@@ -67,6 +70,35 @@ function toMatrix(name: string, args: number[]): Matrix {
 }
 
 /**
+ * Reads a transform argument list as browsers do: numbers separated by
+ * whitespace and at most one comma (or nothing, as in `1-2`); a trailing
+ * comma or anything else makes the whole transform invalid.
+ */
+function parseArguments(text: string): number[] | null {
+  const args: number[] = []
+  let position = 0
+  const skipWhitespace = () => {
+    while (position < text.length && text[position] !== ',' && isSeparator(text[position])) position++
+  }
+
+  skipWhitespace()
+  while (position < text.length) {
+    NUMBER.lastIndex = position
+    const match = NUMBER.exec(text)
+    if (!match) return null
+    args.push(Number(match[0]))
+    position = NUMBER.lastIndex
+    skipWhitespace()
+    if (text[position] === ',') {
+      position++
+      skipWhitespace()
+      if (position >= text.length) return null
+    }
+  }
+  return args
+}
+
+/**
  * Parses a `transform` attribute into one matrix in a single linear pass.
  * Returns null for malformed input, which SVG treats as no transform.
  *
@@ -77,7 +109,7 @@ export function parseTransform(value: string): Matrix | null {
   let result = IDENTITY
   let position = 0
   while (position < value.length) {
-    if (SEPARATORS.test(value[position]!)) {
+    if (isSeparator(value[position])) {
       position++
       continue
     }
@@ -86,10 +118,8 @@ export function parseTransform(value: string): Matrix | null {
     if (close === -1) return null
 
     const name = value.slice(position, open).trim()
-    const argumentText = value.slice(open + 1, close)
-    if (!ARGUMENT_CHARACTERS.test(argumentText)) return null
-    const args = argumentText.match(NUMBER)?.map(Number) ?? []
-    if (!ARITY.get(name)?.includes(args.length) || !args.every(Number.isFinite)) return null
+    const args = parseArguments(value.slice(open + 1, close))
+    if (!args || !FUNCTION_ARITY.get(name)?.includes(args.length) || !args.every(Number.isFinite)) return null
 
     result = multiply(result, toMatrix(name, args))
     position = close + 1

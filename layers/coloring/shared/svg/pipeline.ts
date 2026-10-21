@@ -89,8 +89,9 @@ class SvgConverter {
   private deadline = 0
   private visits = 0
   private outputLength = 0
-  /** Path data fed to transforms so far; re-used shapes count every time. */
+  /** Path data processed so far; re-used shapes count every time. */
   private processedLength = 0
+  private processedLimit = 0
   private outputLimit = 0
 
   constructor(private readonly limits: SvgLimits) {}
@@ -100,6 +101,7 @@ class SvgConverter {
     // The result may be larger than the source (absolute coordinates, expanded
     // shapes), but not by an arbitrary factor: that would be amplification.
     this.outputLimit = Math.min(this.limits.maxOutputLength, source.length * OUTPUT_PER_SOURCE_BYTE + OUTPUT_ALLOWANCE)
+    this.processedLimit = source.length * PROCESSED_PER_SOURCE_BYTE + OUTPUT_ALLOWANCE
 
     if (new TextEncoder().encode(source).length > this.limits.maxBytes) {
       throw new SvgConversionError('too-large')
@@ -131,6 +133,7 @@ class SvgConverter {
         kind: 'background',
         d: `M${x} ${y}H${x + width}V${y + height}H${x}Z`,
         fillRule: 'nonzero',
+        bounds: [x, y, x + width, y + height],
       })
     }
 
@@ -261,17 +264,23 @@ class SvgConverter {
   private emitShape(element: Element, tag: string, { matrix, style }: Context) {
     if (style.visibility === 'hidden' || style.visibility === 'collapse') return
 
-    const raw = shapeToPath(element)
-    if (!raw) return
-    // Checked before any parsing: path parsing cost grows with length.
-    if (raw.length > this.limits.maxPathLength) {
+    // Checked before any parsing or splitting: their cost grows with length.
+    const max = this.limits.maxPathLength
+    const sourceLength = (element.getAttribute(tag === 'path' ? 'd' : 'points') ?? '').length
+    const raw = sourceLength > max ? null : shapeToPath(element)
+    if (sourceLength > max || (raw?.length ?? 0) > max) {
       this.warn('path-too-long', tag)
-      return
     }
+    else if (raw) {
+      this.emitPath(raw, tag, matrix, style)
+    }
+  }
+
+  private emitPath(raw: string, tag: string, matrix: Matrix, style: StyleDeclarations) {
     // Processing far more path data than the file holds means heavy <use>
     // re-use, so stop before doing the work.
     this.processedLength += raw.length
-    if (this.processedLength > this.limits.maxBytes * PROCESSED_PER_SOURCE_BYTE) {
+    if (this.processedLength > this.processedLimit) {
       throw new SvgConversionError('too-complex')
     }
 
@@ -305,7 +314,7 @@ class SvgConverter {
 
     if (isRegion) {
       if (fill.kind === 'unsupported') this.warn('unsupported-paint', fill.value)
-      this.addRegion(d, fillRule, coversCanvas)
+      this.addRegion(d, fillRule, coversCanvas, bounds!)
     }
 
     if (isInkFill || hasStroke) {
@@ -339,7 +348,7 @@ class SvgConverter {
     return bounds.maxX - bounds.minX > minSize && bounds.maxY - bounds.minY > minSize
   }
 
-  private addRegion(d: string, fillRule: 'nonzero' | 'evenodd', coversCanvas: boolean) {
+  private addRegion(d: string, fillRule: 'nonzero' | 'evenodd', coversCanvas: boolean, { minX, minY, maxX, maxY }: Bounds) {
     // Only the first full-canvas shape (a Figma frame fill, typically) is the
     // background; later ones are ordinary areas.
     const kind = coversCanvas && !this.hasBackground && this.regionCount === 0 ? 'background' : 'area'
@@ -349,7 +358,7 @@ class SvgConverter {
     else if (++this.regionCount > this.limits.maxRegions) {
       throw new SvgConversionError('too-many-regions')
     }
-    this.emit({ type: 'region', id: 0, kind, d, fillRule })
+    this.emit({ type: 'region', id: 0, kind, d, fillRule, bounds: [minX, minY, maxX, maxY] })
   }
 
   private isBackground(bounds: Bounds | null): boolean {

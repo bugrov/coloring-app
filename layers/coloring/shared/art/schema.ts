@@ -24,6 +24,11 @@ export const regionSchema = z.object({
   kind: z.enum(['area', 'background']),
   d: pathData,
   fillRule,
+  /**
+   * [minX, minY, maxX, maxY] in art units, an upper bound of the shape.
+   * Computed once on import so the client never has to parse path data again.
+   */
+  bounds: z.tuple([z.number(), z.number(), z.number(), z.number()]),
 })
 
 /** Non-colourable line art: outlines and dark fills. */

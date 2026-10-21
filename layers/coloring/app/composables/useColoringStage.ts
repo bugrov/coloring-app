@@ -247,6 +247,9 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     // a gesture; a palm that landed before the pen is dropped when the pen arrives.
     if (stroke?.pointerType === 'pen' && event.pointerType !== 'pen') return
     if (event.pointerType === 'pen') dropTouches()
+    // The same pointer pressing again means its pointerup was lost (e.g. the
+    // mouse was released outside the window): commit what it drew first.
+    if (stroke?.pointerId === event.pointerId) finishStroke()
 
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY, type: event.pointerType })
     stage.value!.setPointerCapture(event.pointerId)
@@ -257,7 +260,6 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
       gesture = gestureSnapshot()
       return
     }
-    if (gesture) return
 
     const ratio = ratioOf(event, canvas.value!.getBoundingClientRect())
     if (!isOnArt(ratio)) return
@@ -331,9 +333,18 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     }
   }
 
+  let contentSize = { width: 0, height: 0 }
+
+  /** Keeps the same part of the art in view when the stage changes size (rotation, window resize). */
   function onResize() {
     const element = content.value
-    if (element) view.value = clampView(view.value, element.offsetWidth, element.offsetHeight)
+    if (!element) return
+    const width = element.offsetWidth
+    const height = element.offsetHeight
+    const sx = contentSize.width ? width / contentSize.width : 1
+    const sy = contentSize.height ? height / contentSize.height : 1
+    contentSize = { width, height }
+    view.value = clampView({ ...view.value, x: view.value.x * sx, y: view.value.y * sy }, width, height)
   }
 
   const listeners = {

@@ -1,9 +1,8 @@
-import { pathBounds } from '../../shared'
 import type { ArtInk, ArtRegion, Bounds, ColoringArt } from '../../shared'
 import { context2d, createCanvas, type AnyContext, type Rect } from './canvas'
 import type { ArtSpace } from './space'
 
-export interface RegionShape extends Omit<ArtRegion, 'd' | 'fillRule'> {
+export interface RegionShape extends Omit<ArtRegion, 'd' | 'fillRule' | 'bounds'> {
   path: Path2D
   fillRule: CanvasFillRule
   /** In art units. */
@@ -20,8 +19,6 @@ export type Shape = RegionShape | InkShape
 /** Edge pixels added around region rectangles to cover anti-aliasing. */
 const RECT_PADDING = 2
 
-const EMPTY_BOUNDS: Bounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 }
-
 /** Art items turned into Path2D objects, with region lookups and hit testing. */
 export class ArtGeometry {
   readonly items: Shape[]
@@ -34,8 +31,8 @@ export class ArtGeometry {
     this.items = art.items.map((item): Shape => {
       switch (item.type) {
         case 'region': {
-          const { d, ...region } = item
-          return { ...region, path: new Path2D(d), bounds: pathBounds(d) ?? EMPTY_BOUNDS }
+          const { d, bounds: [minX, minY, maxX, maxY], ...region } = item
+          return { ...region, path: new Path2D(d), bounds: { minX, minY, maxX, maxY } }
         }
         case 'ink': {
           const { d, ...ink } = item
