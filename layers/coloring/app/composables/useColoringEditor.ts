@@ -7,6 +7,8 @@ import { useShareImage } from './useShareImage'
 
 /** How long a failure message stays on screen. */
 const NOTICE_MS = 5000
+/** How long the congratulation card stays on screen. */
+const CONGRATS_MS = 4500
 
 /**
  * Everything the editor page needs besides markup: the art from the server, the player's
@@ -44,9 +46,19 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
 
   /** Set when the last stroke completed the picture; the frame plays its celebration once. */
   const celebrating = ref(false)
+  /** The congratulation card; it goes away by itself, or at once if the picture is no longer complete. */
+  const congratulating = ref(false)
+  let congratsTimer: ReturnType<typeof setTimeout> | undefined
   watch(() => editor.progress.complete, (complete, was) => {
-    if (complete && !was) celebrating.value = true
+    clearTimeout(congratsTimer)
+    congratulating.value = complete
+    if (!complete) return
+    if (!was) celebrating.value = true
+    congratsTimer = setTimeout(() => {
+      congratulating.value = false
+    }, CONGRATS_MS)
   })
+  onBeforeUnmount(() => clearTimeout(congratsTimer))
 
   function onOps(ops: Op[]) {
     editor.record(ops)
@@ -104,5 +116,5 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
     }
   }
 
-  return { art, title, status, loadError, retry: refresh, notice, restarting, celebrating, onOps, onProgress, undo, redo, restart, shareImage }
+  return { art, title, status, loadError, retry: refresh, notice, restarting, celebrating, congratulating, onOps, onProgress, undo, redo, restart, shareImage }
 }
