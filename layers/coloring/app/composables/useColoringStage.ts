@@ -120,7 +120,9 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     if (!element) return
     engine.value = markRaw(new ColoringEngine(art, element))
     view.value = IDENTITY_VIEW
-    contentSize = { width: 0, height: 0 }
+    Object.assign(stats, createFrameStats())
+    // The content box changes with the art's proportions; remember it once laid out.
+    nextTick(rememberContentSize)
     options.onProgress(engine.value.progress)
   }, { immediate: true })
 
@@ -191,9 +193,9 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     stroke = null
   }
 
-  /** Drops every tracked pointer, ending any stroke by the usual rule. */
+  /** Drops every tracked pointer; their pointerups were lost, so a stroke in progress was finished on purpose. */
   function forgetPointers() {
-    abortStroke()
+    finishStroke()
     pointers.clear()
     gesture = null
   }
@@ -329,6 +331,14 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     if (releasePointer(event) && stroke?.pointerId === event.pointerId) abortStroke()
   }
 
+  /**
+   * Only the stage's own capture matters: lostpointercapture bubbles, and the
+   * canvas loses its implicit touch capture as soon as the stage takes it.
+   */
+  function onLostCapture(event: PointerEvent) {
+    if (event.target === stage.value) onPointerCancel(event)
+  }
+
   function onWheel(event: WheelEvent) {
     const box = contentBox()
     if (event.ctrlKey) {
@@ -343,6 +353,11 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
       const dy = wheelPixels(event.deltaY, event.deltaMode, box.height, WHEEL_PAN_MAX_DELTA_PX)
       view.value = panBy(view.value, -dx, -dy, box.width, box.height)
     }
+  }
+
+  function rememberContentSize() {
+    const element = content.value
+    if (element) contentSize = { width: element.offsetWidth, height: element.offsetHeight }
   }
 
   /** Keeps the same part of the art in view when the stage changes size (rotation, window resize). */
@@ -363,7 +378,7 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     pointerup: onPointerUp,
     pointercancel: onPointerCancel,
     // Fires when capture is lost without pointerup/pointercancel (focus moved away, for example).
-    lostpointercapture: onPointerCancel,
+    lostpointercapture: onLostCapture,
   } satisfies Partial<Record<keyof HTMLElementEventMap, (event: PointerEvent) => void>>
 
   let resizeObserver: ResizeObserver | undefined

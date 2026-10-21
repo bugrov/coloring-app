@@ -12,7 +12,7 @@ describe('explicitPathData', () => {
     ['compact arc flags', 'M0 0a1,1,0,01,1,1', 'M0 0a1 1 0 0 1 1 1'],
     ['close then new command', 'M0 0L1 1ZM2 2L3 3Z', 'M0 0L1 1ZM2 2L3 3Z'],
   ])('%s', (_name, input, expected) => {
-    expect(explicitPathData(input)).toBe(expected)
+    expect(explicitPathData(input)).toEqual({ data: expected, truncated: false })
   })
 
   it.each([
@@ -21,7 +21,7 @@ describe('explicitPathData', () => {
     ['bad arc flag', 'M0 0L5 5a1 1 0 2 1 1 1', 'M0 0L5 5'],
     ['garbage', 'M0 0L5 5 javascript:alert(1)', 'M0 0L5 5'],
   ])('keeps the valid part before an error, as browsers do: %s', (_name, input, expected) => {
-    expect(explicitPathData(input)).toBe(expected)
+    expect(explicitPathData(input)).toEqual({ data: expected, truncated: true })
   })
 
   it.each([

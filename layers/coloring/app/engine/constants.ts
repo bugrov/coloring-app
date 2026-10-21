@@ -38,8 +38,13 @@ export const HOLD_VIBRATION_MS = 15
 
 /** Progress grid resolution along the art's long side. */
 export const PROGRESS_GRID_LONG_SIDE = 256
-/** A grid cell counts as painted from this alpha (0–255) of the downscaled paint. */
+/**
+ * A paint pixel counts as painted from this alpha (0–255); a grid cell is
+ * painted when at least half of its sampled pixels are.
+ */
 export const PAINTED_ALPHA_MIN = 128
+/** Every n-th paint pixel per axis is sampled inside a cell: 16 samples per 8×8 block. */
+export const PROGRESS_SAMPLE_STEP = 2
 /** A region this covered counts as fully coloured, so 100% is reachable by hand. */
 export const REGION_COMPLETE_RATIO = 0.95
 

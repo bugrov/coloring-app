@@ -22,10 +22,11 @@ const NUMBER = numberMatcher()
  * untrusted data goes through this first; afterwards every segment it parses
  * has exactly its own parameters.
  */
-export function explicitPathData(d: string): string | null {
+export function explicitPathData(d: string): { data: string, truncated: boolean } | null {
   const out: string[] = []
   let position = 0
   let command = ''
+  let truncated = false
 
   const skipSeparators = () => {
     while (isSeparator(d[position])) position++
@@ -64,6 +65,7 @@ export function explicitPathData(d: string): string | null {
     }
     else if (!command || command === 'z' || command === 'Z') {
       // Numbers must follow a command; nothing may follow Z without a new command.
+      truncated = true
       break
     }
     else if (command === 'M') {
@@ -74,9 +76,13 @@ export function explicitPathData(d: string): string | null {
     }
 
     const params = readParams()
-    if (!params) break
+    if (!params) {
+      truncated = true
+      break
+    }
     out.push(command + params.join(' '))
   }
 
-  return out.length > 0 && (out[0]![0] === 'M' || out[0]![0] === 'm') ? out.join('') : null
+  const startsWithMove = out.length > 0 && (out[0]![0] === 'M' || out[0]![0] === 'm')
+  return startsWithMove ? { data: out.join(''), truncated } : null
 }

@@ -160,3 +160,12 @@ describe('SVG hardening: art format', () => {
     expect(artSchema.safeParse(art).success).toBe(false)
   })
 })
+
+describe('SVG hardening: truncated paths', () => {
+  it('keeps the valid part of a damaged path and warns about it', () => {
+    const result = convertSvg(svg('<path d="M0 0H10V10H0Z x junk" fill="white"/>'))
+
+    expect(result.ok && result.warnings.map(w => w.code)).toContain('truncated-path')
+    expect(result.ok && result.art.items.some(item => item.type === 'region' && item.kind === 'area')).toBe(true)
+  })
+})

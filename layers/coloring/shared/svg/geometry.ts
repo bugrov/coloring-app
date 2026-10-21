@@ -12,6 +12,8 @@ export interface ProcessedPath {
   bounds: Bounds | null
   /** Every subpath ends with Z or returns to its start. */
   closed: boolean
+  /** The data had an error; only the valid part before it was kept. */
+  truncated: boolean
 }
 
 /**
@@ -23,7 +25,7 @@ export function processPath(raw: string, matrix: Matrix, precision: number): Pro
   const explicit = explicitPathData(raw)
   if (explicit === null) return null
 
-  const path = svgpath(explicit)
+  const path = svgpath(explicit.data)
   if (!isIdentity(matrix)) path.matrix(matrix)
   path.abs().round(precision)
 
@@ -33,11 +35,11 @@ export function processPath(raw: string, matrix: Matrix, precision: number): Pro
   })
 
   const shape = measure(path.unarc().unshort())
-  return { d: commands.join(''), ...shape }
+  return { d: commands.join(''), ...shape, truncated: explicit.truncated }
 }
 
 /** Bounds and closedness in one pass over an absolute path without arcs. */
-function measure(path: ReturnType<typeof svgpath>): Omit<ProcessedPath, 'd'> {
+function measure(path: ReturnType<typeof svgpath>): Pick<ProcessedPath, 'bounds' | 'closed'> {
   let minX = Infinity
   let minY = Infinity
   let maxX = -Infinity

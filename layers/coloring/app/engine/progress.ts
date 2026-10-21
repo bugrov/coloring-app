@@ -1,5 +1,5 @@
 import { context2d, createCanvas, releaseCanvas, type AnyCanvas, type Rect } from './canvas'
-import { PAINT_LONG_SIDE, PAINTED_ALPHA_MIN, PROGRESS_GRID_LONG_SIDE, REGION_COMPLETE_RATIO } from './constants'
+import { PAINT_LONG_SIDE, PAINTED_ALPHA_MIN, PROGRESS_GRID_LONG_SIDE, PROGRESS_SAMPLE_STEP, REGION_COMPLETE_RATIO } from './constants'
 import { drawArt, type ArtGeometry } from './geometry'
 import type { ArtSpace } from './space'
 
@@ -139,13 +139,17 @@ export class ProgressTracker {
     const blockWidth = Math.min(CELL_PAINT_PX, maxWidth)
     const blockHeight = Math.min(CELL_PAINT_PX, maxHeight)
     if (blockWidth <= 0 || blockHeight <= 0) return false
+    // A fixed sub-grid of pixels: deterministic, and 4× cheaper than every pixel
+    // (this runs over the whole canvas on replay).
     let painted = 0
-    for (let y = y0; y < y0 + blockHeight; y++) {
-      for (let x = x0; x < x0 + blockWidth; x++) {
+    let samples = 0
+    for (let y = y0; y < y0 + blockHeight; y += PROGRESS_SAMPLE_STEP) {
+      for (let x = x0; x < x0 + blockWidth; x += PROGRESS_SAMPLE_STEP) {
+        samples++
         if (data[(y * stride + x) * 4 + 3]! >= PAINTED_ALPHA_MIN) painted++
       }
     }
-    return painted * 2 >= blockWidth * blockHeight
+    return painted * 2 >= samples
   }
 
   private setPainted(cell: number, index: number, isPainted: boolean) {

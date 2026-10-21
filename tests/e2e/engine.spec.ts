@@ -66,6 +66,23 @@ test.describe('drawing engine (sandbox)', () => {
     expect(await paintedPixels(page)).toBe(0)
   })
 
+  test('a finger stroke is kept (touch capture moves to the stage)', async ({ page, browserName, hasTouch }) => {
+    test.skip(browserName !== 'chromium' || !hasTouch, 'Real touch input is sent through the Chromium DevTools protocol')
+    const [x, y] = await at(page, 0.3, 0.35)
+    const client = await page.context().newCDPSession(page)
+    const touch = (type: string, px: number) => client.send('Input.dispatchTouchEvent', {
+      type,
+      touchPoints: type === 'touchEnd' ? [] : [{ x: px, y }],
+    })
+
+    await touch('touchStart', x)
+    for (let i = 1; i <= 10; i++) await touch('touchMove', x + i * 15)
+    await touch('touchEnd', x)
+
+    await expect(page.getByText('операций: 1')).toBeVisible()
+    expect(await paintedPixels(page)).toBeGreaterThan(0)
+  })
+
   test('replaying the ops rebuilds the picture', async ({ page }) => {
     const [x, y] = await at(page, 0.5, 0.4)
     await page.mouse.move(x, y)

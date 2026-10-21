@@ -3,6 +3,7 @@ import { ART_FORMAT_VERSION, artSchema, isValidPathData } from '../art'
 import type { ArtItem, Bounds, ColoringArt, SvgConversion, SvgErrorCode, SvgLimits, SvgWarning, SvgWarningCode } from '../types'
 import { parseColor, relativeLuminance, toHex, type Rgb } from './color'
 import { processPath } from './geometry'
+import { ceilTo, floorTo, roundTo } from './number'
 import { IDENTITY, matrixScale, multiply, parseTransform, translation, type Matrix } from './transform'
 import {
   BACKGROUND_TOLERANCE,
@@ -294,7 +295,8 @@ class SvgConverter {
       this.warn('invalid-path', tag)
       return
     }
-    const { d, bounds, closed } = processed
+    const { d, bounds, closed, truncated } = processed
+    if (truncated) this.warn('truncated-path', tag)
     if (d.length > this.limits.maxPathLength) {
       this.warn('path-too-long', tag)
       return
@@ -328,7 +330,7 @@ class SvgConverter {
         fillRule,
         fill: isInkFill && fill.kind === 'color' ? toHex(fill.rgb) : null,
         stroke: hasStroke ? this.inkColor(stroke) : null,
-        strokeWidth: hasStroke ? Math.round(strokeWidth * 100) / 100 : 0,
+        strokeWidth: hasStroke ? roundTo(strokeWidth, PATH_PRECISION) : 0,
         lineCap: oneOf(style['stroke-linecap'], ['butt', 'round', 'square'] as const, 'butt'),
         lineJoin: oneOf(style['stroke-linejoin'], ['miter', 'round', 'bevel'] as const, 'miter'),
         miterLimit: Math.min(MAX_MITER_LIMIT, Math.max(1, Number.parseFloat(style['stroke-miterlimit'] ?? '4') || 4)),
@@ -338,7 +340,8 @@ class SvgConverter {
 
   /** Adds an output item, enforcing limits on the size of the result. */
   private emit(item: ArtItem) {
-    this.outputLength += item.d.length + (item.type === 'region' ? item.bounds.join(' ').length : 0)
+    // The stored size: path data plus every other field of the item.
+    this.outputLength += JSON.stringify(item).length
     if (this.items.length >= this.limits.maxItems || this.outputLength > this.outputLimit) {
       throw new SvgConversionError('too-complex')
     }
@@ -363,12 +366,11 @@ class SvgConverter {
       throw new SvgConversionError('too-many-regions')
     }
     // Rounded outwards so the bounds stay an upper bound of the shape.
-    const step = 10 ** PATH_PRECISION
     const bounds: [number, number, number, number] = [
-      Math.floor(minX * step) / step,
-      Math.floor(minY * step) / step,
-      Math.ceil(maxX * step) / step,
-      Math.ceil(maxY * step) / step,
+      floorTo(minX, PATH_PRECISION),
+      floorTo(minY, PATH_PRECISION),
+      ceilTo(maxX, PATH_PRECISION),
+      ceilTo(maxY, PATH_PRECISION),
     ]
     this.emit({ type: 'region', id: 0, kind, d, fillRule, bounds })
   }

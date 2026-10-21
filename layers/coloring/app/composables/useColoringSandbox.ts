@@ -50,7 +50,7 @@ export function useColoringSandbox(stage: Readonly<Ref<ColoringStageHandle | nul
     }, EXPORT_IDLE_MS)
   }
 
-  /** Shows the stage's frame timings; called after every engine action, nothing polls in idle. */
+  /** Shows the stage's frame timings (reset per art); refreshed after strokes, nothing polls in idle. */
   function refreshStats() {
     if (stage.value) frameStats.value = { ...stage.value.stats }
   }
@@ -73,13 +73,11 @@ export function useColoringSandbox(stage: Readonly<Ref<ColoringStageHandle | nul
 
   function replay() {
     stage.value?.replay(ops.value)
-    refreshStats()
   }
 
   function clear() {
     ops.value = []
     stage.value?.replay([])
-    refreshStats()
     prepareExport()
   }
 
