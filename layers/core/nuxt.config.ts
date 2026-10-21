@@ -9,7 +9,7 @@ const resolveLayer = (path: string) => fileURLToPath(new URL(path, import.meta.u
 // Core platform layer: app shell, "game mode" behaviour, shared UI.
 // Must not depend on any game layer (enforced in eslint.config.mjs).
 export default defineNuxtConfig({
-  modules: ['nuxt-auth-utils', 'nuxt-security'],
+  modules: ['nuxt-auth-utils', 'nuxt-security', '@pinia/nuxt'],
 
   app: {
     head: {

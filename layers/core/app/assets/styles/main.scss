@@ -9,6 +9,16 @@
   box-sizing: border-box;
 }
 
+// Scrolling stays, the bar goes: a game has no use for it. `scrollbar-width` covers Firefox and
+// current Chrome, the WebKit pseudo-element covers Safari.
+* {
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
+
 html {
   height: 100%;
   overflow: hidden;

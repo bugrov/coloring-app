@@ -22,15 +22,18 @@
     "check": "pnpm typecheck && pnpm lint && pnpm lint:css && pnpm test",
     "db:generate": "node --env-file-if-exists=.env ./node_modules/drizzle-kit/bin.cjs generate",
     "db:migrate": "node --env-file-if-exists=.env ./node_modules/drizzle-kit/bin.cjs migrate",
+    "db:seed": "tsx --env-file-if-exists=.env layers/coloring/server/db/seed.ts",
     "db:studio": "node --env-file-if-exists=.env ./node_modules/drizzle-kit/bin.cjs studio"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",
+    "@pinia/nuxt": "^1.0.3",
     "@xmldom/xmldom": "^0.9.12",
     "drizzle-orm": "^0.45.4",
     "nuxt": "^4.6.2",
     "nuxt-auth-utils": "^0.5.32",
     "nuxt-security": "^2.6.0",
+    "pinia": "^4.1.0",
     "svgpath": "^2.6.0",
     "vue": "^3.5.44",
     "vue-router": "^5.4.0",
@@ -50,6 +53,7 @@
     "stylelint": "^17.16.0",
     "stylelint-config-recommended-vue": "^2.0.0",
     "stylelint-config-standard-scss": "^17.0.0",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "vitest": "^5.0.5",
     "vue-tsc": "^3.3.13"

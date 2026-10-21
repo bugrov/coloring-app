@@ -10,7 +10,11 @@ export default defineNuxtConfig({
   routeRules: {
     // Canvas and file tools work on the client only; no point rendering them on the server.
     '/coloring/lab': { ssr: false },
+    '/coloring/art/**': { ssr: false },
     '/coloring/sandbox': { ssr: false },
+    // Every import costs CPU (parsing) even when the file is rejected, so failures count too.
+    // The body is an SVG file: the XSS validator of nuxt-security would reject its markup.
+    '/api/coloring/imports': { security: { rateLimiter: { tokensPerInterval: 30, interval: 300_000 }, xssValidator: false } },
   },
 
   // Nuxt (client) and Nitro (server) auto-import every layer's shared/types globally.

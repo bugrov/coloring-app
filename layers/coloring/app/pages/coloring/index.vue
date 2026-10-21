@@ -1,32 +1,30 @@
 <script setup lang="ts">
-import { CoreRoutes } from '#layers/core/shared/routes'
 import { ColoringRoutes } from '../../../shared/routes'
+import { useGalleryStore } from '../../stores/gallery'
 
 definePageMeta({ name: ColoringRoutes.GALLERY })
+useHead({ title: 'Раскраска' })
+
+// The first page is fetched on the server (SSR) and handed to the client; a client-side visit fetches it again.
+const gallery = useGalleryStore()
+await useAsyncData('coloring-gallery', async () => {
+  await gallery.loadFirst()
+  return gallery.status
+})
 </script>
 
 <template>
-  <SafeAreaPage>
-    <h1 class="coloring-gallery__title">
-      Раскраска
-    </h1>
-    <p class="coloring-gallery__note">
-      Галерея появится на шаге 5.
-    </p>
-    <NuxtLink :to="{ name: CoreRoutes.HOME }">
-      ← К играм
-    </NuxtLink>
-  </SafeAreaPage>
+  <div class="gallery-page">
+    <SafeAreaPage>
+      <GalleryBoard />
+    </SafeAreaPage>
+  </div>
 </template>
 
 <style scoped lang="scss">
-.coloring-gallery__title {
-  margin: 0;
-  font-size: var(--font-size-l);
-}
-
-.coloring-gallery__note {
-  margin: 0;
-  color: var(--color-text-muted);
+.gallery-page {
+  position: fixed;
+  inset: 0;
+  background: var(--color-sky);
 }
 </style>
