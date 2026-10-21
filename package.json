@@ -27,11 +27,13 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",
+    "@pinia/nuxt": "^1.0.3",
     "@xmldom/xmldom": "^0.9.12",
     "drizzle-orm": "^0.45.4",
     "nuxt": "^4.6.2",
     "nuxt-auth-utils": "^0.5.32",
     "nuxt-security": "^2.6.0",
+    "pinia": "^4.1.0",
     "svgpath": "^2.6.0",
     "vue": "^3.5.44",
     "vue-router": "^5.4.0",

@@ -15,6 +15,12 @@ $theme-bg: #fff !default;
   --color-on-overlay: #fff;
   --color-danger: #c62828;
 
+  // Gallery (Figma: Coloring — Gallery). The progress colour is not in the mock-up: a deeper
+  // blue than the frame, so the filled part stays visible next to the sky-blue page.
+  --color-sky: #71c5ef;
+  --color-card-frame: #cdf4ff;
+  --color-progress: #2e9be6;
+
   // Type
   --font-family: system-ui, -apple-system, "Segoe UI", roboto, sans-serif;
   --font-size-s: 0.875rem;
@@ -27,10 +33,14 @@ $theme-bg: #fff !default;
   --space-3: 12px;
   --space-4: 16px;
   --space-6: 24px;
+  --space-gallery: 24px;
 
   // Shape
   --radius-m: 16px;
   --radius-l: 24px;
+  --radius-card: 64px;
+  --border-card: 16px;
+  --card-height: 200px;
 
   // Motion: short and interruptible, compositor-only properties.
   --duration-fast: 150ms;
