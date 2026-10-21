@@ -1,13 +1,11 @@
 import { ADMIN_SESSION_MAX_AGE_SECONDS, adminLoginSchema } from '../../../shared/auth'
-import { verifyAdminCredentials } from '../../services/admin'
+import { adminCredentialsFrom, verifyAdminCredentials } from '../../services/admin'
 import { apiError, parseBody } from '../../utils/errors'
 
 export default defineEventHandler(async (event) => {
   const input = await parseBody(event, adminLoginSchema)
-  const verdict = verifyAdminCredentials(input, {
-    login: process.env.ADMIN_LOGIN,
-    password: process.env.ADMIN_PASSWORD,
-  })
+  // With the event, the config reflects the environment variables at runtime (Nuxt docs).
+  const verdict = verifyAdminCredentials(input, adminCredentialsFrom(useRuntimeConfig(event)))
   if (verdict === 'disabled') {
     audit('admin_login_disabled', event)
     throw apiError(503, 'admin_disabled')

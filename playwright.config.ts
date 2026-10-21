@@ -44,8 +44,8 @@ export default defineConfig({
     timeout: 300_000,
     env: {
       PORT: String(PORT),
-      ADMIN_LOGIN: E2E_ADMIN.login,
-      ADMIN_PASSWORD: E2E_ADMIN.password,
+      NUXT_ADMIN_LOGIN: E2E_ADMIN.login,
+      NUXT_ADMIN_PASSWORD: E2E_ADMIN.password,
       NUXT_SESSION_PASSWORD: 'e2e-session-password-at-least-32-characters-long',
     },
   },

@@ -7,6 +7,19 @@ export interface AdminCredentials {
 
 export type AdminVerdict = 'ok' | 'invalid' | 'disabled'
 
+/**
+ * The admin credentials from the runtime config. Nuxt casts environment values
+ * (`destr`): a password such as `4848e0` arrives as the number 4848, which is not
+ * the password. Anything that is not a string counts as not configured, so the
+ * sign-in stays off instead of accepting a changed value.
+ */
+export function adminCredentialsFrom(config: { adminLogin?: unknown, adminPassword?: unknown }): Partial<AdminCredentials> {
+  return {
+    login: typeof config.adminLogin === 'string' ? config.adminLogin : undefined,
+    password: typeof config.adminPassword === 'string' ? config.adminPassword : undefined,
+  }
+}
+
 /** Equal-length digests make `timingSafeEqual` applicable and hide the length of the secret. */
 function digest(value: string): Buffer {
   return createHash('sha256').update(value).digest()

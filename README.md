@@ -16,7 +16,7 @@ pnpm dev            # http://localhost:3000
 Neon Postgres + Drizzle, вход игрока по имени и стране без пароля, вход администратора по логину и паролю из окружения.
 
 ```bash
-cp .env.example .env     # заполнить DATABASE_URL, DATABASE_URL_UNPOOLED, ADMIN_LOGIN, ADMIN_PASSWORD
+cp .env.example .env     # заполнить DATABASE_URL, DATABASE_URL_UNPOOLED, NUXT_ADMIN_LOGIN, NUXT_ADMIN_PASSWORD
 pnpm db:migrate          # применить миграции к ветке Neon из DATABASE_URL_UNPOOLED
 pnpm dev                 # NUXT_SESSION_PASSWORD создастся в .env при первом запуске
 ```
@@ -24,7 +24,7 @@ pnpm dev                 # NUXT_SESSION_PASSWORD создастся в .env пр
 - `DATABASE_URL` — pooled-строка Neon (приложение), `DATABASE_URL_UNPOOLED` — прямая строка (только миграции).
 - Новая миграция: изменить `layers/core/server/db/schema.ts`, затем `pnpm db:generate` и закоммитить SQL.
 - Тесты серверной логики идут на PGlite (Postgres в памяти) с теми же миграциями и не трогают настоящую базу.
-- На Vercel миграции применяются при каждой сборке (`vercel.json`): превью-ветка Neon получает схему своего PR, продакшен — свою. Вручную нужны только `NUXT_SESSION_PASSWORD` (не короче 32 символов), `ADMIN_LOGIN` и `ADMIN_PASSWORD`.
+- На Vercel миграции применяются при каждой сборке (`vercel.json`): превью-ветка Neon получает схему своего PR, продакшен — свою. Вручную нужны только `NUXT_SESSION_PASSWORD` (не короче 32 символов), `NUXT_ADMIN_LOGIN` и `NUXT_ADMIN_PASSWORD`.
 
 ## Проверки
 

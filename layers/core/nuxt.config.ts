@@ -34,6 +34,12 @@ export default defineNuxtConfig({
     // nuxt-auth-utils: the cookie is httpOnly, secure and sameSite=lax by default; only the lifetime is set here.
     // The cookie password comes from NUXT_SESSION_PASSWORD (at least 32 characters).
     session: { maxAge: SESSION_MAX_AGE_SECONDS },
+
+    // The single administrator. Private keys: overridden at runtime by NUXT_ADMIN_LOGIN and
+    // NUXT_ADMIN_PASSWORD (the NUXT_ prefix is how Nuxt maps environment variables to keys).
+    // Empty means the admin sign-in is switched off.
+    adminLogin: '',
+    adminPassword: '',
   },
 
   routeRules: {

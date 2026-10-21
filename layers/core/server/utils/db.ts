@@ -13,7 +13,13 @@ export type Database = PgDatabase<PgQueryResultHKT>
 
 let database: Database | undefined
 
-/** The pooled Neon connection from DATABASE_URL, created on first use. */
+/**
+ * The pooled Neon connection from DATABASE_URL, created on first use.
+ *
+ * Read from `process.env` on purpose, not from runtimeConfig: the Vercel integration of Neon
+ * names the variable, and Nuxt maps only NUXT_-prefixed variables to runtimeConfig keys
+ * (a differently named one breaks at runtime, per the Nuxt docs).
+ */
 export function useDb(): Database {
   if (!database) {
     const url = process.env.DATABASE_URL

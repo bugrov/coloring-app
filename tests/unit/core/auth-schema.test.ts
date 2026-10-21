@@ -3,7 +3,7 @@ import { adminLoginSchema, loginSchema, usernameKey } from '../../../layers/core
 import { COUNTRY_CODES } from '../../../layers/core/shared/countries'
 import { readApiError } from '../../../layers/core/shared/errors'
 import { formatAuditLine } from '../../../layers/core/server/utils/audit'
-import { verifyAdminCredentials } from '../../../layers/core/server/services/admin'
+import { adminCredentialsFrom, verifyAdminCredentials } from '../../../layers/core/server/services/admin'
 
 const login = (username: unknown, country: unknown = 'RU') => loginSchema.safeParse({ username, country })
 
@@ -128,6 +128,25 @@ describe('verifyAdminCredentials', () => {
   it('is disabled, never open, when the environment is not configured', () => {
     expect(verifyAdminCredentials({ login: '', password: '' }, {})).toBe('disabled')
     expect(verifyAdminCredentials({ login: 'boss', password: 'x' }, { login: 'boss' })).toBe('disabled')
+  })
+})
+
+describe('adminCredentialsFrom', () => {
+  it('takes strings as they are', () => {
+    expect(adminCredentialsFrom({ adminLogin: 'boss', adminPassword: 'p4ss' })).toEqual({ login: 'boss', password: 'p4ss' })
+  })
+
+  it('treats a value that Nuxt cast into a number or object as not configured, so sign-in stays off', () => {
+    // NUXT_ADMIN_PASSWORD=4848e0 arrives as the number 4848.
+    const credentials = adminCredentialsFrom({ adminLogin: 'boss', adminPassword: 4848 })
+
+    expect(credentials.password).toBeUndefined()
+    expect(verifyAdminCredentials({ login: 'boss', password: '4848' }, credentials)).toBe('disabled')
+    expect(adminCredentialsFrom({ adminLogin: { a: 1 }, adminPassword: 'x' }).login).toBeUndefined()
+  })
+
+  it('treats an empty config as off', () => {
+    expect(verifyAdminCredentials({ login: '', password: '' }, adminCredentialsFrom({ adminLogin: '', adminPassword: '' }))).toBe('disabled')
   })
 })
 
