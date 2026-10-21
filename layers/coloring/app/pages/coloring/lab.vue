@@ -3,6 +3,8 @@ import { SVG_ERROR_MESSAGES, SVG_WARNING_MESSAGES } from '../../../shared'
 
 // Developer tool: shows how the SVG pipeline splits a drawing into regions.
 // It becomes the admin "preview before publishing" in a later step.
+// It needs no server data, so it stays open without signing in.
+definePageMeta({ auth: 'public' })
 useHead({ title: 'SVG-лаборатория', meta: [{ name: 'robots', content: 'noindex' }] })
 
 const { samples, result, fileName, durationMs, stats, convert, convertFile } = useSvgLab()
