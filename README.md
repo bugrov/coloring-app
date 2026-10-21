@@ -24,6 +24,7 @@ pnpm dev                 # NUXT_SESSION_PASSWORD создастся в .env пр
 - `DATABASE_URL` — pooled-строка Neon (приложение), `DATABASE_URL_UNPOOLED` — прямая строка (только миграции).
 - Новая миграция: изменить `layers/core/server/db/schema.ts`, затем `pnpm db:generate` и закоммитить SQL.
 - Тесты серверной логики идут на PGlite (Postgres в памяти) с теми же миграциями и не трогают настоящую базу.
+- На Vercel миграции применяются при каждой сборке (`vercel.json`): превью-ветка Neon получает схему своего PR, продакшен — свою. Вручную нужны только `NUXT_SESSION_PASSWORD` (не короче 32 символов), `ADMIN_LOGIN` и `ADMIN_PASSWORD`.
 
 ## Проверки
 
