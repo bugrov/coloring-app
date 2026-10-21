@@ -1,4 +1,5 @@
 import type { Element } from '@xmldom/xmldom'
+import { MAX_STYLE_ATTRIBUTE_LENGTH } from './constants'
 
 /** Properties the pipeline understands; everything else is ignored. */
 const STYLE_PROPERTIES = [
@@ -139,14 +140,20 @@ export function resolveStyle(
     if (value) style[name] = value
   }
 
-  for (const className of element.getAttribute('class')?.split(/\s+/) ?? []) {
+  for (const className of boundedAttribute(element, 'class').split(/\s+/)) {
     Object.assign(style, classRules.get(className))
   }
 
-  Object.assign(style, parseDeclarations(element.getAttribute('style') ?? ''))
+  Object.assign(style, parseDeclarations(boundedAttribute(element, 'style')))
 
   for (const name of INHERITED) {
     if (style[name] === 'inherit') style[name] = parent[name]
   }
   return style
+}
+
+/** Attribute value, or empty when it is suspiciously long (it is re-read on every <use> visit). */
+function boundedAttribute(element: Element, name: string): string {
+  const value = element.getAttribute(name) ?? ''
+  return value.length <= MAX_STYLE_ATTRIBUTE_LENGTH ? value : ''
 }

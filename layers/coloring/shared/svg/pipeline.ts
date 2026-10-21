@@ -1,8 +1,9 @@
 import { DOMParser, type Element } from '@xmldom/xmldom'
-import { ART_FORMAT_VERSION, artSchema, isValidPathData, pathBounds } from '../art'
+import { ART_FORMAT_VERSION, artSchema, isValidPathData } from '../art'
 import type { ArtItem, Bounds, ColoringArt, SvgConversion, SvgErrorCode, SvgLimits, SvgWarning, SvgWarningCode } from '../types'
 import { parseColor, relativeLuminance, toHex, type Rgb } from './color'
-import { applyTransforms, isClosedPath, roundPath, transformScale } from './geometry'
+import { processPath } from './geometry'
+import { IDENTITY, matrixScale, multiply, parseTransform, translation, type Matrix } from './transform'
 import {
   BACKGROUND_TOLERANCE,
   DEFAULT_SVG_LIMITS,
@@ -10,9 +11,12 @@ import {
   INK_LUMINANCE_MAX,
   MAX_MITER_LIMIT,
   MAX_NESTING_DEPTH,
+  MAX_TRANSFORM_LENGTH,
   MAX_USE_DEPTH,
   MAX_VISITS_PER_ELEMENT,
   MIN_REGION_SIZE,
+  OUTPUT_ALLOWANCE,
+  OUTPUT_PER_SOURCE_BYTE,
   PROCESSED_PER_SOURCE_BYTE,
   PATH_PRECISION,
   VIEWBOX_MAX_ASPECT,
@@ -49,7 +53,8 @@ type Paint
     | { kind: 'unsupported', value: string }
 
 interface Context {
-  transforms: readonly string[]
+  /** Accumulated transform from the element to the root. */
+  matrix: Matrix
   style: StyleDeclarations
   useDepth: number
   /** Element nesting depth, including expanded <use> references. */
@@ -86,11 +91,15 @@ class SvgConverter {
   private outputLength = 0
   /** Path data fed to transforms so far; re-used shapes count every time. */
   private processedLength = 0
+  private outputLimit = 0
 
   constructor(private readonly limits: SvgLimits) {}
 
   convert(source: string): { art: ColoringArt, warnings: SvgWarning[] } {
     this.deadline = Date.now() + this.limits.timeBudgetMs
+    // The result may be larger than the source (absolute coordinates, expanded
+    // shapes), but not by an arbitrary factor: that would be amplification.
+    this.outputLimit = Math.min(this.limits.maxOutputLength, source.length * OUTPUT_PER_SOURCE_BYTE + OUTPUT_ALLOWANCE)
 
     if (new TextEncoder().encode(source).length > this.limits.maxBytes) {
       throw new SvgConversionError('too-large')
@@ -109,7 +118,7 @@ class SvgConverter {
 
     const style = resolveStyle(root, INITIAL_STYLE, this.classRules)
     for (const child of childElements(root)) {
-      this.visit(child, { transforms: [], style, useDepth: 0, depth: 1 })
+      this.visit(child, { matrix: IDENTITY, style, useDepth: 0, depth: 1 })
     }
 
     if (this.regionCount === 0) throw new SvgConversionError('no-regions')
@@ -201,9 +210,8 @@ class SvgConverter {
       if (style[effect] && style[effect] !== 'none') this.warn('ignored-effect', effect)
     }
 
-    const ownTransform = element.getAttribute('transform')?.trim()
     const context: Context = {
-      transforms: ownTransform ? [...parent.transforms, ownTransform] : parent.transforms,
+      matrix: this.elementMatrix(element, parent.matrix),
       style,
       useDepth: parent.useDepth,
       depth: parent.depth + 1,
@@ -231,48 +239,60 @@ class SvgConverter {
     const y = numberAttr(element, 'y')
     const referenced: Context = {
       ...context,
-      transforms: x || y ? [...context.transforms, `translate(${x} ${y})`] : context.transforms,
+      matrix: x || y ? multiply(context.matrix, translation(x, y)) : context.matrix,
       useDepth: context.useDepth + 1,
     }
     if (target.localName === 'symbol') this.visitChildren(target, referenced)
     else this.visit(target, referenced)
   }
 
-  private emitShape(element: Element, tag: string, { transforms, style }: Context) {
+  /** The element's own transform composed with its parent's; malformed transforms are ignored, as browsers do. */
+  private elementMatrix(element: Element, parent: Matrix): Matrix {
+    const value = element.getAttribute('transform')?.trim()
+    if (!value) return parent
+    const own = value.length <= MAX_TRANSFORM_LENGTH ? parseTransform(value) : null
+    if (!own) {
+      this.warn('invalid-transform', element.localName ?? '')
+      return parent
+    }
+    return multiply(parent, own)
+  }
+
+  private emitShape(element: Element, tag: string, { matrix, style }: Context) {
     if (style.visibility === 'hidden' || style.visibility === 'collapse') return
 
     const raw = shapeToPath(element)
     if (!raw) return
-    // Transforms dominate the cost; processing far more path data than the file
-    // holds means heavy <use> re-use, so stop before doing the work.
+    // Checked before any parsing: path parsing cost grows with length.
+    if (raw.length > this.limits.maxPathLength) {
+      this.warn('path-too-long', tag)
+      return
+    }
+    // Processing far more path data than the file holds means heavy <use>
+    // re-use, so stop before doing the work.
     this.processedLength += raw.length
     if (this.processedLength > this.limits.maxBytes * PROCESSED_PER_SOURCE_BYTE) {
       throw new SvgConversionError('too-complex')
     }
-    if (!isValidPathData(raw)) {
+
+    const processed = isValidPathData(raw) ? processPath(raw, matrix, PATH_PRECISION) : null
+    // Extreme transforms can produce Infinity or NaN coordinates.
+    if (!processed || !isValidPathData(processed.d)) {
       this.warn('invalid-path', tag)
       return
     }
-
-    const d = roundPath(applyTransforms(raw, transforms), PATH_PRECISION)
+    const { d, bounds, closed } = processed
     if (d.length > this.limits.maxPathLength) {
       this.warn('path-too-long', tag)
       return
     }
-    // Extreme transforms can produce Infinity or NaN coordinates.
-    if (!isValidPathData(d)) {
-      this.warn('invalid-path', tag)
-      return
-    }
 
-    const bounds = pathBounds(d)
     // Lines have no interior, whatever their fill says; neither do degenerate shapes.
     const hasInterior = tag !== 'line' && this.hasArea(bounds)
-    const closed = isClosedPath(d)
     const fillRule = style['fill-rule'] === 'evenodd' ? 'evenodd' : 'nonzero'
     const fill = hasInterior ? this.paint(style.fill, style.color, style['fill-opacity']) : { kind: 'none' as const }
     const stroke = this.paint(style.stroke, style.color, style['stroke-opacity'])
-    const strokeWidth = Math.min(this.longSide, (Number.parseFloat(style['stroke-width'] ?? '1') || 0) * transformScale(transforms))
+    const strokeWidth = Math.min(this.longSide, (Number.parseFloat(style['stroke-width'] ?? '1') || 0) * matrixScale(matrix))
     const hasStroke = stroke.kind !== 'none' && Number.isFinite(strokeWidth) && strokeWidth > 0
 
     if (hasStroke && style['stroke-dasharray'] && style['stroke-dasharray'] !== 'none') {
@@ -306,7 +326,7 @@ class SvgConverter {
   /** Adds an output item, enforcing limits on the size of the result. */
   private emit(item: ArtItem) {
     this.outputLength += item.d.length
-    if (this.items.length >= this.limits.maxItems || this.outputLength > this.limits.maxOutputLength) {
+    if (this.items.length >= this.limits.maxItems || this.outputLength > this.outputLimit) {
       throw new SvgConversionError('too-complex')
     }
     this.items.push(item)

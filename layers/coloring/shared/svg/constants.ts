@@ -53,3 +53,17 @@ export const MAX_MITER_LIMIT = 100
 
 /** Warning details are diagnostics: short, and only characters that cannot form markup. */
 export const DETAIL_MAX_LENGTH = 64
+
+/** Longer `transform` attributes are ignored; real files use a few dozen characters. */
+export const MAX_TRANSFORM_LENGTH = 2048
+
+/** Longer `class` and `style` attributes are ignored; they are re-read on every <use> visit. */
+export const MAX_STYLE_ATTRIBUTE_LENGTH = 4096
+
+/**
+ * Output path data may exceed the source this many times (absolute
+ * coordinates, expanded shapes, moderate <use> re-use) plus a fixed allowance
+ * for small files, and never maxOutputLength.
+ */
+export const OUTPUT_PER_SOURCE_BYTE = 4
+export const OUTPUT_ALLOWANCE = 64_000

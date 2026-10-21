@@ -1,47 +1,60 @@
 import svgpath from 'svgpath'
+import type { Bounds } from '../types'
+import { explicitPathData } from './path-data'
+import { isIdentity, type Matrix } from './transform'
 
 const CLOSE_EPSILON = 0.01
 
+export interface ProcessedPath {
+  /** Absolute, rounded path data with an explicit letter for every command. */
+  d: string
+  /** Upper bound of the shape (curve control points included). */
+  bounds: Bounds | null
+  /** Every subpath ends with Z or returns to its start. */
+  closed: boolean
+}
+
 /**
- * Applies transforms from the innermost (the element's own) to the outermost
- * ancestor, which is the order SVG composes them in.
+ * Transforms, rounds and measures path data with a single parse. Returns
+ * null for malformed data. The output keeps explicit command letters so any
+ * later parse (the engine on the client) stays linear too.
  */
-export function applyTransforms(d: string, transforms: readonly string[]): string {
-  let path = svgpath(d)
-  for (let i = transforms.length - 1; i >= 0; i--) {
-    path = path.transform(transforms[i]!)
-  }
-  return path.abs().toString()
-}
+export function processPath(raw: string, matrix: Matrix, precision: number): ProcessedPath | null {
+  const explicit = explicitPathData(raw)
+  if (explicit === null) return null
 
-/** Average linear scale of the transform chain; used to scale stroke widths. */
-export function transformScale(transforms: readonly string[]): number {
-  const [ux, uy, vx, vy] = basisVectors(transforms)
-  return Math.sqrt(Math.abs(ux * vy - uy * vx))
-}
+  const path = svgpath(explicit)
+  if (!isIdentity(matrix)) path.matrix(matrix)
+  path.abs().round(precision)
 
-function basisVectors(transforms: readonly string[]): [number, number, number, number] {
-  const coords: number[] = []
-  svgpath(applyTransforms('M0 0L1 0M0 0L0 1', transforms)).iterate((segment) => {
-    coords.push(Number(segment[1]), Number(segment[2]))
+  const commands: string[] = []
+  path.iterate((segment) => {
+    commands.push(segment[0] + segment.slice(1).join(' '))
   })
-  const [ox, oy, ux, uy, , , vx, vy] = coords
-  return [ux! - ox!, uy! - oy!, vx! - ox!, vy! - oy!]
+
+  const shape = measure(path.unarc().unshort())
+  return { d: commands.join(''), ...shape }
 }
 
-export function roundPath(d: string, precision: number): string {
-  return svgpath(d).round(precision).toString()
-}
+/** Bounds and closedness in one pass over an absolute path without arcs. */
+function measure(path: ReturnType<typeof svgpath>): Omit<ProcessedPath, 'd'> {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  const include = (x: number, y: number) => {
+    minX = Math.min(minX, x)
+    minY = Math.min(minY, y)
+    maxX = Math.max(maxX, x)
+    maxY = Math.max(maxY, y)
+  }
 
-/** A path is closed when every subpath ends with Z or returns to its start. */
-export function isClosedPath(d: string): boolean {
   let closed = true
   let subpathOpen = false
   let startX = 0
   let startY = 0
   let endX = 0
   let endY = 0
-
   const finishSubpath = () => {
     if (subpathOpen && (Math.abs(endX - startX) > CLOSE_EPSILON || Math.abs(endY - startY) > CLOSE_EPSILON)) {
       closed = false
@@ -49,7 +62,7 @@ export function isClosedPath(d: string): boolean {
     subpathOpen = false
   }
 
-  svgpath(d).abs().unshort().iterate((segment, _index, x, y) => {
+  path.iterate((segment, _index, x, y) => {
     const args = segment.slice(1) as number[]
     switch (segment[0]) {
       case 'M':
@@ -73,11 +86,13 @@ export function isClosedPath(d: string): boolean {
         endY = args[0]!
         break
       default:
+        for (let i = 0; i + 1 < args.length; i += 2) include(args[i]!, args[i + 1]!)
         endX = args[args.length - 2]!
         endY = args[args.length - 1]!
     }
+    include(endX, endY)
   })
   finishSubpath()
 
-  return closed
+  return { closed, bounds: Number.isFinite(minX) ? { minX, minY, maxX, maxY } : null }
 }

@@ -43,6 +43,7 @@ export type SvgWarningCode
     | 'invalid-path'
     | 'path-too-long'
     | 'ignored-styles'
+    | 'invalid-transform'
 
 export interface SvgWarning {
   code: SvgWarningCode

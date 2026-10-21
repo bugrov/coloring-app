@@ -25,4 +25,5 @@ export const SVG_WARNING_MESSAGES: Record<SvgWarningCode, string> = {
   'invalid-path': 'Часть фигур с некорректными данными пропущена.',
   'path-too-long': 'Слишком сложные фигуры пропущены.',
   'ignored-styles': 'Встроенные CSS-стили слишком большие и не применены.',
+  'invalid-transform': 'Некорректные трансформации фигур проигнорированы.',
 }

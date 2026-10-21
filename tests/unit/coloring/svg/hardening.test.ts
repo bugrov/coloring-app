@@ -45,6 +45,23 @@ describe('SVG hardening: CPU', () => {
     expect(result.ok && result.art.items.filter(item => item.type === 'region' && item.kind === 'area')).toHaveLength(1)
   })
 
+  it('parses huge malformed transforms in linear time', () => {
+    // svgpath's regex took ~188 s on this input.
+    const { result, ms } = timed(svg(`<rect width="10" height="10" fill="white" transform="${'skewX('.repeat(160_000)}"/>${SQUARE}`))
+
+    expect(result.ok && result.warnings.map(w => w.code)).toContain('invalid-transform')
+    expect(ms).toBeLessThan(500)
+  })
+
+  it('parses implicit command repetition in linear time', () => {
+    // svgpath expands implicit repetition quadratically: ~36 s for this polygon.
+    const points = '1 1 2 2 '.repeat(24_000)
+    const { result, ms } = timed(svg(`<polygon points="${points}" fill="white"/><path d="M0 0L${'1 1 '.repeat(24_000)}" fill="white"/>${SQUARE}`))
+
+    expect(result.ok).toBe(true)
+    expect(ms).toBeLessThan(1000)
+  })
+
   it('rejects deep nesting with a clear error instead of overflowing the stack', () => {
     const depth = 1000
     expect(errorOf(convertSvg(svg(`${'<g>'.repeat(depth)}${SQUARE}${'</g>'.repeat(depth)}`)))).toBe('too-complex')
