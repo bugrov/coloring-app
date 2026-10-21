@@ -6,8 +6,10 @@ type Status = 'idle' | 'loading' | 'ready' | 'error'
 
 /** Gallery cards and the paging state. Server calls go through the player's own session. */
 export const useGalleryStore = defineStore('coloring-gallery', () => {
-  // On the server the request has to carry the player's cookie to our own API.
-  const request = useRequestFetch()
+  // Every call goes through this one function. During SSR a plain `$fetch` to our own API would
+  // not carry the player's cookie (Nuxt docs), so the first page would be refused; `useRequestFetch`
+  // forwards the incoming headers there, and in the browser it is the usual `$fetch`.
+  const api = useRequestFetch()
 
   const items = ref<GalleryItem[]>([])
   const nextCursor = ref<string | null>(null)
@@ -22,7 +24,7 @@ export const useGalleryStore = defineStore('coloring-gallery', () => {
   let generation = 0
 
   async function fetchPage(cursor?: string): Promise<GalleryPage> {
-    return request<GalleryPage>('/api/coloring/arts', { query: cursor ? { cursor } : undefined })
+    return api<GalleryPage>('/api/coloring/arts', { query: cursor ? { cursor } : undefined })
   }
 
   /** First page; also the way to start over after an error or an import. */
@@ -82,7 +84,7 @@ export const useGalleryStore = defineStore('coloring-gallery', () => {
 
   async function importSvg(file: File): Promise<boolean> {
     const done = await act(async () => {
-      await $fetch('/api/coloring/imports', {
+      await api('/api/coloring/imports', {
         method: 'POST',
         query: { name: file.name },
         // The raw file is the body: the server decodes it strictly as UTF-8.
@@ -96,7 +98,7 @@ export const useGalleryStore = defineStore('coloring-gallery', () => {
 
   async function remove(id: string): Promise<boolean> {
     const done = await act(async () => {
-      await $fetch(`/api/coloring/arts/${id}`, { method: 'DELETE' })
+      await api(`/api/coloring/arts/${id}`, { method: 'DELETE' })
     })
     if (done) items.value = items.value.filter(item => item.id !== id)
     return done
@@ -105,7 +107,7 @@ export const useGalleryStore = defineStore('coloring-gallery', () => {
   async function restart(id: string): Promise<boolean> {
     let attempt = 0
     const done = await act(async () => {
-      const result = await $fetch<{ attempt: number }>(`/api/coloring/arts/${id}/restart`, { method: 'POST' })
+      const result = await api<{ attempt: number }>(`/api/coloring/arts/${id}/restart`, { method: 'POST' })
       attempt = result.attempt
     })
     if (done) {
