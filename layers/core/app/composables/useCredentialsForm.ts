@@ -30,7 +30,6 @@ interface CredentialsForm<T> {
  */
 export function useCredentialsForm<T extends Record<string, unknown>>({ endpoint, schema, initial, redirectTo }: CredentialsFormOptions<T>): CredentialsForm<T> {
   const { fetch: refreshSession } = useUserSession()
-  const router = useRouter()
 
   const values = reactive({ ...initial }) as T
   const pending = ref(false)
@@ -74,7 +73,7 @@ export function useCredentialsForm<T extends Record<string, unknown>>({ endpoint
       await navigateTo({ name: redirectTo })
     }
     catch {
-      await navigateTo(router.resolve({ name: redirectTo }).href, { external: true })
+      await navigateTo({ name: redirectTo }, { external: true })
     }
   }
 

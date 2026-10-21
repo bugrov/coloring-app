@@ -27,6 +27,15 @@ describe('route names', () => {
     expect(FILES.length).toBeGreaterThan(10)
   })
 
+  // The middleware no longer guesses an admin area from the path: a page under admin/ that forgets
+  // `auth` would open to every signed-in player (its API stays protected by requireAdmin).
+  it('every page under admin/ declares who may open it', () => {
+    const adminPages = FILES.filter(file => file.includes(join('pages', 'admin')) && file.endsWith('.vue'))
+    expect(adminPages.length).toBeGreaterThan(0)
+    const undeclared = adminPages.filter(file => !/definePageMeta\(\{[^}]*\bauth:/.test(readFileSync(file, 'utf8')))
+    expect(undeclared).toEqual([])
+  })
+
   it.each(STRING_PATH_PATTERNS)('no source uses %s', (_label, pattern) => {
     const offenders = FILES.filter(file => pattern.test(readFileSync(file, 'utf8')))
     expect(offenders).toEqual([])
