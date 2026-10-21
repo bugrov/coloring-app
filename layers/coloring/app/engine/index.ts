@@ -1,11 +1,11 @@
 import { DEFAULT_OPACITY, MAX_STROKE_POINTS } from '../../shared'
 import type { ClearOp, ColoringArt, FillOp, Op, StrokeOp, Tool } from '../../shared'
-import type { Rect } from './canvas'
+import { releaseCanvas, type AnyCanvas, type Rect } from './canvas'
 import { DEFAULT_THICKNESS, TOOL_WIDTH } from './constants'
 import { exportPng } from './export'
 import { ArtGeometry } from './geometry'
 import { Painter, type PaintStroke, type StrokeStyle } from './painter'
-import { ProgressTracker, type Progress } from './progress'
+import { ProgressTracker, type Progress, type ProgressState } from './progress'
 import { ArtSpace, gridLength } from './space'
 
 export {
@@ -22,6 +22,7 @@ export {
 } from './constants'
 export { HoldDetector } from './hold'
 export { EMPTY_PROGRESS, type Progress } from './progress'
+export { Timeline, type PaintHost } from './timeline'
 export { clampView, IDENTITY_VIEW, panBy, zoomAt, type View } from './viewport'
 
 /**
@@ -32,6 +33,12 @@ export { clampView, IDENTITY_VIEW, panBy, zoomAt, type View } from './viewport'
  * Deliberately not reactive: it lives outside Vue's reactivity (markRaw) so
  * the drawing hot path never triggers watchers.
  */
+/** A copy of the picture and of its progress counts; see `ColoringEngine.snapshot`. */
+export interface PaintSnapshot {
+  readonly canvas: AnyCanvas
+  readonly progress: ProgressState
+}
+
 export class ColoringEngine {
   readonly space: ArtSpace
   private readonly geometry: ArtGeometry
@@ -80,6 +87,34 @@ export class ColoringEngine {
     this.painter.clearAll()
     for (const op of ops) this.painter.apply(op)
     this.track(this.painter.fullRect)
+  }
+
+  /** Applies ops on top of what is painted, keeping the progress up to date. */
+  applyOps(ops: readonly Op[]) {
+    for (const op of ops) this.track(this.painter.apply(op))
+  }
+
+  /** A blank picture. */
+  clearPaint() {
+    this.painter.clearAll()
+    this.tracker.reset()
+  }
+
+  /** The picture as it is now, to come back to without replaying the steps that led to it. */
+  snapshot(): PaintSnapshot {
+    const canvas = this.painter.createSnapshotCanvas()
+    this.painter.copyPaintTo(canvas)
+    return { canvas, progress: this.tracker.saveState() }
+  }
+
+  restore(snapshot: PaintSnapshot) {
+    this.painter.restorePaintFrom(snapshot.canvas)
+    this.tracker.restoreState(snapshot.progress)
+  }
+
+  /** Frees a snapshot's pixels now; iOS limits total canvas memory. */
+  releaseSnapshot(snapshot: PaintSnapshot) {
+    releaseCanvas(snapshot.canvas)
   }
 
   get progress(): Progress {

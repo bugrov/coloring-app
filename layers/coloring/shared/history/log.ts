@@ -21,6 +21,18 @@ function commonPrefix(a: readonly HistoryStep[], b: readonly HistoryStep[]): num
 }
 
 /**
+ * What is not on the server yet, as it is kept across a reload or a closed tab (IndexedDB):
+ * the revision it was built on and the steps after the first `keep`.
+ */
+export interface UnsentHistory {
+  attempt: number
+  rev: number
+  keep: number
+  steps: HistoryStep[]
+  cursor: number
+}
+
+/**
  * The history of one attempt as the editor holds it: steps, the cursor among them, and what the
  * server has of it. No DOM and no network, so the rules of undo, saving and conflicts are tested
  * on their own.
@@ -79,6 +91,10 @@ export class HistoryLog {
     return this.undoFloor
   }
 
+  stepAt(index: number): HistoryStep {
+    return this.steps[index]!
+  }
+
   /** Steps `from` (included) to `to` (excluded), flattened into ops. */
   opsBetween(from: number, to: number) {
     return this.steps.slice(from, to).flat()
@@ -107,6 +123,12 @@ export class HistoryLog {
   /** Whether there is anything to save. */
   get dirty(): boolean {
     return this.steps.length > this.confirmed || this.position !== this.serverCursor
+  }
+
+  /** The work that is not on the server yet, or null when everything is saved. */
+  get unsent(): UnsentHistory | null {
+    if (!this.dirty) return null
+    return { attempt: this.attempt, rev: this.rev, keep: this.confirmed, steps: this.steps.slice(this.confirmed), cursor: this.position }
   }
 
   /** How many steps wait to be saved. */
@@ -175,5 +197,38 @@ export class HistoryLog {
     this.confirmed = base.length
     this.serverCursor = server.cursor
     return { rebuild: true, merged: true }
+  }
+
+  /**
+   * Opens an attempt: the server's version plus the work an earlier visit left unsent (it survives
+   * a reload or a closed tab). Unsent steps are never dropped unless their attempt was started
+   * over elsewhere. If the server moved on meanwhile, they go on top of its applied steps; if it
+   * already has them (the save arrived, the page died before hearing back), they are not added twice.
+   */
+  restore(server: HistoryState, unsent: UnsentHistory | null): Reconciliation {
+    if (!unsent || unsent.attempt !== server.attempt || unsent.keep > server.steps.length) {
+      this.load(server)
+      return { rebuild: true, merged: false }
+    }
+    if (unsent.rev === server.rev) {
+      this.load({ ...server, steps: [...server.steps.slice(0, unsent.keep), ...unsent.steps], cursor: unsent.cursor })
+      this.confirmed = unsent.keep
+      this.serverCursor = server.cursor
+      return { rebuild: true, merged: false }
+    }
+    const stored = unsent.steps.every((step, index) => {
+      const onServer = server.steps[unsent.keep + index]
+      return onServer !== undefined && sameStep(onServer, step)
+    })
+    if (stored) {
+      this.load(server)
+      return { rebuild: true, merged: false }
+    }
+    const base = server.steps.slice(0, server.cursor)
+    const mine = unsent.steps.slice(0, Math.max(0, unsent.cursor - unsent.keep))
+    this.load({ ...server, steps: [...base, ...mine], cursor: base.length + mine.length })
+    this.confirmed = base.length
+    this.serverCursor = server.cursor
+    return { rebuild: true, merged: mine.length > 0 }
   }
 }

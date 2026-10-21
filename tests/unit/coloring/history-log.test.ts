@@ -207,3 +207,65 @@ describe('HistoryLog: a conflict', () => {
     expect(log.nextSave(0)).toMatchObject({ keep: 2, steps: [], cursor: 1 })
   })
 })
+
+describe('HistoryLog: coming back to unsent work', () => {
+  const unsentOf = (log: HistoryLog) => log.unsent!
+
+  it('has no unsent work once everything is saved', () => {
+    const log = new HistoryLog(state([1]))
+
+    expect(log.unsent).toBeNull()
+    log.push(step(2))
+    expect(unsentOf(log)).toEqual({ attempt: 1, rev: 1, keep: 1, steps: [step(2)], cursor: 2 })
+  })
+
+  it('restores exactly when the server is where the work was built', () => {
+    const before = new HistoryLog(state([1, 2]))
+    before.push(step(3))
+    before.undo()
+    const saved = unsentOf(before)
+
+    const log = new HistoryLog()
+    const result = log.restore(state([1, 2]), saved)
+
+    expect(result.merged).toBe(false)
+    expect(log.cursor).toBe(2)
+    expect(log.length).toBe(3)
+    expect(log.nextSave(0)).toMatchObject({ keep: 2, cursor: 2 })
+  })
+
+  it('puts the work on top of what the server gained meanwhile', () => {
+    const before = new HistoryLog(state([1]))
+    before.push(step(2))
+
+    const log = new HistoryLog()
+    const result = log.restore(state([1, 8, 9], 3, 2), unsentOf(before))
+
+    expect(result.merged).toBe(true)
+    expect(log.opsBetween(0, log.cursor)).toEqual([...step(1), ...step(8), ...step(9), ...step(2)])
+    expect(log.nextSave(0)).toMatchObject({ keep: 3, rev: 2, cursor: 4 })
+  })
+
+  it('does not add steps twice when the save had arrived and the page died before the answer', () => {
+    const before = new HistoryLog(state([1]))
+    before.push(step(2))
+    const saved = unsentOf(before)
+
+    const log = new HistoryLog()
+    log.restore(state([1, 2], 2, 2), saved)
+
+    expect(log.length).toBe(2)
+    expect(log.dirty).toBe(false)
+  })
+
+  it('drops work of an attempt that was started over elsewhere', () => {
+    const before = new HistoryLog(state([1]))
+    before.push(step(2))
+
+    const log = new HistoryLog()
+    log.restore({ attempt: 2, rev: 0, cursor: 0, steps: [] }, unsentOf(before))
+
+    expect(log.length).toBe(0)
+    expect(log.dirty).toBe(false)
+  })
+})

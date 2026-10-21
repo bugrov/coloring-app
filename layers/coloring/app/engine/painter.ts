@@ -150,6 +150,26 @@ export class Painter {
     this.ctx.clearRect(0, 0, this.space.paintWidth, this.space.paintHeight)
   }
 
+  /** Copies the whole paint onto `target`, a canvas of the same size. */
+  copyPaintTo(target: AnyCanvas) {
+    const ctx = context2d(target)
+    ctx.globalCompositeOperation = 'copy'
+    ctx.drawImage(this.canvas, 0, 0)
+    ctx.globalCompositeOperation = 'source-over'
+  }
+
+  /** Replaces the whole paint with `source`, a canvas of the same size (a copy made by `copyPaintTo`). */
+  restorePaintFrom(source: AnyCanvas) {
+    this.ctx.globalCompositeOperation = 'copy'
+    this.ctx.drawImage(source, 0, 0)
+    this.ctx.globalCompositeOperation = 'source-over'
+  }
+
+  /** A blank canvas of the paint's size, for a snapshot. */
+  createSnapshotCanvas(): AnyCanvas {
+    return createCanvas(this.space.paintWidth, this.space.paintHeight)
+  }
+
   dispose() {
     releaseCanvas(this.scratch)
     releaseCanvas(this.backup)
