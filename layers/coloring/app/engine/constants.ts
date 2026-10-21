@@ -14,6 +14,13 @@ export const TOOL_WIDTH: Record<Tool, number> = {
   eraser: 0.03,
 }
 
+/**
+ * What the player can multiply a tool's line width by: thin, normal, thick. The result is stored
+ * in each stroke op as its width, so replay needs no knowledge of these.
+ */
+export const THICKNESS_SCALES = [0.5, 1, 1.8] as const
+export const DEFAULT_THICKNESS: number = THICKNESS_SCALES[1]
+
 /** Distance between brush stamps as a share of the brush diameter. */
 export const BRUSH_STAMP_SPACING = 0.15
 

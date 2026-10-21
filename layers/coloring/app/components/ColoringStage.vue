@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { DEFAULT_OPACITY } from '../../shared'
 import type { ColoringArt, Op, Tool } from '../../shared'
-import { HOLD_DURATION_MS, type Progress } from '../engine'
+import { DEFAULT_THICKNESS, HOLD_DURATION_MS, type Progress } from '../engine'
 import type { ColoringStageHandle, HoldFeedback } from '../composables/useColoringStage'
 
 const props = withDefaults(defineProps<{
@@ -10,7 +10,9 @@ const props = withDefaults(defineProps<{
   color: string
   /** Paint opacity in percent. */
   opacity?: number
-}>(), { opacity: DEFAULT_OPACITY })
+  /** Multiplier of the tool's line width. */
+  thickness?: number
+}>(), { opacity: DEFAULT_OPACITY, thickness: DEFAULT_THICKNESS })
 
 const emit = defineEmits<{
   ops: [ops: Op[]]
@@ -37,6 +39,7 @@ const { contentStyle, handle } = useColoringStage({ stage, content, canvas }, {
   tool: toRef(props, 'tool'),
   color: toRef(props, 'color'),
   opacity: toRef(props, 'opacity'),
+  thickness: toRef(props, 'thickness'),
   onHold,
   onOps: ops => emit('ops', ops),
   onProgress: progress => emit('progress', progress),

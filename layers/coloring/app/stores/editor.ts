@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import { DEFAULT_COLOR, DEFAULT_OPACITY, OPACITY_LEVELS } from '../../shared'
 import type { Op, Tool } from '../../shared'
-import { EMPTY_PROGRESS, type Progress } from '../engine'
+import { DEFAULT_THICKNESS, EMPTY_PROGRESS, THICKNESS_SCALES, type Progress } from '../engine'
 
 /** How many colours the toolbar keeps within reach next to the full palette. */
 export const RECENT_COLOR_COUNT = 3
@@ -11,7 +11,7 @@ export const RECENT_COLOR_COUNT = 3
 const INITIAL_RECENT = ['#1e88e5', '#fdd835', DEFAULT_COLOR]
 
 /**
- * What the player has chosen in the editor (tool, colour, opacity, the open palette), the picture's
+ * What the player has chosen in the editor (tool, colour, opacity, thickness, the open palette), the picture's
  * progress and an in-session undo history. The history is not saved anywhere yet; the sync step
  * replaces it with the stored one.
  */
@@ -20,6 +20,8 @@ export const useEditorStore = defineStore('coloring-editor', () => {
   /** Most recently used colours; the last one is selected, so a pick moves a colour to the end. */
   const recentColors = ref<string[]>([...INITIAL_RECENT])
   const opacity = ref<number>(DEFAULT_OPACITY)
+  /** Multiplier of the tool's line width, one of THICKNESS_SCALES. */
+  const thickness = ref<number>(DEFAULT_THICKNESS)
   const paletteOpen = ref(false)
   const progress = ref<Progress>({ ...EMPTY_PROGRESS })
 
@@ -50,6 +52,12 @@ export const useEditorStore = defineStore('coloring-editor', () => {
     opacity.value = OPACITY_LEVELS[(index + 1) % OPACITY_LEVELS.length] ?? DEFAULT_OPACITY
   }
 
+  /** Steps thin → normal → thick → thin. */
+  function cycleThickness() {
+    const index = (THICKNESS_SCALES as readonly number[]).indexOf(thickness.value)
+    thickness.value = THICKNESS_SCALES[(index + 1) % THICKNESS_SCALES.length] ?? DEFAULT_THICKNESS
+  }
+
   /** Records a finished action; a new one cuts off the redo branch. */
   function record(ops: Op[]) {
     steps.value = [...steps.value.slice(0, cursor.value), ops]
@@ -68,7 +76,7 @@ export const useEditorStore = defineStore('coloring-editor', () => {
     return true
   }
 
-  /** A fresh picture: no history, no progress. The tool, colour and opacity stay. */
+  /** A fresh picture: no history, no progress. The tool, colour, opacity and thickness stay. */
   function resetPicture() {
     steps.value = []
     cursor.value = 0
@@ -86,6 +94,7 @@ export const useEditorStore = defineStore('coloring-editor', () => {
     recentColors,
     color,
     opacity,
+    thickness,
     paletteOpen,
     progress,
     canUndo,
@@ -95,6 +104,7 @@ export const useEditorStore = defineStore('coloring-editor', () => {
     selectColor,
     togglePalette,
     cycleOpacity,
+    cycleThickness,
     record,
     undo,
     redo,

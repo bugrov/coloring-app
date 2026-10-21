@@ -26,6 +26,8 @@ export interface ColoringStageOptions {
   color: Ref<string>
   /** Paint opacity in percent. */
   opacity: Ref<number>
+  /** Multiplier of the tool's line width. */
+  thickness: Ref<number>
   /** Feedback for a long press; position is in px relative to the stage. */
   onHold?: (feedback: HoldFeedback) => void
   onOps: (ops: Op[]) => void
@@ -295,7 +297,7 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     if (!isOnArt(ratio)) return
     const { point, region } = engine.value.locate(...ratio)
     if (region === null) return
-    const recorder = engine.value.beginStroke(region, options.tool.value, options.color.value, options.opacity.value)
+    const recorder = engine.value.beginStroke(region, options.tool.value, options.color.value, options.opacity.value, options.thickness.value)
     if (!recorder) return
 
     stroke = { pointerId: event.pointerId, pointerType: event.pointerType, recorder, queue: [...point], last: point }

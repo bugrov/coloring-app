@@ -20,6 +20,18 @@ describe('editor store', () => {
     expect(editor.recentColors).not.toContain('#1e88e5')
   })
 
+  it('steps the line thickness through thin, normal and thick and back', () => {
+    const editor = useEditorStore()
+    const seen = [editor.thickness]
+
+    for (let i = 0; i < 3; i++) {
+      editor.cycleThickness()
+      seen.push(editor.thickness)
+    }
+
+    expect(seen).toEqual([1, 1.8, 0.5, 1])
+  })
+
   it('moves an already recent colour to the end instead of duplicating it', () => {
     const editor = useEditorStore()
     const [first] = editor.recentColors

@@ -93,6 +93,16 @@ test.describe('editor with the database', () => {
     }
   })
 
+  test('the thickness button steps through medium, thick and thin', async ({ page }) => {
+    await openOctopus(page, 'i')
+    await expect(page.getByRole('button', { name: 'Толщина линии: средняя, изменить' })).toBeVisible()
+
+    for (const next of ['толстая', 'тонкая', 'средняя']) {
+      await page.getByRole('button', { name: /^Толщина линии/ }).click()
+      await expect(page.getByRole('button', { name: `Толщина линии: ${next}, изменить` })).toBeVisible()
+    }
+  })
+
   test('a long press fills the region and shows the ring', async ({ page }) => {
     await openOctopus(page, 'e')
 

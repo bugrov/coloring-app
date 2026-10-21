@@ -2,6 +2,7 @@
 import { ColoringRoutes } from '../../../shared/routes'
 import cameraImage from '../../assets/editor/camera.svg'
 import homeImage from '../../assets/editor/home.svg'
+import { THICKNESS_SCALES } from '../../engine'
 
 defineProps<{
   /** Restarting makes no sense while the picture is empty. */
@@ -11,6 +12,15 @@ defineProps<{
 const emit = defineEmits<{ share: [], restart: [] }>()
 
 const editor = useEditorStore()
+
+/** Names and drawn widths (px of the 28 px icon) of the line thickness levels, in THICKNESS_SCALES order. */
+const THICKNESS_LOOKS = [
+  { name: 'тонкая', stroke: 3 },
+  { name: 'средняя', stroke: 6 },
+  { name: 'толстая', stroke: 10 },
+]
+
+const thicknessLook = computed(() => THICKNESS_LOOKS[THICKNESS_SCALES.findIndex(scale => scale === editor.thickness)] ?? THICKNESS_LOOKS[1]!)
 </script>
 
 <template>
@@ -32,6 +42,7 @@ const editor = useEditorStore()
         type="button"
         class="actions__round actions__opacity"
         :aria-label="`Прозрачность краски ${editor.opacity}%, изменить`"
+        :title="`Прозрачность краски: ${editor.opacity}%`"
         @click="editor.cycleOpacity()"
       >
         <span
@@ -44,7 +55,30 @@ const editor = useEditorStore()
       <button
         type="button"
         class="actions__round"
+        :aria-label="`Толщина линии: ${thicknessLook.name}, изменить`"
+        :title="`Толщина линии: ${thicknessLook.name}`"
+        @click="editor.cycleThickness()"
+      >
+        <svg
+          viewBox="0 0 28 28"
+          width="28"
+          height="28"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          aria-hidden="true"
+        >
+          <path
+            d="M5 22 L23 6"
+            :stroke-width="thicknessLook.stroke"
+          />
+        </svg>
+      </button>
+      <button
+        type="button"
+        class="actions__round"
         aria-label="Начать заново"
+        title="Начать заново"
         :disabled="!canRestart"
         @click="emit('restart')"
       >
@@ -128,8 +162,8 @@ const editor = useEditorStore()
 .actions__round {
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   color: var(--color-text);
   font: inherit;
