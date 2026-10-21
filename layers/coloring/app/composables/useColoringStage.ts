@@ -9,6 +9,7 @@ import {
   HoldDetector,
   IDENTITY_VIEW,
   panBy,
+  releaseCanvas,
   PINCH_MIN_DISTANCE_PX,
   WHEEL_LINE_HEIGHT_PX,
   WHEEL_PAN_MAX_DELTA_PX,
@@ -441,10 +442,13 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     engine.value = null
   })
 
-  /** The engine, with a stroke in progress dropped: the picture is about to change under it. */
+  /**
+   * The engine, with a stroke in progress taken back: the picture is about to change under it, and
+   * the pixels of a half-drawn stroke must not stay on it (an undo tapped by a second finger).
+   */
   function ready(): ColoringEngine {
     if (!engine.value) throw new Error('Engine is not ready')
-    discardStroke()
+    abortStroke()
     return engine.value
   }
 
@@ -466,10 +470,11 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
       settle: () => ready().settle(),
       snapshot: () => ready().snapshot(),
       restore: snapshot => ready().restore(snapshot),
-      release: snapshot => engine.value?.releaseSnapshot(snapshot),
+      // Freed whether or not the engine is still there: the history lets go of them while the stage goes away.
+      release: snapshot => releaseCanvas(snapshot.canvas),
       capture: step => ready().captureBefore(step),
       swap: delta => ready().swapDelta(delta),
-      discard: delta => engine.value?.discardDelta(delta),
+      discard: delta => releaseCanvas(delta.canvas),
       cost: delta => delta.rect.width * delta.rect.height,
     },
     publishProgress: () => {

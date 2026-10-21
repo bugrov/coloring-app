@@ -25,6 +25,8 @@ interface FakeServer {
   state: HistoryState
   saves: SaveHistoryRequest[]
   failures: Error[]
+  /** Errors to throw for the next reads of the history, in order. */
+  loadFailures: Error[]
   api: SyncApi
 }
 
@@ -34,6 +36,7 @@ function fakeServer() {
     saves: [] as SaveHistoryRequest[],
     /** Errors to throw for the next saves, in order. */
     failures: [] as Error[],
+    loadFailures: [] as Error[],
     api: {
       async save(request: SaveHistoryRequest) {
         server.saves.push(request)
@@ -49,6 +52,8 @@ function fakeServer() {
         return { attempt: server.state.attempt, rev: server.state.rev }
       },
       async load() {
+        const failure = server.loadFailures.shift()
+        if (failure) throw failure
         return structuredClone(server.state)
       },
     },
@@ -203,6 +208,20 @@ describe('HistorySync', () => {
     expect(reconciled).toEqual([{ rebuild: true, merged: true }])
     expect(server.state.steps).toEqual([step(7), step(8), step(1)])
     expect(timeline.log.dirty).toBe(false)
+  })
+
+  it('retries later, instead of giving up, when the connection drops between a conflict and reading the server', async () => {
+    const { server, draw, statuses } = setup()
+    server.state = { attempt: 1, rev: 2, cursor: 1, steps: [step(7)] }
+    server.loadFailures.push(new Error('offline'))
+    draw(1)
+
+    await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS)
+    expect(statuses.at(-1)).toBe('offline')
+
+    await vi.advanceTimersByTimeAsync(RETRY_BASE_MS + 200)
+    expect(statuses.at(-1)).toBe('saved')
+    expect(server.state.steps).toEqual([step(7), step(1)])
   })
 
   it('gives up after conflicts that never settle', async () => {

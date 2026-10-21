@@ -13,6 +13,11 @@ export default defineEventHandler(async (event) => {
   const files = await thumbnailPathsOfArt(db, artId)
   if (!await deleteImport(db, user.id, artId)) throw apiError(404, 'not_found')
   // The art is gone already; a file that cannot be removed now is only wasted space, not a failed request.
-  await useThumbnailStore().remove(files).catch(() => undefined)
+  try {
+    await useThumbnailStore().remove(files)
+  }
+  catch {
+    // Wasted space only; the player's request did what it was asked to.
+  }
   return { ok: true }
 })

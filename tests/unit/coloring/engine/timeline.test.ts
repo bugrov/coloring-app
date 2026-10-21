@@ -153,12 +153,12 @@ describe('Timeline: undo, redo and new steps', () => {
     expect(host.picture).toEqual([...upTo(40), 500])
   })
 
-  it('starts blank on reset', async () => {
+  it('starts blank when a fresh, empty history is loaded (start over)', async () => {
     const host = fakeHost()
     const timeline = new Timeline<number[], FakeDelta>(host)
     await timeline.load(history(60))
 
-    timeline.reset(2)
+    await timeline.load({ attempt: 2, rev: 0, cursor: 0, steps: [] })
 
     expect(host.picture).toEqual([])
     expect(timeline.log.attempt).toBe(2)

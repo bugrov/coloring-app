@@ -14,4 +14,4 @@ export const MAX_BATCH_STEPS = 100
 export const MAX_BATCH_BYTES = 900_000
 
 /** Steps one attempt may hold; the server refuses more, the editor tells the player. */
-export const MAX_HISTORY_STEPS = 3000
+export const MAX_HISTORY_STEPS = 1500

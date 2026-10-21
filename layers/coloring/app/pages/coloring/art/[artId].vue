@@ -83,8 +83,8 @@ async function onRestartConfirmed() {
       </template>
       <template #plate>
         <EditorHistoryBar
-          :can-undo="editor.canUndo"
-          :can-redo="editor.canRedo"
+          :can-undo="editor.canUndo && !editor.locked"
+          :can-redo="editor.canRedo && !editor.locked"
           @undo="undo"
           @redo="redo"
         />

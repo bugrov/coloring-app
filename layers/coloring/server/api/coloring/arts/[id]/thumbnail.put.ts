@@ -1,5 +1,5 @@
 import { THUMBNAIL_MAX_BYTES } from '../../../../../shared/gallery'
-import { findVisibleArt } from '../../../../services/arts'
+import { artIsVisible } from '../../../../services/arts'
 import { saveThumbnail } from '../../../../services/thumbnails'
 
 /**
@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
   const artId = parseUuidParam(event, 'id')
   const db = useDb()
-  if (!await findVisibleArt(db, user.id, artId)) throw apiError(404, 'not_found')
+  if (!await artIsVisible(db, user.id, artId)) throw apiError(404, 'not_found')
 
   const body = await readRawBody(event, false)
   if (!body || body.length === 0) throw apiError(400, 'validation')

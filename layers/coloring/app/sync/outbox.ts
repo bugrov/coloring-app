@@ -18,12 +18,9 @@ function requestResult<T>(request: IDBRequest<T>): Promise<T> {
 }
 
 function openDatabase(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DATABASE, 1)
-    request.onupgradeneeded = () => request.result.createObjectStore(STORE)
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
-  })
+  const request = indexedDB.open(DATABASE, 1)
+  request.onupgradeneeded = () => request.result.createObjectStore(STORE)
+  return requestResult(request)
 }
 
 /** Keeps the work in memory only: for tests, and where IndexedDB is not available. */

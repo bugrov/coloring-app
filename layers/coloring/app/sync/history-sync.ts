@@ -72,8 +72,7 @@ export class HistorySync {
 
   /** Call after every change of the history (a step, an undo, a redo). */
   changed() {
-    if (this.disposed) return
-    if (!this.log.dirty) return
+    if (this.disposed || !this.log.dirty) return
     this.setStatus('saving')
     this.firstChangeAt ||= Date.now()
     this.scheduleOutbox()
@@ -135,27 +134,29 @@ export class HistorySync {
     clearTimeout(this.saveTimer)
     clearTimeout(this.retryTimer)
     let conflicts = 0
-    while (!this.disposed) {
-      const request = this.log.nextSave(this.options.percent())
-      if (!request) break
-      this.setStatus('saving')
-      try {
-        const result = await this.options.api.save(request)
-        this.log.accepted(result.attempt, result.rev)
-        this.retryDelay = RETRY_BASE_MS
-        conflicts = 0
-      }
-      catch (error) {
-        this.log.failed()
-        if (error instanceof SyncConflict) {
-          if (++conflicts > MAX_CONFLICTS_IN_A_ROW || !await this.settleConflict()) return this.giveUp('failed')
-          continue
+    // A step drawn while the work was being written down starts another round before "saved" is claimed.
+    do {
+      while (!this.disposed) {
+        const request = this.log.nextSave(this.options.percent())
+        if (!request) break
+        this.setStatus('saving')
+        try {
+          const result = await this.options.api.save(request)
+          this.log.accepted(result.attempt, result.rev)
+          this.retryDelay = RETRY_BASE_MS
+          conflicts = 0
         }
-        return this.giveUp(error instanceof SyncRejected ? 'failed' : 'offline')
+        catch (error) {
+          this.log.failed()
+          if (!(error instanceof SyncConflict)) return this.giveUp(error instanceof SyncRejected ? 'failed' : 'offline')
+          if (++conflicts > MAX_CONFLICTS_IN_A_ROW) return this.giveUp('failed')
+          // The server's version could not be read (network): try the whole save again later.
+          if (!await this.settleConflict()) return this.giveUp('offline')
+        }
       }
-    }
+      await this.persist()
+    } while (!this.disposed && this.log.dirty)
     this.firstChangeAt = 0
-    await this.persist()
     this.setStatus('saved')
   }
 

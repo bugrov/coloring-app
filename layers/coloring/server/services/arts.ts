@@ -58,6 +58,12 @@ export async function findVisibleArt(db: Database, userId: string, artId: string
   return row ?? null
 }
 
+/** Whether the player may see the art; reads no more than its id (the art itself can be large). */
+export async function artIsVisible(db: Database, userId: string, artId: string): Promise<boolean> {
+  const [row] = await db.select({ id: arts.id }).from(arts).where(and(eq(arts.id, artId), visibleTo(userId))).limit(1)
+  return row !== undefined
+}
+
 /** True when the player keeps `IMPORT_LIMIT` imports already. Cheap: checked before the costly SVG conversion. */
 export async function importLimitReached(db: Database, userId: string): Promise<boolean> {
   const [{ total } = { total: 0 }] = await db

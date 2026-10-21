@@ -41,7 +41,7 @@ function pause(): Promise<void> {
  * Both are bounded, so memory does not grow with the history, and neither depends on its length.
  */
 export class Timeline<Snapshot, Delta = never> {
-  readonly log: HistoryLog
+  readonly log = new HistoryLog()
   /** How many steps the picture shows now. */
   private applied = 0
   private readonly checkpoints = new Map<number, Snapshot>()
@@ -49,9 +49,7 @@ export class Timeline<Snapshot, Delta = never> {
   private readonly deltas = new Map<number, Delta>()
   private deltaPixels = 0
 
-  constructor(private readonly host: PaintHost<Snapshot, Delta>, log = new HistoryLog()) {
-    this.log = log
-  }
+  constructor(private readonly host: PaintHost<Snapshot, Delta>) {}
 
   /** Shows the server's version: replays its steps up to the cursor. */
   async load(state: HistoryState) {
@@ -96,14 +94,6 @@ export class Timeline<Snapshot, Delta = never> {
     if (!this.log.redo()) return false
     this.moveTo(this.log.cursor)
     return true
-  }
-
-  /** Blank picture and an empty history, for "start over". */
-  reset(attempt: number) {
-    this.log.load({ attempt, rev: 0, cursor: 0, steps: [] })
-    this.releaseAll()
-    this.host.clear()
-    this.applied = 0
   }
 
   dispose() {
@@ -173,7 +163,9 @@ export class Timeline<Snapshot, Delta = never> {
     // The latest steps get their pixels saved on the way, so undoing them after a reload is as quick as right after drawing.
     const saveFrom = Math.max(0, target - UNDO_LIMIT)
     while (this.applied < target) {
-      this.replay(this.applied, Math.min(target, this.applied + REBUILD_CHUNK), saveFrom)
+      const next = Math.min(target, this.applied + REBUILD_CHUNK)
+      // Reading the canvas back for the progress is the costly part: once at the end, not after every chunk.
+      this.replay(this.applied, next, saveFrom, next === target)
       await pause()
     }
   }
@@ -223,7 +215,7 @@ export class Timeline<Snapshot, Delta = never> {
   }
 
   /** Applies steps `from` (included) to `to` (excluded), keeping a snapshot at each snapshot step. */
-  private replay(from: number, to: number, saveDeltasFrom = Infinity) {
+  private replay(from: number, to: number, saveDeltasFrom = Infinity, settle = true) {
     for (let index = from; index < to; index++) {
       const step = this.log.stepAt(index)
       if (index >= saveDeltasFrom) {
@@ -235,6 +227,6 @@ export class Timeline<Snapshot, Delta = never> {
       this.keepCheckpoint(this.applied)
     }
     this.applied = to
-    this.host.settle()
+    if (settle) this.host.settle()
   }
 }

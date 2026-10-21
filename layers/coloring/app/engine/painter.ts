@@ -186,16 +186,10 @@ export class Painter {
    */
   swapRect(delta: PaintDelta): Rect {
     const { canvas, rect } = delta
-    const current = createCanvas(rect.width, rect.height)
-    context2d(current).drawImage(this.canvas, rect.x, rect.y, rect.width, rect.height, 0, 0, rect.width, rect.height)
-
-    this.ctx.save()
-    this.ctx.beginPath()
-    this.ctx.rect(rect.x, rect.y, rect.width, rect.height)
-    this.ctx.clip()
+    const current = crop(this.canvas, rect)
+    // The delta is exactly `rect` big, so drawing it over the cleared area touches nothing else.
     this.ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
     this.ctx.drawImage(canvas, rect.x, rect.y)
-    this.ctx.restore()
 
     const inside = context2d(canvas)
     inside.clearRect(0, 0, rect.width, rect.height)
@@ -385,9 +379,14 @@ export interface PaintDelta {
 function copyOut(source: AnyCanvas, area: Rect, bounds: Rect): PaintDelta | null {
   const rect = intersectRect(area, bounds)
   if (!rect) return null
+  return { canvas: crop(source, rect), rect }
+}
+
+/** A new canvas holding the part of `source` under `rect`. */
+function crop(source: AnyCanvas, rect: Rect): AnyCanvas {
   const canvas = createCanvas(rect.width, rect.height)
   context2d(canvas).drawImage(source, rect.x, rect.y, rect.width, rect.height, 0, 0, rect.width, rect.height)
-  return { canvas, rect }
+  return canvas
 }
 
 export class PaintStroke {

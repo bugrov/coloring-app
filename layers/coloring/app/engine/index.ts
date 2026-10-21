@@ -1,6 +1,6 @@
 import { DEFAULT_OPACITY, MAX_STROKE_POINTS } from '../../shared'
 import type { ClearOp, ColoringArt, FillOp, Op, StrokeOp, Tool } from '../../shared'
-import { releaseCanvas, unionRect, type AnyCanvas, type Rect } from './canvas'
+import { unionRect, type AnyCanvas, type Rect } from './canvas'
 import { DEFAULT_THICKNESS, TOOL_WIDTH } from './constants'
 import { exportPng, exportThumbnail } from './export'
 import { ArtGeometry } from './geometry'
@@ -20,6 +20,7 @@ export {
   WHEEL_ZOOM_MAX_DELTA_PX,
   WHEEL_ZOOM_SPEED,
 } from './constants'
+export { releaseCanvas } from './canvas'
 export { HoldDetector } from './hold'
 export type { PaintDelta } from './painter'
 export { EMPTY_PROGRESS, type Progress } from './progress'
@@ -119,11 +120,6 @@ export class ColoringEngine {
     this.unsettled = unionRect(this.unsettled, this.painter.swapRect(delta))
   }
 
-  /** Frees a delta's pixels now. */
-  discardDelta(delta: PaintDelta) {
-    releaseCanvas(delta.canvas)
-  }
-
   /** A blank picture. */
   clearPaint() {
     this.painter.clearAll()
@@ -141,11 +137,6 @@ export class ColoringEngine {
   restore(snapshot: PaintSnapshot) {
     this.painter.restorePaintFrom(snapshot.canvas)
     this.tracker.restoreState(snapshot.progress)
-  }
-
-  /** Frees a snapshot's pixels now; iOS limits total canvas memory. */
-  releaseSnapshot(snapshot: PaintSnapshot) {
-    releaseCanvas(snapshot.canvas)
   }
 
   get progress(): Progress {
