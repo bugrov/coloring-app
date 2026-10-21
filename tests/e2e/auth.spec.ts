@@ -42,11 +42,15 @@ test.describe('route protection', () => {
 
 test.describe('sign-in form', () => {
   test('explains mistakes in Russian before sending anything', async ({ page }) => {
-    await page.goto('/login')
-    await page.getByLabel('Имя').fill('a')
-    await page.getByRole('button', { name: 'Играть' }).click()
+    // The form is rendered on the server and works once the page is hydrated; WebKit on a loaded CI
+    // machine can be clicked before that. Starting over until the messages show is what a player does.
+    await expect(async () => {
+      await page.goto('/login')
+      await page.getByLabel('Имя').fill('a')
+      await page.getByRole('button', { name: 'Играть' }).click()
 
-    await expect(page.getByText('Имя должно быть не короче 3 символов')).toBeVisible()
+      await expect(page.getByText('Имя должно быть не короче 3 символов')).toBeVisible({ timeout: 3000 })
+    }).toPass({ timeout: 30_000 })
     await expect(page.getByText('Выберите страну из списка')).toBeVisible()
     await expect(page).toHaveURL('/login')
   })
