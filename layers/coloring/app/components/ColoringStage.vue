@@ -28,6 +28,10 @@ function onHold({ phase, ...spot }: HoldFeedback) {
   hold.value = phase === 'cancel' ? null : { ...spot, kind: phase === 'start' ? 'ring' : 'burst' }
 }
 
+function onHoldAnimationEnd() {
+  if (hold.value?.kind === 'burst') hold.value = null
+}
+
 const { contentStyle, handle } = useColoringStage({ stage, content, canvas }, {
   art: toRef(props, 'art'),
   tool: toRef(props, 'tool'),
@@ -69,7 +73,7 @@ defineExpose<ColoringStageHandle>(handle)
       class="coloring-stage__hold"
       :class="`coloring-stage__hold--${hold.kind}`"
       :style="{ '--x': `${hold.x}px`, '--y': `${hold.y}px`, '--hold-color': hold.color ?? 'var(--color-text-muted)', '--hold-duration': `${HOLD_DURATION_MS}ms` }"
-      @animationend="hold?.kind === 'burst' && (hold = null)"
+      @animationend="onHoldAnimationEnd"
     />
   </div>
 </template>

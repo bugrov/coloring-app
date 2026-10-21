@@ -1,3 +1,4 @@
+import { DEFAULT_OPACITY } from '../../shared'
 import type { Op, Tool } from '../../shared'
 import { BrushCache } from './brushes'
 import { context2d, copyRect, createCanvas, intersectRect, releaseCanvas, unionRect, type AnyCanvas, type AnyContext, type Rect } from './canvas'
@@ -13,13 +14,15 @@ export interface StrokeStyle {
   color: string | null
   /** Line width in grid units. */
   width: number
-  /** Percent, 100 when absent; the eraser always removes paint completely. */
+  /** Percent, fully opaque when absent; the eraser always removes paint completely. */
   opacity?: number
 }
 
+const toAlpha = (percent: number) => percent / 100
+
 /** The share of the paint a mark keeps when composited. */
 function alphaOf(style: StrokeStyle): number {
-  return style.tool === 'eraser' ? 1 : (style.opacity ?? 100) / 100
+  return style.tool === 'eraser' ? 1 : toAlpha(style.opacity ?? DEFAULT_OPACITY)
 }
 
 /**
@@ -89,19 +92,23 @@ export class Painter {
     const mask = this.prepare(regionId)
     if (!mask) return null
     const { rect } = mask
+    // A stroke that builds up on the scratch canvas starts from an empty one.
+    const resetScratch = () => {
+      if (accumulatesOnScratch(style)) this.scratchContext.clearRect(rect.x, rect.y, rect.width, rect.height)
+    }
     if (live) this.saveBackup(rect)
-    if (accumulatesOnScratch(style)) this.scratchContext.clearRect(rect.x, rect.y, rect.width, rect.height)
+    resetScratch()
     return new PaintStroke(style, {
       draw: (from, points, path, walker) => this.drawSegment(regionId, style, from, points, live ? path : null, walker),
       rebase: () => {
         if (live) this.saveBackup(rect)
-        if (accumulatesOnScratch(style)) this.scratchContext.clearRect(rect.x, rect.y, rect.width, rect.height)
+        resetScratch()
       },
       restore: () => this.restoreBackup(rect),
     })
   }
 
-  fill(regionId: number, color: string, opacity = 100): Rect | null {
+  fill(regionId: number, color: string, opacity = DEFAULT_OPACITY): Rect | null {
     const mask = this.prepare(regionId)
     if (!mask) return null
     const { rect } = mask
@@ -109,7 +116,7 @@ export class Painter {
     ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
     ctx.fillStyle = color
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height)
-    this.composite(mask, rect, 'source-over', opacity / 100)
+    this.composite(mask, rect, 'source-over', toAlpha(opacity))
     return rect
   }
 

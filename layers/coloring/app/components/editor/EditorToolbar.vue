@@ -18,10 +18,14 @@ const editor = useEditorStore()
 const root = ref<HTMLElement>()
 const palette = ref<HTMLElement>()
 
-const colorName = (hex: string) => PALETTE.find(entry => entry.hex === hex)?.name ?? hex
+function colorName(hex: string): string {
+  return PALETTE.find(entry => entry.hex === hex)?.name ?? hex
+}
 
 /** Position counted from the bottom crayon, capped: the first ones in view arrive in a quick sequence. */
-const staggerIndex = (index: number) => Math.min(PALETTE.length - 1 - index, STAGGER_COUNT)
+function staggerIndex(index: number): number {
+  return Math.min(PALETTE.length - 1 - index, STAGGER_COUNT)
+}
 
 function pickRecent(hex: string) {
   // The chosen crayon opens the palette; any other one just becomes the chosen colour.

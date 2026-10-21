@@ -31,6 +31,8 @@ export const useEditorStore = defineStore('coloring-editor', () => {
   const color = computed(() => recentColors.value.at(-1)!)
   const canUndo = computed(() => cursor.value > 0)
   const canRedo = computed(() => cursor.value < steps.value.length)
+  /** Starting over makes sense once something was drawn (or undone) in this picture. */
+  const canRestart = computed(() => canUndo.value || canRedo.value || progress.value.percent > 0)
   /** Every op that makes up the picture now. */
   const activeOps = computed(() => steps.value.slice(0, cursor.value).flat())
 
@@ -44,8 +46,8 @@ export const useEditorStore = defineStore('coloring-editor', () => {
 
   /** Steps 100 → 75 → 50 → 25 → 100. */
   function cycleOpacity() {
-    const next = OPACITY_LEVELS[(OPACITY_LEVELS.indexOf(opacity.value as typeof OPACITY_LEVELS[number]) + 1) % OPACITY_LEVELS.length]
-    opacity.value = next ?? DEFAULT_OPACITY
+    const index = (OPACITY_LEVELS as readonly number[]).indexOf(opacity.value)
+    opacity.value = OPACITY_LEVELS[(index + 1) % OPACITY_LEVELS.length] ?? DEFAULT_OPACITY
   }
 
   /** Records a finished action; a new one cuts off the redo branch. */
@@ -88,6 +90,7 @@ export const useEditorStore = defineStore('coloring-editor', () => {
     progress,
     canUndo,
     canRedo,
+    canRestart,
     activeOps,
     selectColor,
     togglePalette,

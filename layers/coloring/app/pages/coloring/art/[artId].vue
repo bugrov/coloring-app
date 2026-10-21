@@ -14,8 +14,6 @@ const { art, title, status, loadError, retry, notice, celebrating, onOps, onProg
 useHead({ title: computed(() => title.value || 'Раскраска'), meta: [{ name: 'robots', content: 'noindex' }] })
 
 const confirmRestart = ref(false)
-// Nothing to start over while the picture is empty.
-const canRestart = computed(() => editor.canUndo || editor.canRedo || editor.progress.percent > 0)
 
 async function onRestartConfirmed() {
   confirmRestart.value = false
@@ -27,7 +25,7 @@ async function onRestartConfirmed() {
   <main class="editor">
     <EditorActions
       class="editor__actions"
-      :can-restart="canRestart"
+      :can-restart="editor.canRestart"
       @share="shareImage"
       @restart="confirmRestart = true"
     />
