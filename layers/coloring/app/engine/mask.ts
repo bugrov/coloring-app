@@ -2,32 +2,56 @@ import { context2d, createCanvas, releaseCanvas, type AnyCanvas, type AnyContext
 import type { ArtGeometry, RegionShape } from './geometry'
 import type { ArtSpace } from './space'
 
+export interface PreparedMask {
+  /** Opaque exactly where the region is visible. */
+  canvas: AnyCanvas
+  /** The region's paint rectangle; the mask is valid within it. */
+  rect: Rect
+}
+
+interface Slot {
+  canvas: AnyCanvas
+  ctx: AnyContext
+  regionId: number
+  rect: Rect | null
+  lastUsed: number
+}
+
 /**
- * Opaque exactly where a region is visible: its own shape minus the regions
- * stacked above it. Strokes and fills are multiplied by this mask, which is
- * what keeps paint inside the region a stroke started in.
+ * Masks of regions: each is opaque exactly where its region is visible, i.e.
+ * its own shape minus the regions stacked above it. Strokes and fills are
+ * multiplied by the mask, which keeps paint inside the region.
  *
- * One full-size canvas is reused; the last region's mask is kept because
- * consecutive strokes usually stay in the same region.
+ * Two full-size slots, least recently used is rebuilt: children usually go
+ * back and forth between an object and the background, and the background
+ * mask (every region cut out of it) is the most expensive one to rebuild.
  */
-export class RegionMask {
-  readonly canvas: AnyCanvas
-  private readonly ctx: AnyContext
-  private regionId = 0
-  private rect: Rect | null = null
+export class RegionMasks {
+  private readonly slots: Slot[]
+  private clock = 0
 
   constructor(private readonly space: ArtSpace, private readonly geometry: ArtGeometry) {
-    this.canvas = createCanvas(space.paintWidth, space.paintHeight)
-    this.ctx = context2d(this.canvas)
+    this.slots = Array.from({ length: 2 }, () => {
+      const canvas = createCanvas(space.paintWidth, space.paintHeight)
+      return { canvas, ctx: context2d(canvas), regionId: 0, rect: null, lastUsed: 0 }
+    })
   }
 
-  /** Prepares the mask for a region and returns its paint rectangle. */
-  use(region: RegionShape): Rect {
-    const rect = this.geometry.paintRect(region)
-    if (this.regionId === region.id) return rect
+  use(region: RegionShape): PreparedMask {
+    const cached = this.slots.find(slot => slot.regionId === region.id)
+    const slot = cached ?? this.slots.reduce((oldest, next) => (next.lastUsed < oldest.lastUsed ? next : oldest))
+    slot.lastUsed = ++this.clock
+    if (!cached) this.build(slot, region)
+    return { canvas: slot.canvas, rect: slot.rect! }
+  }
 
-    const { ctx } = this
-    if (this.rect) ctx.clearRect(this.rect.x, this.rect.y, this.rect.width, this.rect.height)
+  dispose() {
+    for (const slot of this.slots) releaseCanvas(slot.canvas)
+  }
+
+  private build(slot: Slot, region: RegionShape) {
+    const { ctx } = slot
+    if (slot.rect) ctx.clearRect(slot.rect.x, slot.rect.y, slot.rect.width, slot.rect.height)
 
     ctx.save()
     ctx.setTransform(...this.space.artToPaintTransform)
@@ -39,12 +63,7 @@ export class RegionMask {
     }
     ctx.restore()
 
-    this.regionId = region.id
-    this.rect = rect
-    return rect
-  }
-
-  dispose() {
-    releaseCanvas(this.canvas)
+    slot.regionId = region.id
+    slot.rect = this.geometry.paintRect(region)
   }
 }

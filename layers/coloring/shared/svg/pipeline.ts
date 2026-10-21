@@ -398,12 +398,15 @@ function readViewBox(root: Element): [number, number, number, number] {
 
 function checkDimensions(viewBox: [number, number, number, number]): [number, number, number, number] {
   const [x, y, width, height] = viewBox
-  const inRange = (size: number) => size >= VIEWBOX_MIN_SIZE && size <= VIEWBOX_MAX_SIZE
-  if (!inRange(width) || !inRange(height) || Math.abs(x) > VIEWBOX_MAX_SIZE || Math.abs(y) > VIEWBOX_MAX_SIZE
+  if (!isSizeInRange(width) || !isSizeInRange(height) || Math.abs(x) > VIEWBOX_MAX_SIZE || Math.abs(y) > VIEWBOX_MAX_SIZE
     || Math.max(width / height, height / width) > VIEWBOX_MAX_ASPECT) {
     throw new SvgConversionError('invalid-dimensions')
   }
   return viewBox
+}
+
+function isSizeInRange(size: number): boolean {
+  return size >= VIEWBOX_MIN_SIZE && size <= VIEWBOX_MAX_SIZE
 }
 
 /** Keeps only characters that cannot form markup or URLs, so details are safe to display anywhere. */

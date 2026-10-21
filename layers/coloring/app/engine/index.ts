@@ -11,6 +11,7 @@ import { ArtSpace, gridLength } from './space'
 export {
   HOLD_DURATION_MS,
   HOLD_TOLERANCE_PX,
+  HOLD_VIBRATION_MS,
   PINCH_MIN_DISTANCE_PX,
   WHEEL_LINE_HEIGHT_PX,
   WHEEL_PAN_MAX_DELTA_PX,
@@ -31,7 +32,7 @@ export { clampView, IDENTITY_VIEW, panBy, zoomAt, type View } from './viewport'
  */
 export class ColoringEngine {
   readonly space: ArtSpace
-  readonly geometry: ArtGeometry
+  private readonly geometry: ArtGeometry
   private readonly painter: Painter
   private readonly tracker: ProgressTracker
 

@@ -1,6 +1,6 @@
 import { context2d, createCanvas, releaseCanvas, type AnyCanvas, type AnyContext, type Rect } from './canvas'
 import { PAINTED_ALPHA_MIN, PROGRESS_GRID_LONG_SIDE, REGION_COMPLETE_RATIO } from './constants'
-import { drawInk, type ArtGeometry } from './geometry'
+import { drawArt, type ArtGeometry } from './geometry'
 import type { ArtSpace } from './space'
 
 export interface Progress {
@@ -85,19 +85,14 @@ export class ProgressTracker {
     ctx.fillRect(space.x, space.y, space.width, space.height)
 
     const codes = new Map<number, number>()
-    for (const item of geometry.items) {
-      if (item.type === 'region') {
-        const index = indexById.get(item.id)
-        const code = index === undefined ? 0 : regionCode(index)
-        if (index !== undefined) codes.set(code, index)
-        ctx.fillStyle = `#${code.toString(16).padStart(6, '0')}`
-        ctx.fill(item.path, item.fillRule)
-      }
-      else {
-        // Ink hides whatever is below it: those cells are not colourable.
-        drawInk(ctx, item, '#000')
-      }
-    }
+    // Ink hides whatever is below it: drawn as code 0, those cells are not colourable.
+    drawArt(ctx, geometry, (region) => {
+      const index = indexById.get(region.id)
+      if (index === undefined) return '#000'
+      const code = regionCode(index)
+      codes.set(code, index)
+      return `#${code.toString(16).padStart(6, '0')}`
+    }, '#000')
     ctx.setTransform(1, 0, 0, 1, 0, 0)
 
     const { data } = ctx.getImageData(0, 0, this.gridWidth, this.gridHeight)
@@ -123,8 +118,12 @@ export class ProgressTracker {
     const ctx = this.samplerContext
     const cellsWide = right - left
     const cellsHigh = bottom - top
+    // Grid and paint sizes are rounded independently, so the last cells may
+    // reach past the paint edge; the source must stay inside the canvas.
+    const sourceWidth = Math.min(cellsWide / k, paint.width - left / k)
+    const sourceHeight = Math.min(cellsHigh / k, paint.height - top / k)
     ctx.clearRect(left, top, cellsWide, cellsHigh)
-    ctx.drawImage(paint, left / k, top / k, cellsWide / k, cellsHigh / k, left, top, cellsWide, cellsHigh)
+    ctx.drawImage(paint, left / k, top / k, sourceWidth, sourceHeight, left, top, sourceWidth * k, sourceHeight * k)
     const { data } = ctx.getImageData(left, top, cellsWide, cellsHigh)
 
     for (let row = 0; row < cellsHigh; row++) {

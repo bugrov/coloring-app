@@ -5,6 +5,7 @@ import {
   ColoringEngine,
   HOLD_DURATION_MS,
   HOLD_TOLERANCE_PX,
+  HOLD_VIBRATION_MS,
   HoldDetector,
   IDENTITY_VIEW,
   panBy,
@@ -50,9 +51,11 @@ export function createFrameStats(): FrameStats {
 export interface ColoringStageHandle {
   stats: Readonly<FrameStats>
   resetView: () => void
-  /** Rebuilds the picture from ops (undo/redo, restoring a session). */
+  /** Rebuilds the picture from ops (undo/redo, restoring a session); drops a stroke in progress. */
   replay: (ops: readonly Op[]) => void
   exportPng: () => Promise<Blob>
+  /** Whether a stroke is in progress (its pixels are not final yet). */
+  isDrawing: () => boolean
 }
 
 interface ActiveStroke {
@@ -61,6 +64,8 @@ interface ActiveStroke {
   recorder: StrokeRecorder
   /** Grid points received since the last frame. */
   queue: number[]
+  /** Last point recorded, to drop repeats (a pen held still keeps sending moves). */
+  last: [number, number]
 }
 
 interface Gesture {
@@ -71,10 +76,21 @@ interface Gesture {
 
 /** Wheel delta in pixels whatever the device reports (pixels, lines or pages), capped per event. */
 function wheelPixels(delta: number, mode: number, pageSize: number, cap: number): number {
-  const pixels = mode === WheelEvent.DOM_DELTA_LINE
-    ? delta * WHEEL_LINE_HEIGHT_PX
-    : mode === WheelEvent.DOM_DELTA_PAGE ? delta * pageSize : delta
+  let pixels = delta
+  switch (mode) {
+    case WheelEvent.DOM_DELTA_LINE:
+      pixels = delta * WHEEL_LINE_HEIGHT_PX
+      break
+    case WheelEvent.DOM_DELTA_PAGE:
+      pixels = delta * pageSize
+      break
+  }
   return Math.max(-cap, Math.min(cap, pixels))
+}
+
+/** Whether a position given as a share of the art lies on the art (not on the empty bands around it). */
+function isOnArt([rx, ry]: [number, number]): boolean {
+  return rx >= 0 && rx <= 1 && ry >= 0 && ry <= 1
 }
 
 /**
@@ -175,7 +191,7 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
 
   /** A pen arriving means any touches are a resting palm: drop them. */
   function dropTouches() {
-    if (stroke?.pointerType === 'touch') cancelStroke()
+    if (stroke?.pointerType === 'touch') abortStroke()
     for (const [id, pointer] of pointers) {
       if (pointer.type === 'touch') pointers.delete(id)
     }
@@ -198,14 +214,15 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
 
   function onHold() {
     holdTimer = undefined
-    if (!stroke || !hold.pending || !engine.value) return
+    // A split stroke has moved far, so it cannot be a hold; checked for safety.
+    if (!stroke || !hold.pending || !engine.value || stroke.recorder.isSplit) return
     const { recorder } = stroke
     recorder.cancel()
     stroke = null
     const op = options.tool.value === 'eraser'
       ? engine.value.clear(recorder.region)
       : engine.value.fill(recorder.region, options.color.value)
-    navigator.vibrate?.(15)
+    navigator.vibrate?.(HOLD_VIBRATION_MS)
     commit([op])
   }
 
@@ -242,13 +259,14 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     }
     if (gesture) return
 
-    const rect = canvas.value!.getBoundingClientRect()
-    const { point, region } = engine.value.locate(...ratioOf(event, rect))
+    const ratio = ratioOf(event, canvas.value!.getBoundingClientRect())
+    if (!isOnArt(ratio)) return
+    const { point, region } = engine.value.locate(...ratio)
     if (region === null) return
     const recorder = engine.value.beginStroke(region, options.tool.value, options.color.value)
     if (!recorder) return
 
-    stroke = { pointerId: event.pointerId, pointerType: event.pointerType, recorder, queue: [...point] }
+    stroke = { pointerId: event.pointerId, pointerType: event.pointerType, recorder, queue: [...point], last: point }
     hold.start(event.clientX, event.clientY)
     holdTimer = setTimeout(onHold, HOLD_DURATION_MS)
     scheduleFrame()
@@ -268,9 +286,10 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     const coalesced = event.getCoalescedEvents?.()
     const { space } = engine.value
     for (const sample of coalesced?.length ? coalesced : [event]) {
-      const [x, y] = space.gridFromRatio(...ratioOf(sample, rect))
-      const { queue } = stroke
-      if (queue[queue.length - 2] !== x || queue[queue.length - 1] !== y) queue.push(x, y)
+      const point = space.gridFromRatio(...ratioOf(sample, rect))
+      if (point[0] === stroke.last[0] && point[1] === stroke.last[1]) continue
+      stroke.queue.push(...point)
+      stroke.last = point
     }
     if (!hold.move(event.clientX, event.clientY)) clearHoldTimer()
     scheduleFrame()
@@ -351,10 +370,13 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     },
     replay: (ops) => {
       if (!engine.value) return
+      // The canvas is rebuilt: a stroke in progress would keep drawing over a stale base.
+      discardStroke()
       engine.value.replay(ops)
       options.onProgress(engine.value.progress)
     },
     exportPng: () => engine.value?.exportPng() ?? Promise.reject(new Error('Engine is not ready')),
+    isDrawing: () => stroke !== null,
   }
 
   return { contentStyle, handle }

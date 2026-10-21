@@ -73,7 +73,9 @@ defineExpose<ColoringStageHandle>(handle)
   background: #fff;
   isolation: isolate;
   transform-origin: 0 0;
-  will-change: transform;
+
+  // No `will-change: transform`: a permanently promoted layer is not
+  // re-rasterized after zooming, which would blur the vector line art.
 }
 
 .coloring-stage__layer {

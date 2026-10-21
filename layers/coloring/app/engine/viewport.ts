@@ -13,14 +13,17 @@ function clampScale(scale: number): number {
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, scale))
 }
 
+function clampOffset(value: number, size: number, scale: number): number {
+  return Math.min(0, Math.max(size * (1 - scale), value))
+}
+
 /**
  * Keeps the art covering the stage: at scale s the content is s times the
  * stage, so the translation must stay within [size * (1 - s), 0].
  */
 export function clampView(view: View, width: number, height: number): View {
   const scale = clampScale(view.scale)
-  const clamp = (value: number, size: number) => Math.min(0, Math.max(size * (1 - scale), value))
-  return { scale, x: clamp(view.x, width), y: clamp(view.y, height) }
+  return { scale, x: clampOffset(view.x, width, scale), y: clampOffset(view.y, height, scale) }
 }
 
 /** Zooms by `factor` keeping the stage point (px, py) under the same content point. */

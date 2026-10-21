@@ -1,5 +1,5 @@
 import { canvasToPng, context2d, createCanvas, releaseCanvas, type AnyCanvas } from './canvas'
-import { drawInk, type ArtGeometry } from './geometry'
+import { drawArt, type ArtGeometry } from './geometry'
 import type { ArtSpace } from './space'
 
 /**
@@ -16,15 +16,7 @@ export async function exportPng(space: ArtSpace, geometry: ArtGeometry, paint: A
   try {
     const artContext = context2d(art)
     artContext.setTransform(...space.artToPaintTransform)
-    for (const item of geometry.items) {
-      if (item.type === 'region') {
-        artContext.fillStyle = '#fff'
-        artContext.fill(item.path, item.fillRule)
-      }
-      else {
-        drawInk(artContext, item)
-      }
-    }
+    drawArt(artContext, geometry, () => '#fff')
 
     const ctx = context2d(output)
     ctx.fillStyle = '#fff'

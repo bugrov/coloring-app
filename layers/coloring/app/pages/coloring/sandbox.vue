@@ -8,7 +8,7 @@ useHead({ title: 'Песочница движка', meta: [{ name: 'robots', con
 const TOOL_LABELS = { pencil: 'Карандаш', brush: 'Кисть', eraser: 'Резинка' } as const
 
 const stage = useTemplateRef<ColoringStageHandle>('stage')
-const { arts, artName, art, tool, color, ops, progress, frameStats, addOps, replay, clear, share } = useColoringSandbox(stage)
+const { arts, artName, art, tool, color, ops, progress, frameStats, addOps, onProgress, replay, clear, share } = useColoringSandbox(stage)
 </script>
 
 <template>
@@ -21,7 +21,7 @@ const { arts, artName, art, tool, color, ops, progress, frameStats, addOps, repl
         :tool="tool"
         :color="color"
         @ops="addOps"
-        @progress="progress = $event"
+        @progress="onProgress"
       />
 
       <aside class="sandbox__panel">

@@ -10,7 +10,7 @@ function recordingStroke() {
   const calls: { from: [number, number] | null, points: number[] }[] = []
   let restored = 0
   const stroke = new PaintStroke(STYLE, {
-    draw: (_style, from, points) => {
+    draw: (from, points) => {
       calls.push({ from, points })
       return { x: 0, y: 0, width: 1, height: 1 }
     },

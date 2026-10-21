@@ -1,7 +1,9 @@
 import { fileURLToPath } from 'node:url'
 
 const ownSharedTypes = fileURLToPath(new URL('./shared/types', import.meta.url)).replaceAll('\\', '/')
-const isOwnSharedTypes = (dir: string) => dir.replaceAll('\\', '/') === ownSharedTypes
+function isOwnSharedTypes(dir: string): boolean {
+  return dir.replaceAll('\\', '/') === ownSharedTypes
+}
 
 // "Coloring" mini-game layer. May depend on layers/core, never on other games.
 export default defineNuxtConfig({

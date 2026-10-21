@@ -85,7 +85,25 @@ export class ArtGeometry {
   }
 }
 
-/** Draws line art in its own colours, or entirely in `color` (used for the progress label map). */
+/**
+ * Draws the art in z-order: each region filled with `regionFill(region)`,
+ * line art in its own colours or entirely in `inkColor`. Shared by the export
+ * (white regions, real ink) and the progress label map (region codes, ink as
+ * "no region"), so both agree on what is visible.
+ */
+export function drawArt(ctx: AnyContext, geometry: ArtGeometry, regionFill: (region: RegionShape) => string, inkColor?: string) {
+  for (const item of geometry.items) {
+    if (item.type === 'region') {
+      ctx.fillStyle = regionFill(item)
+      ctx.fill(item.path, item.fillRule)
+    }
+    else {
+      drawInk(ctx, item, inkColor)
+    }
+  }
+}
+
+/** Draws line art in its own colours, or entirely in `color`. */
 export function drawInk(ctx: AnyContext, ink: InkShape, color?: string) {
   if (ink.fill) {
     ctx.fillStyle = color ?? ink.fill

@@ -3,7 +3,7 @@ import { BrushCache } from './brushes'
 import { context2d, copyRect, createCanvas, intersectRect, releaseCanvas, unionRect, type AnyCanvas, type AnyContext, type Rect } from './canvas'
 import { BRUSH_STAMP_SPACING } from './constants'
 import type { ArtGeometry } from './geometry'
-import { RegionMask } from './mask'
+import { RegionMasks, type PreparedMask } from './mask'
 import { gridToPaint, type ArtSpace } from './space'
 import { StampWalker } from './stamps'
 
@@ -22,10 +22,10 @@ const SEGMENT_PADDING = 2
 interface StrokeTarget {
   /**
    * Draws the new points (paint pixels). `path` is every point of the current
-   * op so far: line tools redraw it whole within the touched area, so live
+   * op so far: live line tools redraw it within the touched area, so live
    * drawing gives exactly the pixels a replay of the op gives.
    */
-  draw: (style: StrokeStyle, from: [number, number] | null, points: number[], path: readonly number[], walker: StampWalker) => Rect | null
+  draw: (from: [number, number] | null, points: number[], path: readonly number[], walker: StampWalker) => Rect | null
   /** Makes the current paint the base the stroke is drawn over (after a split). */
   rebase: () => void
   restore: () => void
@@ -37,12 +37,12 @@ interface StrokeTarget {
  * paint, so nothing ever lands outside the region.
  */
 export class Painter {
-  readonly ctx: AnyContext
+  private readonly ctx: AnyContext
   private readonly scratch: AnyCanvas
   private readonly scratchContext: AnyContext
   private readonly backup: AnyCanvas
   private readonly backupContext: AnyContext
-  private readonly mask: RegionMask
+  private readonly masks: RegionMasks
   private readonly brushes = new BrushCache()
 
   constructor(
@@ -57,7 +57,7 @@ export class Painter {
     this.scratchContext = context2d(this.scratch)
     this.backup = createCanvas(space.paintWidth, space.paintHeight)
     this.backupContext = context2d(this.backup)
-    this.mask = new RegionMask(space, geometry)
+    this.masks = new RegionMasks(space, geometry)
   }
 
   get fullRect(): Rect {
@@ -65,48 +65,43 @@ export class Painter {
   }
 
   /**
-   * Starts a stroke. With `restorable`, the region's pixels are saved first so
-   * the stroke can be taken back (a second finger turned it into a gesture).
+   * Starts a stroke. A `live` stroke (drawn by the user, not replayed) saves
+   * the region's pixels first, which serves two purposes: the stroke can be
+   * taken back (a second finger turned it into a gesture), and line tools
+   * redraw their path over that base every frame so caps never accumulate.
    */
-  beginStroke(regionId: number, style: StrokeStyle, restorable = false): PaintStroke | null {
-    const rect = this.prepare(regionId)
+  beginStroke(regionId: number, style: StrokeStyle, live = false): PaintStroke | null {
+    const { rect } = this.prepare(regionId) ?? {}
     if (!rect) return null
-    const saveBase = () => {
-      this.backupContext.clearRect(rect.x, rect.y, rect.width, rect.height)
-      copyRect(this.backupContext, this.canvas, rect)
-    }
-    if (restorable) saveBase()
+    if (live) this.saveBackup(rect)
     return new PaintStroke(style, {
-      // Live strokes redraw the whole path over the saved base; replays draw it once.
-      draw: (strokeStyle, from, points, path, walker) => this.drawSegment(rect, strokeStyle, from, points, restorable ? path : null, walker),
+      draw: (from, points, path, walker) => this.drawSegment(regionId, style, from, points, live ? path : null, walker),
       rebase: () => {
-        if (restorable) saveBase()
+        if (live) this.saveBackup(rect)
       },
-      restore: () => {
-        this.ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
-        copyRect(this.ctx, this.backup, rect)
-      },
+      restore: () => this.restoreBackup(rect),
     })
   }
 
   fill(regionId: number, color: string): Rect | null {
-    const rect = this.prepare(regionId)
-    if (!rect) return null
+    const mask = this.prepare(regionId)
+    if (!mask) return null
+    const { rect } = mask
     const ctx = this.scratchContext
     ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
     ctx.fillStyle = color
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height)
-    this.composite(rect, 'source-over')
+    this.composite(mask, rect, 'source-over')
     return rect
   }
 
   clear(regionId: number): Rect | null {
-    const rect = this.prepare(regionId)
-    if (!rect) return null
+    const mask = this.prepare(regionId)
+    if (!mask) return null
     this.ctx.globalCompositeOperation = 'destination-out'
-    copyRect(this.ctx, this.mask.canvas, rect)
+    copyRect(this.ctx, mask.canvas, mask.rect)
     this.ctx.globalCompositeOperation = 'source-over'
-    return rect
+    return mask.rect
   }
 
   apply(op: Op): Rect | null {
@@ -130,35 +125,38 @@ export class Painter {
   dispose() {
     releaseCanvas(this.scratch)
     releaseCanvas(this.backup)
-    this.mask.dispose()
+    this.masks.dispose()
   }
 
-  /** Builds the region's mask; returns its paint rectangle, or null for an unknown region. */
-  private prepare(regionId: number): Rect | null {
+  /** The region's mask (built or cached), or null for an unknown region. */
+  private prepare(regionId: number): PreparedMask | null {
     const region = this.geometry.region(regionId)
-    return region ? this.mask.use(region) : null
+    return region ? this.masks.use(region) : null
+  }
+
+  private saveBackup(rect: Rect) {
+    this.backupContext.clearRect(rect.x, rect.y, rect.width, rect.height)
+    copyRect(this.backupContext, this.canvas, rect)
+  }
+
+  private restoreBackup(rect: Rect) {
+    this.ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
+    copyRect(this.ctx, this.backup, rect)
   }
 
   /**
    * Draws one chunk of a stroke (paint pixels) and composites it inside the
-   * region. With `path` (live line tools), the area is first reset to the base
-   * saved at stroke start and the whole path is drawn again, so overlapping
-   * caps between frames never accumulate.
+   * region. With `path` (live line tools), the area is first reset to the
+   * saved base and the path is drawn again, so caps between frames never
+   * accumulate. The mask is looked up every time: other ops may have used
+   * the mask cache since the stroke began.
    */
-  private drawSegment(regionRect: Rect, style: StrokeStyle, from: [number, number] | null, points: number[], path: readonly number[] | null, walker: StampWalker): Rect | null {
+  private drawSegment(regionId: number, style: StrokeStyle, from: [number, number] | null, points: number[], path: readonly number[] | null, walker: StampWalker): Rect | null {
+    const mask = this.prepare(regionId)
+    if (!mask) return null
     const widthPx = gridToPaint(style.width)
     const reach = widthPx / 2 + SEGMENT_PADDING
-    let minX = from ? from[0] : Infinity
-    let minY = from ? from[1] : Infinity
-    let maxX = from ? from[0] : -Infinity
-    let maxY = from ? from[1] : -Infinity
-    for (let i = 0; i + 1 < points.length; i += 2) {
-      minX = Math.min(minX, points[i]!)
-      maxX = Math.max(maxX, points[i]!)
-      minY = Math.min(minY, points[i + 1]!)
-      maxY = Math.max(maxY, points[i + 1]!)
-    }
-    const rect = intersectRect({ x: minX - reach, y: minY - reach, width: maxX - minX + reach * 2, height: maxY - minY + reach * 2 }, regionRect)
+    const rect = intersectRect(segmentBounds(from, points, reach), mask.rect)
     if (!rect) return null
 
     const ctx = this.scratchContext
@@ -167,45 +165,64 @@ export class Painter {
     ctx.rect(rect.x, rect.y, rect.width, rect.height)
     ctx.clip()
     ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
-
     if (style.tool === 'brush') {
-      const stamp = this.brushes.brushStamp(style.color ?? '#000000', widthPx)
-      const radius = stamp.width / 2
-      const stamps = walker.walk(points)
-      for (let i = 0; i + 1 < stamps.length; i += 2) {
-        ctx.drawImage(stamp, stamps[i]! - radius, stamps[i + 1]! - radius)
-      }
+      this.stampBrush(style.color ?? '#000000', widthPx, walker.walk(points))
     }
     else {
-      ctx.lineWidth = widthPx
-      ctx.lineCap = 'round'
-      ctx.lineJoin = 'round'
-      ctx.strokeStyle = style.tool === 'pencil' && style.color ? this.brushes.pencilPattern(ctx, style.color) : '#000'
-      ctx.beginPath()
-      tracePolylineNear(ctx, path ?? (from ? [...from, ...points] : points), rect, reach)
-      ctx.stroke()
+      this.traceLine(style, widthPx, path ?? (from ? [...from, ...points] : points), rect, reach)
     }
     ctx.restore()
 
-    if (path && style.tool !== 'brush') {
-      this.ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
-      copyRect(this.ctx, this.backup, rect)
-    }
-    this.composite(rect, style.tool === 'eraser' ? 'destination-out' : 'source-over')
+    if (path && style.tool !== 'brush') this.restoreBackup(rect)
+    this.composite(mask, rect, style.tool === 'eraser' ? 'destination-out' : 'source-over')
     return rect
   }
 
+  private stampBrush(color: string, diameter: number, stamps: number[]) {
+    const stamp = this.brushes.brushStamp(color, diameter)
+    const radius = stamp.width / 2
+    for (let i = 0; i + 1 < stamps.length; i += 2) {
+      this.scratchContext.drawImage(stamp, stamps[i]! - radius, stamps[i + 1]! - radius)
+    }
+  }
+
+  private traceLine(style: StrokeStyle, widthPx: number, line: readonly number[], rect: Rect, reach: number) {
+    const ctx = this.scratchContext
+    ctx.lineWidth = widthPx
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.strokeStyle = style.tool === 'pencil' && style.color ? this.brushes.pencilPattern(ctx, style.color) : '#000'
+    ctx.beginPath()
+    tracePolylineNear(ctx, line, rect, reach)
+    ctx.stroke()
+  }
+
   /** Masks the scratch rectangle and blends it onto the paint. */
-  private composite(rect: Rect, operation: GlobalCompositeOperation) {
+  private composite(mask: PreparedMask, rect: Rect, operation: GlobalCompositeOperation) {
     const scratch = this.scratchContext
     scratch.globalCompositeOperation = 'destination-in'
-    copyRect(scratch, this.mask.canvas, rect)
+    copyRect(scratch, mask.canvas, rect)
     scratch.globalCompositeOperation = 'source-over'
 
     this.ctx.globalCompositeOperation = operation
     copyRect(this.ctx, this.scratch, rect)
     this.ctx.globalCompositeOperation = 'source-over'
   }
+}
+
+/** Bounds of a stroke chunk (from the previous point through the new ones), padded by `reach`. */
+function segmentBounds(from: [number, number] | null, points: number[], reach: number): Rect {
+  let minX = from ? from[0] : Infinity
+  let minY = from ? from[1] : Infinity
+  let maxX = from ? from[0] : -Infinity
+  let maxY = from ? from[1] : -Infinity
+  for (let i = 0; i + 1 < points.length; i += 2) {
+    minX = Math.min(minX, points[i]!)
+    maxX = Math.max(maxX, points[i]!)
+    minY = Math.min(minY, points[i + 1]!)
+    maxY = Math.max(maxY, points[i + 1]!)
+  }
+  return { x: minX - reach, y: minY - reach, width: maxX - minX + reach * 2, height: maxY - minY + reach * 2 }
 }
 
 /**
@@ -272,7 +289,7 @@ export class PaintStroke {
     this.gridPoints.push(...gridPoints)
     const paintPoints = gridPoints.map(gridToPaint)
     this.paintPath.push(...paintPoints)
-    const rect = this.target.draw(this.style, this.last, paintPoints, this.paintPath, this.walker)
+    const rect = this.target.draw(this.last, paintPoints, this.paintPath, this.walker)
     this.last = [paintPoints[paintPoints.length - 2]!, paintPoints[paintPoints.length - 1]!]
     this.dirtyRect = unionRect(this.dirtyRect, rect)
   }
@@ -292,7 +309,7 @@ export class PaintStroke {
     this.add([x, y])
   }
 
-  /** Takes the stroke back; requires the stroke to have been started as restorable. */
+  /** Takes the stroke back; requires a live stroke. */
   cancel() {
     this.target.restore()
   }

@@ -13,10 +13,7 @@ export function pathBounds(d: string): Bounds | null {
   let maxY = -Infinity
 
   svgpath(d).abs().unarc().unshort().iterate((segment, _index, x, y) => {
-    const args = segment.slice(1) as number[]
-    const points: number[] = segment[0] === 'H'
-      ? [args[0]!, y]
-      : segment[0] === 'V' ? [x, args[0]!] : args
+    const points = segmentPoints(segment[0], segment.slice(1) as number[], x, y)
 
     for (let i = 0; i + 1 < points.length; i += 2) {
       minX = Math.min(minX, points[i]!)
@@ -27,4 +24,16 @@ export function pathBounds(d: string): Bounds | null {
   })
 
   return Number.isFinite(minX) ? { minX, minY, maxX, maxY } : null
+}
+
+/** Coordinates a segment touches; H and V carry only one axis, the other is the current point's. */
+function segmentPoints(command: string, args: number[], x: number, y: number): number[] {
+  switch (command) {
+    case 'H':
+      return [args[0]!, y]
+    case 'V':
+      return [x, args[0]!]
+    default:
+      return args
+  }
 }

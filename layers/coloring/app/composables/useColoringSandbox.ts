@@ -5,6 +5,8 @@ import { createFrameStats, type ColoringStageHandle, type FrameStats } from './u
 
 /** Idle time after the last change before the share image is re-rendered. */
 const EXPORT_IDLE_MS = 800
+/** Red: a clearly visible first colour. */
+const DEFAULT_COLOR = PALETTE.find(swatch => swatch.name === 'Красный')?.hex ?? '#e53935'
 const STATS_INTERVAL_MS = 500
 
 /**
@@ -21,7 +23,7 @@ export function useColoringSandbox(stage: Readonly<Ref<ColoringStageHandle | nul
   const artName = ref(arts[0]!.name)
   const art = computed<ColoringArt>(() => arts.find(entry => entry.name === artName.value)!.art)
   const tool = ref<Tool>('pencil')
-  const color = ref(PALETTE[1]!.hex)
+  const color = ref(DEFAULT_COLOR)
   const ops = shallowRef<Op[]>([])
   const progress = ref<Progress>({ ...EMPTY_PROGRESS })
   const frameStats = ref<FrameStats>(createFrameStats())
@@ -36,6 +38,11 @@ export function useColoringSandbox(stage: Readonly<Ref<ColoringStageHandle | nul
     preparedPng = null
     const current = ++generation
     exportTimer = setTimeout(() => {
+      // A stroke in progress may still be taken back: wait until the picture is final.
+      if (stage.value?.isDrawing()) {
+        prepareExport()
+        return
+      }
       stage.value?.exportPng()
         .then((png) => {
           if (current === generation) preparedPng = png
@@ -50,6 +57,10 @@ export function useColoringSandbox(stage: Readonly<Ref<ColoringStageHandle | nul
     ops.value = []
     prepareExport()
   })
+
+  function onProgress(value: Progress) {
+    progress.value = value
+  }
 
   function addOps(newOps: Op[]) {
     ops.value = [...ops.value, ...newOps]
@@ -79,5 +90,5 @@ export function useColoringSandbox(stage: Readonly<Ref<ColoringStageHandle | nul
     clearTimeout(exportTimer)
   })
 
-  return { arts, artName, art, tool, color, ops, progress, frameStats, addOps, replay, clear, share }
+  return { arts, artName, art, tool, color, ops, progress, frameStats, addOps, onProgress, replay, clear, share }
 }

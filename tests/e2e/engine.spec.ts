@@ -52,6 +52,20 @@ test.describe('drawing engine (sandbox)', () => {
     expect(await paintedPixels(page)).toBeLessThan(filled / 10)
   })
 
+  test('pressing the empty band around the art does nothing', async ({ page }) => {
+    const stage = (await page.locator('.coloring-stage').boundingBox())!
+    const canvas = (await page.locator('.coloring-stage canvas').boundingBox())!
+    test.skip(canvas.x - stage.x < 10, 'No empty band at this aspect ratio')
+
+    await page.mouse.move(stage.x + 4, stage.y + stage.height / 2)
+    await page.mouse.down()
+    await page.waitForTimeout(700)
+    await page.mouse.up()
+
+    await expect(page.getByText('операций: 0')).toBeVisible()
+    expect(await paintedPixels(page)).toBe(0)
+  })
+
   test('replaying the ops rebuilds the picture', async ({ page }) => {
     const [x, y] = await at(page, 0.5, 0.4)
     await page.mouse.move(x, y)

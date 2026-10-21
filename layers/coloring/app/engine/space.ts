@@ -16,6 +16,10 @@ export function gridToPaint(value: number): number {
   return value * PAINT_PER_GRID
 }
 
+function clampToGrid(value: number, size: number): number {
+  return Math.min(Math.floor(size), Math.max(0, Math.round(value)))
+}
+
 /**
  * Coordinate systems of one art:
  * - art units: the SVG viewBox the paths are defined in;
@@ -49,8 +53,7 @@ export class ArtSpace {
 
   /** Grid point from a position given as a share (0–1) of the rendered art. */
   gridFromRatio(rx: number, ry: number): [number, number] {
-    const clamp = (value: number, max: number) => Math.min(max, Math.max(0, Math.round(value)))
-    return [clamp(rx * this.gridWidth, Math.floor(this.gridWidth)), clamp(ry * this.gridHeight, Math.floor(this.gridHeight))]
+    return [clampToGrid(rx * this.gridWidth, this.gridWidth), clampToGrid(ry * this.gridHeight, this.gridHeight)]
   }
 
   gridToArt(gx: number, gy: number): [number, number] {

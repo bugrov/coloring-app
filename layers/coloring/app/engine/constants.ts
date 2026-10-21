@@ -33,6 +33,8 @@ export const PENCIL_GRAIN_LIGHTEN = 0.35
 export const HOLD_DURATION_MS = 450
 /** Finger jitter allowed during a hold, in CSS pixels. */
 export const HOLD_TOLERANCE_PX = 6
+/** Short haptic tick when a hold fills a region (Android; ignored elsewhere). */
+export const HOLD_VIBRATION_MS = 15
 
 /** Progress grid resolution along the art's long side. */
 export const PROGRESS_GRID_LONG_SIDE = 256

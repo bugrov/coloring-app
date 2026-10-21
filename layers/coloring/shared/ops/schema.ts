@@ -1,11 +1,6 @@
 import { z } from 'zod'
 import { MAX_STROKE_POINTS, OP_GRID, TOOLS } from './constants'
 
-/**
- * A user action on an art. Ops are the unit of history (undo/redo), of
- * persistence and of replay: applying the same ops to a blank canvas
- * reproduces the drawing.
- */
 const regionId = z.number().int().positive()
 const color = z.string().regex(/^#[0-9a-f]{6}$/)
 const coordinate = z.number().int().min(0).max(OP_GRID)
@@ -22,7 +17,7 @@ export const strokeOpSchema = z.object({
   /** Flat list of x, y pairs in grid units. */
   points: z.array(coordinate).min(2).max(MAX_STROKE_POINTS * 2)
     .refine(points => points.length % 2 === 0, 'Points must be x, y pairs'),
-})
+}).refine(op => (op.tool === 'eraser') === (op.color === null), 'Pencil and brush need a colour; the eraser has none')
 
 /** Long press with the pencil or the brush: the whole region takes the colour. */
 export const fillOpSchema = z.object({
@@ -37,4 +32,9 @@ export const clearOpSchema = z.object({
   region: regionId,
 })
 
+/**
+ * A user action on an art. Ops are the unit of history (undo/redo), of
+ * persistence and of replay: applying the same ops to a blank canvas
+ * reproduces the drawing.
+ */
 export const opSchema = z.discriminatedUnion('type', [strokeOpSchema, fillOpSchema, clearOpSchema])
