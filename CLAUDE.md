@@ -20,6 +20,7 @@
 - Не расширяем объём работы шага без согласования. Мелкие находки вне шага записываем в отчёт.
 - Секреты храним только в `.env` и в Vercel env. В репозиторий кладём `.env.example`.
 - Не пушим в `main` напрямую и не делаем force-push.
+- **База данных и авторизация: только решения из официальной документации** (Drizzle, Neon, nuxt-auth-utils, nuxt-security, h3), собственные «изобретения» здесь не допускаются. Если документация молчит или версия модуля с ней расходится, останавливаемся и сообщаем пользователю, не придумываем обход молча. К **настоящей базе** (миграции, сиды, e2e с базой) без явного подтверждения пользователя не обращаемся, тесты серверной логики идут на PGlite.
 
 ## Шаги MVP
 0. Подготовка: план, `CLAUDE.md`, скилл ревью, доступ к Figma (MCP), вопросы техлиду.
@@ -43,7 +44,10 @@
 - **Валидация:** zod. Схемы и доменные типы лежат в `shared/` и используются клиентом и сервером.
 - **Сервер:** Nitro server routes. **БД:** Neon Postgres + Drizzle (`@neondatabase/serverless`, `drizzle-orm/neon-http`). Локально подключаемся к ветке Neon `dev`, в проде к `main`, для PR создаются preview-ветки через интеграцию Vercel. Автотесты сервера работают на PGlite.
 - **Файлы:** Vercel Blob (снимки состояния, миниатюры).
-- **Сессии:** `nuxt-auth-utils` (cookie httpOnly/secure/sameSite). **Заголовки безопасности:** `nuxt-security`.
+- **Сессии:** `nuxt-auth-utils`: шифрованная cookie (`httpOnly`, `secure`, `sameSite=lax`), пароль `NUXT_SESSION_PASSWORD` ≥ 32 символов, срок жизни 30 дней. В `user` лежит то, что видит клиент, в `secure` (только сервер) роль, которой доверяет сервер. Вход заменяет сессию целиком (`replaceUserSession`), выход и чтение сессии на клиенте даёт сам модуль (`useUserSession`, `/api/_auth/session`, этот путь нельзя перехватывать middleware).
+- **Заголовки безопасности:** `nuxt-security` (CSP с nonce, HSTS, `X-Frame-Options` и др. по умолчанию). Его rate limiter хранит счётчики в памяти одного экземпляра сервера и по документации не годится для сложного продакшена: включён только для маршрутов входа (пользователь 60 за 5 мин с IP, админ 5 за 5 мин), надёжный вариант — внешнее хранилище. Клиент определяется по `x-forwarded-for` (на Vercel его выставляет платформа). XSS-валидатор по умолчанию проверяет тела POST и заблокирует загрузку SVG: для маршрутов импорта (шаги 5 и 8) его отключаем через `routeRules`.
+- **Временное закрепление `xss@1.0.15`** в `pnpm-workspace.yaml`: `nuxt-security` 2.6.0 с `xss` 1.0.16 падает (`escapeHtml is not a function`, каждый POST даёт 500), исправление ждёт слияния ([PR #765](https://github.com/Baroshem/nuxt-security/pull/765)). Снять закрепление, когда выйдет версия с поддержкой.
+- **Drizzle:** стабильная ветка `latest` (0.45), документация описывает RC 1.0, используемые вызовы совпадают. Драйвер `neon-http` не поддерживает интерактивные транзакции, поэтому сервисы используют одиночные запросы. Приложение работает через pooled `DATABASE_URL`, миграции через прямой `DATABASE_URL_UNPOOLED` (требование Neon). `.env` в `drizzle-kit` подаёт Node (`--env-file-if-exists=.env`), без `dotenv`.
 - **Тесты:** Vitest (+ `@nuxt/test-utils`), Playwright.
 - **Деплой:** Vercel (пресет Nitro, Fluid Compute / Node). Edge runtime не используем.
 
@@ -138,7 +142,10 @@ JS начальной страницы ≤ 150 КБ gzip. Движок груз�
 pnpm dev | build | preview
 pnpm typecheck | lint | lint:css | test | test:e2e
 pnpm check                      # typecheck + lint + lint:css + test
-pnpm db:generate | db:migrate | db:seed | db:studio   # с шага 4
+pnpm db:generate     # SQL-миграция из схемы, базы не касается
+pnpm db:migrate      # применяет миграции к DATABASE_URL_UNPOOLED (спросить пользователя!)
+pnpm db:studio       # просмотр данных в браузере
+E2E_WITH_DB=1 pnpm test:e2e   # e2e входа игрока на настоящей базе (спросить пользователя!)
 ```
 - Stylelint требует BEM-классы (`block__element--modifier`) и запрещает `max-*`-медиа.
 - Playwright WebKit на Windows по умолчанию выключен (системное масштабирование 125% искажает viewport). Он работает в CI, локально включается через `PW_WEBKIT=1`.
