@@ -5,8 +5,11 @@ interface CredentialsFormOptions<T extends Record<string, unknown>> {
   endpoint: string
   schema: ZodType<T>
   initial: T
-  /** Where to go after the session is established. */
-  redirectTo: string
+  /**
+   * Where to go after the session is established. A literal of our own pages, never a value
+   * from the address bar or a response: it is also used for a full page load (external navigation).
+   */
+  redirectTo: '/' | '/admin'
 }
 
 interface CredentialsForm<T> {
