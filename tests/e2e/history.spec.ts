@@ -356,4 +356,30 @@ test.describe('history with the database', () => {
     expect((await page.request.delete(`/api/coloring/arts/${id}`)).status()).toBe(200)
     expect((await page.request.get(`/api/coloring/arts/${id}/thumbnail`)).status()).toBe(404)
   })
+
+  test('a picture that was already finished opens without the victory animation', async ({ page }) => {
+    await signIn(page, 'v')
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="#fff"/></svg>'
+    const imported = await page.request.post('/api/coloring/imports?name=done.svg', { data: svg, headers: { 'content-type': 'image/svg+xml' } })
+    const id = (await imported.json()).id
+    const art = await (await page.request.get(`/api/coloring/arts/${id}`)).json()
+    const areas = (art.art.items as { type: string, id: number, kind: string }[]).filter(item => item.type === 'region' && item.kind === 'area')
+    const fills = areas.map(area => [{ type: 'fill', region: area.id, color: '#e53935' }])
+    const saved = await page.request.put(`/api/coloring/arts/${id}/history`, { data: { attempt: 0, rev: 0, keep: 0, steps: fills, cursor: fills.length, percent: 100 } })
+    expect(saved.status()).toBe(200)
+
+    await page.goto(`/coloring/art/${id}`)
+    await expect(page.locator('.save-status')).toBeVisible()
+
+    await expect(page.locator('.frame__percent')).toContainText('Закрашено 100%')
+    // Neither the shaking frame nor the congratulation card, now or a moment later.
+    await page.waitForTimeout(800)
+    await expect(page.locator('.frame--celebrating')).toHaveCount(0)
+    await expect(page.locator('.congrats__card')).toHaveCount(0)
+
+    // Finishing it again after an undo is news again.
+    await page.getByRole('button', { name: 'Отменить' }).click()
+    await page.getByRole('button', { name: 'Вернуть' }).click()
+    await expect(page.locator('.congrats__card')).toBeVisible()
+  })
 })
