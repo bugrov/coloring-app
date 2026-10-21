@@ -2,7 +2,7 @@ import { DEFAULT_OPACITY, MAX_STROKE_POINTS } from '../../shared'
 import type { ClearOp, ColoringArt, FillOp, Op, StrokeOp, Tool } from '../../shared'
 import { releaseCanvas, unionRect, type AnyCanvas, type Rect } from './canvas'
 import { DEFAULT_THICKNESS, TOOL_WIDTH } from './constants'
-import { exportPng } from './export'
+import { exportPng, exportThumbnail } from './export'
 import { ArtGeometry } from './geometry'
 import { Painter, type PaintDelta, type PaintStroke, type StrokeStyle } from './painter'
 import { ProgressTracker, type Progress, type ProgressState } from './progress'
@@ -154,6 +154,11 @@ export class ColoringEngine {
 
   exportPng(): Promise<Blob> {
     return exportPng(this.space, this.geometry, this.painter.canvas)
+  }
+
+  /** A small image of the picture for the gallery, `longSide` pixels along its long side. */
+  exportThumbnail(longSide: number): Promise<Blob> {
+    return exportThumbnail(this.space, this.geometry, this.painter.canvas, longSide)
   }
 
   /** Releases the offscreen canvases right away; iOS limits total canvas memory. */

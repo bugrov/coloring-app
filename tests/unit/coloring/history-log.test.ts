@@ -181,6 +181,20 @@ describe('HistoryLog: a conflict', () => {
     expect(log.dirty).toBe(false)
   })
 
+  it('drops local steps when the attempt was started over elsewhere, but merges them when the art was only just started', () => {
+    const started = new HistoryLog(state([1]))
+    started.push(step(2))
+    started.reconcile({ attempt: 2, rev: 0, cursor: 0, steps: [] })
+    expect(started.length).toBe(0)
+    expect(started.attempt).toBe(2)
+
+    const fresh = new HistoryLog({ attempt: 0, rev: 0, cursor: 0, steps: [] })
+    fresh.push(step(5))
+    const result = fresh.reconcile(state([7], 1, 1))
+    expect(result.merged).toBe(true)
+    expect(fresh.opsBetween(0, fresh.cursor)).toEqual([...step(7), ...step(5)])
+  })
+
   it('recognises a resent save that had arrived: nothing to rebuild, nothing lost', () => {
     const log = new HistoryLog(state([1]))
     log.push(step(2))

@@ -35,11 +35,15 @@ export function copyRect(target: AnyContext, source: AnyCanvas, { x, y, width, h
   target.drawImage(source, x, y, width, height, x, y, width, height)
 }
 
-export function canvasToPng(canvas: AnyCanvas): Promise<Blob> {
-  if ('convertToBlob' in canvas) return canvas.convertToBlob({ type: 'image/png' })
+export function canvasToBlob(canvas: AnyCanvas, type: string, quality?: number): Promise<Blob> {
+  if ('convertToBlob' in canvas) return canvas.convertToBlob({ type, quality })
   return new Promise((resolve, reject) => {
-    canvas.toBlob(blob => (blob ? resolve(blob) : reject(new Error('PNG encoding failed'))), 'image/png')
+    canvas.toBlob(blob => (blob ? resolve(blob) : reject(new Error('Image encoding failed'))), type, quality)
   })
+}
+
+export function canvasToPng(canvas: AnyCanvas): Promise<Blob> {
+  return canvasToBlob(canvas, 'image/png')
 }
 
 /** Smallest rectangle covering both, or the other one when either is empty. */

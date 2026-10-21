@@ -9,6 +9,11 @@ const emit = defineEmits<{ restart: [], remove: [] }>()
 const BAND = 16
 const RADIUS = 64
 
+/** The painted picture once there is one (its stored time versions the URL), the empty art before. */
+const picture = computed(() => (props.item.thumbnail === null
+  ? `/api/coloring/arts/${props.item.id}/preview.svg`
+  : `/api/coloring/arts/${props.item.id}/thumbnail?v=${props.item.thumbnail}`))
+
 const canRestart = computed(() => props.item.attempt > 0)
 const canRemove = computed(() => props.item.source === 'user')
 const hasActions = computed(() => canRestart.value || canRemove.value)
@@ -50,7 +55,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
     >
       <img
         class="gallery-card__art"
-        :src="`/api/coloring/arts/${item.id}/preview.svg`"
+        :src="picture"
         alt=""
         loading="lazy"
         decoding="async"

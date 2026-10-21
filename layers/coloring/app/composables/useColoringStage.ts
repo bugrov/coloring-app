@@ -80,6 +80,8 @@ export interface ColoringStageHandle {
   /** Reports the progress of the picture as it is now; call it after the history changed the picture. */
   publishProgress: () => void
   exportPng: () => Promise<Blob>
+  /** A small image of the picture for the gallery card. */
+  exportThumbnail: (longSide: number) => Promise<Blob>
   /** Whether a stroke is in progress (its pixels are not final yet). */
   isDrawing: () => boolean
 }
@@ -473,6 +475,7 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     publishProgress: () => {
       if (engine.value) options.onProgress(engine.value.progress)
     },
+    exportThumbnail: longSide => engine.value?.exportThumbnail(longSide) ?? Promise.reject(new Error('Engine is not ready')),
     exportPng: () => engine.value?.exportPng() ?? Promise.reject(new Error('Engine is not ready')),
     isDrawing: () => stroke !== null,
   }

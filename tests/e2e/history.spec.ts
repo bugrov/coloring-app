@@ -50,6 +50,8 @@ test.describe('history without a session', () => {
     const id = '00000000-0000-4000-8000-000000000000'
     expect((await request.get(`/api/coloring/arts/${id}/history`)).status()).toBe(401)
     expect((await request.put(`/api/coloring/arts/${id}/history`, { data: {} })).status()).toBe(401)
+    expect((await request.get(`/api/coloring/arts/${id}/thumbnail`)).status()).toBe(401)
+    expect((await request.put(`/api/coloring/arts/${id}/thumbnail`, { data: 'x' })).status()).toBe(401)
   })
 })
 
@@ -318,5 +320,33 @@ test.describe('history with the database', () => {
     // machine, so only a gross regression fails here. The numbers are in the report annotations.
     expect(mean(loaded)).toBeLessThan(120)
     expect(mean(live)).toBeLessThan(40)
+  })
+
+  test('a painted thumbnail appears on the gallery card, and goes when the art is deleted', async ({ page }) => {
+    await signIn(page, 's')
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="#fff"/></svg>'
+    const imported = await page.request.post('/api/coloring/imports?name=thumb.svg', { data: svg, headers: { 'content-type': 'image/svg+xml' } })
+    const id = (await imported.json()).id
+    await page.goto('/coloring')
+    await page.getByRole('link', { name: 'thumb' }).click()
+    await expect(page.locator('.save-status')).toBeVisible()
+    const box = (await page.locator('canvas').boundingBox())!
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.55, { steps: 6 })
+    await page.mouse.up()
+    await saved(page)
+
+    // The editor sends the picture a few seconds after the save; leaving the editor sends it at once.
+    await page.getByRole('link', { name: 'К галерее' }).click()
+    await expect(page.getByRole('link', { name: /^thumb/ }).locator('img')).toHaveAttribute('src', /\/thumbnail\?v=\d+/, { timeout: 20_000 })
+    const image = await page.request.get(`/api/coloring/arts/${id}/thumbnail`)
+    expect(image.status()).toBe(200)
+    expect(image.headers()['content-type']).toMatch(/^image\/(webp|png)$/)
+    expect((await image.body()).length).toBeGreaterThan(100)
+
+    expect((await page.request.put(`/api/coloring/arts/${id}/thumbnail`, { data: '<svg onload="alert(1)"/>' })).status()).toBe(422)
+    expect((await page.request.delete(`/api/coloring/arts/${id}`)).status()).toBe(200)
+    expect((await page.request.get(`/api/coloring/arts/${id}/thumbnail`)).status()).toBe(404)
   })
 })

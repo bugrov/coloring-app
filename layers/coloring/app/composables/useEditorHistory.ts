@@ -1,5 +1,6 @@
 import { readApiError } from '#layers/core/shared/errors'
 import type { HistoryState, HistoryStep } from '../../shared'
+import { THUMBNAIL_LONG_SIDE } from '../../shared/gallery'
 import { HISTORY_ERROR_MESSAGES } from '../../shared'
 import { Timeline, type PaintDelta, type PaintSnapshot } from '../engine'
 import { useEditorStore } from '../stores/editor'
@@ -8,6 +9,13 @@ import type { ColoringStageHandle } from './useColoringStage'
 
 /** HTTP statuses after which the same save would only fail again: not signed in, no such art, invalid. */
 const REFUSED_STATUSES = new Set([401, 403, 404, 413, 422])
+
+/** The gallery thumbnail follows the picture, but not more often than this, and a moment after the last save. */
+const THUMBNAIL_MIN_INTERVAL_MS = 30_000
+const THUMBNAIL_DELAY_MS = 3000
+
+/** Leaving the editor waits this long at most for the last save and thumbnail, so the gallery shows them. */
+const LEAVE_WAIT_MS = 2000
 
 const MERGED_MESSAGE = 'Рисунок изменили на другом устройстве. Мы загрузили свежую версию и дописали ваши последние действия.'
 const REPLACED_MESSAGE = 'Рисунок изменили на другом устройстве. Загрузили свежую версию.'
@@ -38,6 +46,9 @@ export function useEditorHistory(
 
   let timeline: Timeline<PaintSnapshot, PaintDelta> | null = null
   let sync: HistorySync | null = null
+  let thumbnailTimer: ReturnType<typeof setTimeout> | undefined
+  let thumbnailDue = false
+  let thumbnailSentAt = 0
   /** Counts the opens, so that a slow one for an art the player has left is dropped. */
   let generation = 0
 
@@ -61,6 +72,31 @@ export function useEditorHistory(
     }
   }
 
+  /** Sends the small picture for the gallery card; best effort: a failure only means the next save tries again. */
+  async function sendThumbnail() {
+    const handle = stage.value
+    const id = artId.value
+    clearTimeout(thumbnailTimer)
+    thumbnailTimer = undefined
+    if (!thumbnailDue || !handle) return
+    thumbnailDue = false
+    thumbnailSentAt = Date.now()
+    try {
+      const image = await handle.exportThumbnail(THUMBNAIL_LONG_SIDE)
+      await api(`/api/coloring/arts/${id}/thumbnail`, { method: 'PUT', body: image, headers: { 'content-type': image.type } })
+    }
+    catch {
+      thumbnailDue = true
+    }
+  }
+
+  function scheduleThumbnail() {
+    thumbnailDue = true
+    if (thumbnailTimer !== undefined) return
+    const wait = Math.max(THUMBNAIL_DELAY_MS, THUMBNAIL_MIN_INTERVAL_MS - (Date.now() - thumbnailSentAt))
+    thumbnailTimer = setTimeout(() => void sendThumbnail(), wait)
+  }
+
   /** Tells the interface what the history and the picture look like now. */
   function publish() {
     if (!timeline || !stage.value) return
@@ -72,6 +108,9 @@ export function useEditorHistory(
   /** Stops saving for the current art; what is not saved yet stays in the outbox and goes out on the next visit. */
   function close() {
     generation++
+    clearTimeout(thumbnailTimer)
+    thumbnailTimer = undefined
+    thumbnailDue = false
     const old = { sync, timeline }
     sync = null
     timeline = null
@@ -125,6 +164,7 @@ export function useEditorHistory(
       percent: () => editor.progress.percent,
       onStatus: (status) => {
         editor.saveStatus = status
+        if (status === 'saved') scheduleThumbnail()
       },
       onReconciled: (reconciliation) => {
         if (reconciliation.merged) hooks.notify(MERGED_MESSAGE)
@@ -219,10 +259,21 @@ export function useEditorHistory(
     window.removeEventListener('pagehide', leave)
     window.removeEventListener('beforeunload', onBeforeUnload)
     window.removeEventListener('online', onOnline)
+    // The picture is still on the stage: its last thumbnail is made now, before the stage goes away.
+    void sendThumbnail()
     close()
   })
 
   watch(artId, close)
+
+  // The gallery is the next screen: let what was drawn reach it, but never hold the player back for long.
+  onBeforeRouteLeave(async () => {
+    const settled = (async () => {
+      await sync?.flush()
+      await sendThumbnail()
+    })()
+    await Promise.race([settled, new Promise(resolve => setTimeout(resolve, LEAVE_WAIT_MS))])
+  })
 
   return { loadError, open, record, undo, redo, startOver }
 }

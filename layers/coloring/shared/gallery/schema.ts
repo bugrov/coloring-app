@@ -22,6 +22,8 @@ export const galleryItemSchema = z.object({
   percent: z.number().int().min(0).max(PERCENT_MAX),
   attempt: z.number().int().min(0),
   completed: z.boolean(),
+  /** When the thumbnail of the painted picture was stored (ms since the epoch); null while there is none. */
+  thumbnail: z.number().int().nullable(),
 })
 
 export const galleryPageSchema = z.object({

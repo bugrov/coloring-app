@@ -180,6 +180,12 @@ export class HistoryLog {
    * simply takes the server's version, apart from a resent save that is already stored.
    */
   reconcile(server: HistoryState): Reconciliation {
+    // The attempt was started over elsewhere: what was drawn here belongs to the old one, which the
+    // server keeps. (Attempt 0 is "not started yet": another device creating attempt 1 is a normal conflict.)
+    if (this.attempt !== 0 && server.attempt !== this.attempt) {
+      this.load(server)
+      return { rebuild: true, merged: false }
+    }
     const shared = commonPrefix(this.steps, server.steps)
     const unsent = this.steps.slice(shared, this.position)
 

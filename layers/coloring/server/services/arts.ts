@@ -29,6 +29,7 @@ export async function listGallery(db: Database, userId: string, cursor?: number)
       attempt: progress.attempt,
       percent: progress.percent,
       completed: progress.completed,
+      thumbnailAt: progress.thumbnailAt,
     })
     .from(arts)
     .leftJoin(latest, eq(latest.artId, arts.id))
@@ -45,6 +46,7 @@ export async function listGallery(db: Database, userId: string, cursor?: number)
     percent: Math.min(row.percent ?? 0, PERCENT_MAX),
     attempt: row.attempt ?? 0,
     completed: row.completed ?? false,
+    thumbnail: row.thumbnailAt?.getTime() ?? null,
   }))
   const last = page.at(-1)
   return { items, nextCursor: rows.length > GALLERY_PAGE_SIZE && last ? String(last.seq) : null }
