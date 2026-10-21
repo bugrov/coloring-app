@@ -22,6 +22,8 @@ export const COUNTRY_CODES = [
   'UA', 'UG', 'UM', 'US', 'UY', 'UZ',
   'VA', 'VC', 'VE', 'VG', 'VI', 'VN', 'VU',
   'WF', 'WS',
+  // Kosovo: user-assigned in ISO 3166-1, but used by the browsers' own country data (CLDR).
+  'XK',
   'YE', 'YT',
   'ZA', 'ZM', 'ZW',
 ] as const

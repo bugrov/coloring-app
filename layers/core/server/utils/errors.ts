@@ -31,8 +31,9 @@ export async function parseBody<T>(event: H3Event, schema: ZodType<T>): Promise<
 
   const fields: Record<string, string> = {}
   for (const issue of result.error.issues) {
-    const field = String(issue.path[0] ?? 'form')
-    fields[field] ??= issue.message
+    // An issue without a field is about the body as a whole: its text is the library's, not ours.
+    if (issue.path.length === 0) fields.form ??= API_ERROR_MESSAGES.validation
+    else fields[String(issue.path[0])] ??= issue.message
   }
   throw apiError(422, 'validation', { fields })
 }

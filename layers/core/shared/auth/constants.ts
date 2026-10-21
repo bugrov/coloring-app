@@ -7,8 +7,15 @@ export const USERNAME_MAX_LENGTH = 20
  */
 export const USERNAME_PATTERN = /^[\p{L}\p{N}][\p{L}\p{M}\p{N}_-]*$/u
 
-/** Letters that render as blank (Hangul fillers): a name made of them would look empty. */
-export const INVISIBLE_LETTERS = /[\u115F\u1160\u3164\uFFA0]/u
+/**
+ * Code points that render as nothing (Hangul fillers, zero-width and joiner
+ * characters, variation selectors, the combining grapheme joiner): they would
+ * make two different names look the same, or a name look empty.
+ */
+export const INVISIBLE_CHARACTERS = /\p{Default_Ignorable_Code_Point}/u
+
+/** Real scripts stack at most a few marks on a letter (Thai: vowel and tone mark); more is "zalgo" text. */
+export const TOO_MANY_MARKS = /\p{M}{4,}/u
 
 export const ADMIN_LOGIN_MAX_LENGTH = 64
 export const ADMIN_PASSWORD_MAX_LENGTH = 256

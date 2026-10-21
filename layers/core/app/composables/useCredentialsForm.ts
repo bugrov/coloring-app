@@ -52,22 +52,24 @@ export function useCredentialsForm<T extends Record<string, unknown>>({ endpoint
     }
 
     pending.value = true
-    let signedIn = false
     try {
       await $fetch(endpoint, { method: 'POST', body: parsed.data })
-      signedIn = true
     }
     catch (error) {
       showServerError(error)
-    }
-    finally {
       pending.value = false
+      return
     }
 
-    // Only the sign-in itself can be a sign-in error; a failed refresh or navigation after it is not.
-    if (signedIn) {
+    // Signed in. Only the sign-in itself can be a sign-in error; if the page cannot refresh its
+    // own view of the session, a full page load (external navigation) reads it from the cookie.
+    // The form stays disabled until the page leaves.
+    try {
       await refreshSession()
       await navigateTo(redirectTo)
+    }
+    catch {
+      await navigateTo(redirectTo, { external: true })
     }
   }
 

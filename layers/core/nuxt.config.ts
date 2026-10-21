@@ -37,6 +37,8 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
+    // The admin area is an application, not content: no server rendering.
+    '/admin/**': { ssr: false },
     // Sign-in is passwordless: this only blocks mass account creation. A class
     // behind one IP signs in within minutes, so the limit is generous.
     '/api/auth/login': { security: { rateLimiter: { tokensPerInterval: 60, interval: 300_000 } } },

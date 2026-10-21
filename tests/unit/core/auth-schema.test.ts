@@ -21,6 +21,11 @@ describe('loginSchema', () => {
     ['with quotes (SQL-looking)', 'x\' OR \'1\'=\'1'],
     ['empty', ''],
     ['made of invisible Hangul fillers', 'ㅤㅤㅤ'],
+    ['with a zero-width space', 'ab\u200Bc'],
+    ['with a combining grapheme joiner', 'ab\u034Fc'],
+    ['with a variation selector', 'ab\uFE0Fc'],
+    // NFKC joins the first mark with the letter, so more than four marks are needed to leave four.
+    ['with stacked marks ("zalgo")', 'a\u0300\u0301\u0302\u0303\u0304\u0305\u0306bc'],
     ['starting with a combining mark', '\u0301abc'],
   ])('rejects a name %s', (_label, name) => {
     expect(login(name).success).toBe(false)
@@ -57,6 +62,13 @@ describe('loginSchema', () => {
 })
 
 describe('usernameKey', () => {
+  it('folds case the way Unicode does, not only by lower-casing', () => {
+    // Final and medial sigma, sharp s: written differently, the same name.
+    expect(usernameKey('ΟΔΟΣ')).toBe(usernameKey('οδοσ'))
+    expect(usernameKey('οδος')).toBe(usernameKey('οδοσ'))
+    expect(usernameKey('STRASSE')).toBe(usernameKey('Straße'))
+  })
+
   it('stays stable when lower-casing produces characters that normalize differently', () => {
     expect(usernameKey('İstanbul')).toBe(usernameKey(usernameKey('İstanbul')))
   })

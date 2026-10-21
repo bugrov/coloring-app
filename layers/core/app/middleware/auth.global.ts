@@ -3,14 +3,18 @@
 export default defineNuxtRouteMiddleware((to) => {
   const { loggedIn, user } = useUserSession()
 
-  const isAdminArea = to.path === '/admin' || to.path.startsWith('/admin/')
+  // '/login/' is the same page as '/login'.
+  const path = to.path.length > 1 ? to.path.replace(/\/+$/, '') : to.path
+  const isAdminArea = path === '/admin' || path.startsWith('/admin/')
   const required = to.meta.auth ?? (isAdminArea ? 'admin' : 'user')
   const signInPage = isAdminArea ? '/admin/login' : '/login'
   const home = user.value?.role === 'admin' ? '/admin' : '/'
 
   if (required === 'public') {
-    // A signed-in person has no business on the sign-in page.
-    if (loggedIn.value && to.path === signInPage) return navigateTo(home)
+    // Someone already signed in as this page's kind of user has no business on its sign-in page.
+    // A player may still open the admin sign-in page, and the admin the player one, to switch.
+    const signedInHere = user.value?.role === (isAdminArea ? 'admin' : 'user')
+    if (loggedIn.value && path === signInPage && signedInHere) return navigateTo(home)
     return
   }
 

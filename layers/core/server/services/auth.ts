@@ -24,6 +24,13 @@ export async function signIn(db: Database, { username, country }: SignInInput): 
   // The schema normalizes already; the service does not rely on its callers to.
   const displayName = normalizeUsername(username)
   const key = usernameKey(username)
+  const find = async () => (await db.select().from(users).where(eq(users.usernameKey, key)).limit(1))[0]
+  const existingOutcome = (row: UserRow): SignInResult =>
+    row.country === country ? { ok: true, user: row, created: false } : { ok: false, reason: 'username_taken' }
+
+  // A returning player costs one round trip: most sign-ins find their row here.
+  const existing = await find()
+  if (existing) return existingOutcome(existing)
 
   const [created] = await db
     .insert(users)
@@ -32,7 +39,7 @@ export async function signIn(db: Database, { username, country }: SignInInput): 
     .returning()
   if (created) return { ok: true, user: created, created: true }
 
-  const [existing] = await db.select().from(users).where(eq(users.usernameKey, key)).limit(1)
-  if (!existing || existing.country !== country) return { ok: false, reason: 'username_taken' }
-  return { ok: true, user: existing, created: false }
+  // Lost a race with a concurrent first sign-in of the same name: the winner's row decides.
+  const winner = await find()
+  return winner ? existingOutcome(winner) : { ok: false, reason: 'username_taken' }
 }
