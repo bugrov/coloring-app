@@ -1,3 +1,4 @@
+import { DEFAULT_OPACITY } from '../../shared'
 import type { Op, Tool } from '../../shared'
 import { BrushCache } from './brushes'
 import { context2d, copyRect, createCanvas, intersectRect, releaseCanvas, unionRect, type AnyCanvas, type AnyContext, type Rect } from './canvas'
@@ -13,6 +14,23 @@ export interface StrokeStyle {
   color: string | null
   /** Line width in grid units. */
   width: number
+  /** Percent, fully opaque when absent; the eraser always removes paint completely. */
+  opacity?: number
+}
+
+const toAlpha = (percent: number) => percent / 100
+
+/** The share of the paint a mark keeps when composited. */
+function alphaOf(style: StrokeStyle): number {
+  return style.tool === 'eraser' ? 1 : toAlpha(style.opacity ?? DEFAULT_OPACITY)
+}
+
+/**
+ * A soft brush stamped at partial opacity builds the whole stroke on the
+ * scratch canvas, so overlapping stamps never add up on the paint itself.
+ */
+function accumulatesOnScratch(style: StrokeStyle): boolean {
+  return style.tool === 'brush' && alphaOf(style) < 1
 }
 
 /** Extra pixels around a segment's bounds so caps and soft edges are not cut. */
@@ -41,6 +59,9 @@ export class Painter {
   private readonly scratch: AnyCanvas
   private readonly scratchContext: AnyContext
   private readonly backup: AnyCanvas
+  /** Only for brush strokes at partial opacity; created on first use. */
+  private masked: AnyCanvas | null = null
+  private maskedContext: AnyContext | null = null
   private readonly backupContext: AnyContext
   private readonly masks: RegionMasks
   private readonly brushes = new BrushCache()
@@ -74,17 +95,23 @@ export class Painter {
     const mask = this.prepare(regionId)
     if (!mask) return null
     const { rect } = mask
+    // A stroke that builds up on the scratch canvas starts from an empty one.
+    const resetScratch = () => {
+      if (accumulatesOnScratch(style)) this.scratchContext.clearRect(rect.x, rect.y, rect.width, rect.height)
+    }
     if (live) this.saveBackup(rect)
+    resetScratch()
     return new PaintStroke(style, {
       draw: (from, points, path, walker) => this.drawSegment(regionId, style, from, points, live ? path : null, walker),
       rebase: () => {
         if (live) this.saveBackup(rect)
+        resetScratch()
       },
       restore: () => this.restoreBackup(rect),
     })
   }
 
-  fill(regionId: number, color: string): Rect | null {
+  fill(regionId: number, color: string, opacity = DEFAULT_OPACITY): Rect | null {
     const mask = this.prepare(regionId)
     if (!mask) return null
     const { rect } = mask
@@ -92,7 +119,7 @@ export class Painter {
     ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
     ctx.fillStyle = color
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height)
-    this.composite(mask, rect, 'source-over')
+    this.composite(mask, rect, 'source-over', toAlpha(opacity))
     return rect
   }
 
@@ -113,7 +140,7 @@ export class Painter {
         return stroke?.dirty ?? null
       }
       case 'fill':
-        return this.fill(op.region, op.color)
+        return this.fill(op.region, op.color, op.opacity)
       case 'clear':
         return this.clear(op.region)
     }
@@ -126,6 +153,7 @@ export class Painter {
   dispose() {
     releaseCanvas(this.scratch)
     releaseCanvas(this.backup)
+    if (this.masked) releaseCanvas(this.masked)
     this.masks.dispose()
   }
 
@@ -165,7 +193,8 @@ export class Painter {
     ctx.beginPath()
     ctx.rect(rect.x, rect.y, rect.width, rect.height)
     ctx.clip()
-    ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
+    const accumulate = accumulatesOnScratch(style)
+    if (!accumulate) ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
     if (style.tool === 'brush') {
       this.stampBrush(style.color ?? '#000000', widthPx, walker.walk(points))
     }
@@ -174,8 +203,10 @@ export class Painter {
     }
     ctx.restore()
 
-    if (path && style.tool !== 'brush') this.restoreBackup(rect)
-    this.composite(mask, rect, style.tool === 'eraser' ? 'destination-out' : 'source-over')
+    // Redrawn over the saved base each frame: line tools always, an accumulating brush because the
+    // scratch already holds the whole stroke so far.
+    if (path && (style.tool !== 'brush' || accumulate)) this.restoreBackup(rect)
+    this.composite(mask, rect, style.tool === 'eraser' ? 'destination-out' : 'source-over', alphaOf(style), accumulate)
     return rect
   }
 
@@ -198,21 +229,35 @@ export class Painter {
     ctx.stroke()
   }
 
-  /** Masks the scratch rectangle and blends it onto the paint. */
-  private composite(mask: PreparedMask, rect: Rect, operation: GlobalCompositeOperation) {
-    const scratch = this.scratchContext
+  /**
+   * Masks the scratch rectangle and blends it onto the paint. A stroke that keeps building on
+   * the scratch (`keepScratch`) is masked on a copy: masking the scratch itself would multiply
+   * the soft edge of the mask in once per frame, so live drawing and replay would differ there.
+   */
+  private composite(mask: PreparedMask, rect: Rect, operation: GlobalCompositeOperation, alpha = 1, keepScratch = false) {
+    let layer = this.scratch
+    let layerContext = this.scratchContext
+    if (keepScratch) {
+      this.masked ??= createCanvas(this.space.paintWidth, this.space.paintHeight)
+      layer = this.masked
+      layerContext = this.maskedContext ??= context2d(this.masked)
+      layerContext.clearRect(rect.x, rect.y, rect.width, rect.height)
+      copyRect(layerContext, this.scratch, rect)
+    }
     // destination-in affects the whole canvas, not just the drawn rect; the
     // clip keeps the work (and the clearing) inside the rect.
-    scratch.save()
-    scratch.beginPath()
-    scratch.rect(rect.x, rect.y, rect.width, rect.height)
-    scratch.clip()
-    scratch.globalCompositeOperation = 'destination-in'
-    copyRect(scratch, mask.canvas, rect)
-    scratch.restore()
+    layerContext.save()
+    layerContext.beginPath()
+    layerContext.rect(rect.x, rect.y, rect.width, rect.height)
+    layerContext.clip()
+    layerContext.globalCompositeOperation = 'destination-in'
+    copyRect(layerContext, mask.canvas, rect)
+    layerContext.restore()
 
     this.ctx.globalCompositeOperation = operation
-    copyRect(this.ctx, this.scratch, rect)
+    this.ctx.globalAlpha = alpha
+    copyRect(this.ctx, layer, rect)
+    this.ctx.globalAlpha = 1
     this.ctx.globalCompositeOperation = 'source-over'
   }
 }

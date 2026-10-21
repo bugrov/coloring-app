@@ -21,6 +21,15 @@ $theme-bg: #fff !default;
   --color-card-frame: #cdf4ff;
   --color-progress: #2e9be6;
 
+  // Editor (Figma: Coloring — Art): the page is paler than the gallery's sky, the frame is the card blue.
+  --color-editor-bg: #e8f0f6;
+  --rail-width: 90px;
+  --pencil-height: 44px;
+  --pencil-gap: 2px;
+
+  // How far an idle crayon slides out of sight: only its tip stays, the chosen one shows more.
+  --pencil-hidden: 30px;
+
   // Type
   --font-family: system-ui, -apple-system, "Segoe UI", roboto, sans-serif;
   --font-size-s: 0.875rem;

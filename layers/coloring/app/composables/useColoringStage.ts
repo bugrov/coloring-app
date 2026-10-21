@@ -24,8 +24,22 @@ export interface ColoringStageOptions {
   art: Ref<ColoringArt>
   tool: Ref<Tool>
   color: Ref<string>
+  /** Paint opacity in percent. */
+  opacity: Ref<number>
+  /** Multiplier of the tool's line width. */
+  thickness: Ref<number>
+  /** Feedback for a long press; position is in px relative to the stage. */
+  onHold?: (feedback: HoldFeedback) => void
   onOps: (ops: Op[]) => void
   onProgress: (progress: Progress) => void
+}
+
+export interface HoldFeedback {
+  phase: 'start' | 'cancel' | 'fill'
+  x: number
+  y: number
+  /** Null when the eraser clears the region. */
+  color: string | null
 }
 
 export interface ColoringStageElements {
@@ -109,6 +123,8 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
   let stroke: ActiveStroke | null = null
   let gesture: Gesture | null = null
   let holdTimer: ReturnType<typeof setTimeout> | undefined
+  /** Where the current press began, relative to the stage, and the colour it would fill with. */
+  let holdAt: Pick<HoldFeedback, 'x' | 'y' | 'color'> = { x: 0, y: 0, color: null }
   let frame = 0
   let contentSize = { width: 0, height: 0 }
 
@@ -165,6 +181,7 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
   }
 
   function clearHoldTimer() {
+    if (holdTimer !== undefined) options.onHold?.({ phase: 'cancel', ...holdAt })
     clearTimeout(holdTimer)
     holdTimer = undefined
     hold.cancel()
@@ -232,8 +249,9 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     stroke = null
     const op = options.tool.value === 'eraser'
       ? engine.value.clear(recorder.region)
-      : engine.value.fill(recorder.region, options.color.value)
+      : engine.value.fill(recorder.region, options.color.value, options.opacity.value)
     navigator.vibrate?.(HOLD_VIBRATION_MS)
+    options.onHold?.({ phase: 'fill', ...holdAt })
     commit([op])
   }
 
@@ -279,12 +297,15 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     if (!isOnArt(ratio)) return
     const { point, region } = engine.value.locate(...ratio)
     if (region === null) return
-    const recorder = engine.value.beginStroke(region, options.tool.value, options.color.value)
+    const recorder = engine.value.beginStroke(region, options.tool.value, options.color.value, options.opacity.value, options.thickness.value)
     if (!recorder) return
 
     stroke = { pointerId: event.pointerId, pointerType: event.pointerType, recorder, queue: [...point], last: point }
     hold.start(event.clientX, event.clientY)
     holdTimer = setTimeout(onHold, HOLD_DURATION_MS)
+    const stageRect = stage.value!.getBoundingClientRect()
+    holdAt = { x: event.clientX - stageRect.left, y: event.clientY - stageRect.top, color: options.tool.value === 'eraser' ? null : options.color.value }
+    options.onHold?.({ phase: 'start', ...holdAt })
     scheduleFrame()
   }
 

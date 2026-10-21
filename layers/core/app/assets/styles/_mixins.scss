@@ -1,0 +1,16 @@
+// Shared SCSS helpers, available in every component's <style lang="scss"> (see vite.css in nuxt.config.ts).
+
+// A button stripped of the browser look: the component adds size, shape and colour.
+@mixin plain-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+// Keyboard focus ring in the progress blue; a negative offset keeps it inside the button.
+@mixin focus-ring($offset: 2px) {
+  outline: 3px solid var(--color-progress);
+  outline-offset: $offset;
+}

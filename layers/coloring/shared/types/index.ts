@@ -1,4 +1,4 @@
-export type { ArtInk, ArtItem, ArtRegion, Bounds, ColoringArt } from './art'
+export type { ArtDetails, ArtInk, ArtItem, ArtRegion, Bounds, ColoringArt } from './art'
 export type { GalleryItem, GalleryPage } from './gallery'
 export type { ClearOp, FillOp, Op, StrokeOp, Tool } from './ops'
 export type { PaletteColor } from './palette'

@@ -14,6 +14,13 @@ export const TOOL_WIDTH: Record<Tool, number> = {
   eraser: 0.03,
 }
 
+/**
+ * What the player can multiply a tool's line width by: thin, normal, thick. The result is stored
+ * in each stroke op as its width, so replay needs no knowledge of these.
+ */
+export const THICKNESS_SCALES = [0.5, 1, 1.8] as const
+export const DEFAULT_THICKNESS: number = THICKNESS_SCALES[1]
+
 /** Distance between brush stamps as a share of the brush diameter. */
 export const BRUSH_STAMP_SPACING = 0.15
 
@@ -40,9 +47,10 @@ export const HOLD_VIBRATION_MS = 15
 export const PROGRESS_GRID_LONG_SIDE = 256
 /**
  * A paint pixel counts as painted from this alpha (0–255); a grid cell is
- * painted when at least half of its sampled pixels are.
+ * painted when at least half of its sampled pixels are. Just under 25%
+ * opacity (64), the faintest preset, so even that paint counts.
  */
-export const PAINTED_ALPHA_MIN = 128
+export const PAINTED_ALPHA_MIN = 60
 /** Every n-th paint pixel per axis is sampled inside a cell: 16 samples per 8×8 block. */
 export const PROGRESS_SAMPLE_STEP = 2
 /** A region this covered counts as fully coloured, so 100% is reachable by hand. */

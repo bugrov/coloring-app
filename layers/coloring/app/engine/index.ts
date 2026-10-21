@@ -1,18 +1,20 @@
-import { MAX_STROKE_POINTS } from '../../shared'
+import { DEFAULT_OPACITY, MAX_STROKE_POINTS } from '../../shared'
 import type { ClearOp, ColoringArt, FillOp, Op, StrokeOp, Tool } from '../../shared'
 import type { Rect } from './canvas'
-import { TOOL_WIDTH } from './constants'
+import { DEFAULT_THICKNESS, TOOL_WIDTH } from './constants'
 import { exportPng } from './export'
 import { ArtGeometry } from './geometry'
-import { Painter, type PaintStroke } from './painter'
+import { Painter, type PaintStroke, type StrokeStyle } from './painter'
 import { ProgressTracker, type Progress } from './progress'
 import { ArtSpace, gridLength } from './space'
 
 export {
+  DEFAULT_THICKNESS,
   HOLD_DURATION_MS,
   HOLD_TOLERANCE_PX,
   HOLD_VIBRATION_MS,
   PINCH_MIN_DISTANCE_PX,
+  THICKNESS_SCALES,
   WHEEL_LINE_HEIGHT_PX,
   WHEEL_PAN_MAX_DELTA_PX,
   WHEEL_ZOOM_MAX_DELTA_PX,
@@ -50,14 +52,19 @@ export class ColoringEngine {
     return { point, region: this.geometry.hitTest(x, y)?.id ?? null }
   }
 
-  beginStroke(region: number, tool: Tool, color: string): StrokeRecorder | null {
-    const style = { tool, color: tool === 'eraser' ? null : color, width: gridLength(TOOL_WIDTH[tool]) }
+  /**
+   * `opacity` is a percent; it is not recorded at full opacity or for the eraser. `thickness`
+   * multiplies the tool's line width.
+   */
+  beginStroke(region: number, tool: Tool, color: string, opacity = DEFAULT_OPACITY, thickness = DEFAULT_THICKNESS): StrokeRecorder | null {
+    const style: StrokeStyle = { tool, color: tool === 'eraser' ? null : color, width: gridLength(TOOL_WIDTH[tool] * thickness) }
+    if (tool !== 'eraser' && opacity !== DEFAULT_OPACITY) style.opacity = opacity
     const stroke = this.painter.beginStroke(region, style, true)
     return stroke ? new StrokeRecorder(region, stroke, rect => this.track(rect)) : null
   }
 
-  fill(region: number, color: string): FillOp {
-    const op: FillOp = { type: 'fill', region, color }
+  fill(region: number, color: string, opacity = DEFAULT_OPACITY): FillOp {
+    const op: FillOp = opacity === DEFAULT_OPACITY ? { type: 'fill', region, color } : { type: 'fill', region, color, opacity }
     this.track(this.painter.apply(op))
     return op
   }
@@ -140,7 +147,9 @@ export class StrokeRecorder {
   }
 
   private toOp(): StrokeOp {
-    const { tool, color, width } = this.stroke.style
-    return { type: 'stroke', region: this.region, tool, color, width, points: [...this.stroke.points] }
+    const { tool, color, width, opacity } = this.stroke.style
+    const op: StrokeOp = { type: 'stroke', region: this.region, tool, color, width, points: [...this.stroke.points] }
+    if (opacity !== undefined) op.opacity = opacity
+    return op
   }
 }

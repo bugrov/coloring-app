@@ -1,35 +1,157 @@
 <script setup lang="ts">
-import { CoreRoutes } from '#layers/core/shared/routes'
 import { ColoringRoutes } from '../../../../shared/routes'
+import type { ColoringStageHandle } from '../../../composables/useColoringStage'
 
 definePageMeta({ name: ColoringRoutes.EDITOR })
+
+const route = useRoute()
+const artId = computed(() => String(route.params.artId))
+
+const editor = useEditorStore()
+const stage = useTemplateRef<ColoringStageHandle>('stage')
+const { art, title, status, loadError, retry, notice, restarting, celebrating, congratulating, onOps, onProgress, undo, redo, restart, shareImage } = useColoringEditor(artId, stage)
+
+useHead({ title: computed(() => title.value || 'Раскраска'), meta: [{ name: 'robots', content: 'noindex' }] })
+
+const confirmRestart = ref(false)
+
+async function onRestartConfirmed() {
+  confirmRestart.value = false
+  await restart()
+}
 </script>
 
 <template>
-  <SafeAreaPage>
-    <h1 class="coloring-editor__title">
-      Редактор
-    </h1>
-    <p class="coloring-editor__note">
-      Раскраска появится на шаге 6.
+  <main class="editor">
+    <EditorActions
+      class="editor__actions"
+      :can-restart="editor.canRestart && !restarting"
+      @share="shareImage"
+      @restart="confirmRestart = true"
+    />
+
+    <EditorFrame
+      class="editor__frame"
+      :percent="editor.progress.percent"
+      :celebrating="celebrating"
+      @celebrated="celebrating = false"
+    >
+      <ColoringStage
+        v-if="art"
+        ref="stage"
+        :art="art"
+        :tool="editor.tool"
+        :color="editor.color"
+        :opacity="editor.opacity"
+        :thickness="editor.thickness"
+        @ops="onOps"
+        @progress="onProgress"
+      />
+      <div
+        v-else
+        class="editor__state"
+        :role="loadError ? 'alert' : 'status'"
+      >
+        <template v-if="loadError">
+          <p>{{ loadError }}</p>
+          <button
+            type="button"
+            class="editor__retry"
+            @click="retry()"
+          >
+            Повторить
+          </button>
+          <NuxtLink :to="{ name: ColoringRoutes.GALLERY }">
+            К галерее
+          </NuxtLink>
+        </template>
+        <p v-else-if="status === 'pending'">
+          Загружаем рисунок…
+        </p>
+      </div>
+      <template #plate>
+        <EditorHistoryBar
+          :can-undo="editor.canUndo"
+          :can-redo="editor.canRedo"
+          @undo="undo"
+          @redo="redo"
+        />
+      </template>
+    </EditorFrame>
+
+    <EditorToolbar class="editor__toolbar" />
+
+    <EditorCongrats :open="congratulating" />
+
+    <p
+      v-if="notice"
+      class="editor__notice"
+      role="alert"
+    >
+      {{ notice }}
     </p>
-    <NuxtLink :to="{ name: ColoringRoutes.GALLERY }">
-      ← К галерее
-    </NuxtLink>
-    <NuxtLink :to="{ name: CoreRoutes.HOME }">
-      ← К играм
-    </NuxtLink>
-  </SafeAreaPage>
+
+    <ConfirmDialog
+      :open="confirmRestart"
+      title="Начать заново?"
+      text="Рисунок очистится. Прежняя попытка сохранится в истории."
+      confirm-label="Начать заново"
+      danger
+      @confirm="onRestartConfirmed"
+      @cancel="confirmRestart = false"
+    />
+  </main>
 </template>
 
 <style scoped lang="scss">
-.coloring-editor__title {
-  margin: 0;
-  font-size: var(--font-size-l);
+// Figma "Coloring — Art": actions on the left, the framed art in the middle, crayons on the right edge.
+// The crayons touch the screen edge, so only the safe-area inset separates them from it.
+.editor {
+  display: grid;
+  grid-template-columns: var(--rail-width) minmax(0, 1fr) var(--rail-width);
+  height: 100%;
+  padding:
+    calc(var(--safe-top) + var(--space-4))
+    var(--safe-right)
+    calc(var(--safe-bottom) + var(--space-4))
+    var(--safe-left);
+  background: var(--color-editor-bg);
 }
 
-.coloring-editor__note {
+.editor__state {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-3);
+  height: 100%;
+  padding: var(--space-4);
+  text-align: center;
+}
+
+.editor__state p {
   margin: 0;
-  color: var(--color-text-muted);
+}
+
+.editor__retry {
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-m);
+  background: var(--color-progress);
+  color: var(--color-on-overlay);
+  font: inherit;
+  cursor: pointer;
+}
+
+.editor__notice {
+  position: fixed;
+  bottom: calc(var(--safe-bottom) + var(--space-4));
+  left: 50%;
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-m);
+  background: var(--color-overlay);
+  color: var(--color-on-overlay);
+  transform: translateX(-50%);
+  z-index: var(--z-overlay);
 }
 </style>

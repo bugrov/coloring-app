@@ -6,6 +6,9 @@ import { SESSION_MAX_AGE_SECONDS } from './shared/auth'
 // relative to this config instead.
 const resolveLayer = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 
+// Sass takes forward slashes on every platform.
+const MIXINS_PATH = resolveLayer('./app/assets/styles/mixins').replaceAll('\\', '/')
+
 // Core platform layer: app shell, "game mode" behaviour, shared UI.
 // Must not depend on any game layer (enforced in eslint.config.mjs).
 export default defineNuxtConfig({
@@ -55,7 +58,8 @@ export default defineNuxtConfig({
   vite: {
     css: {
       preprocessorOptions: {
-        scss: { additionalData: `$theme-bg: ${THEME_BG};\n` },
+        // @use has to come first; it puts the shared mixins in scope of every component.
+        scss: { additionalData: `@use "${MIXINS_PATH}" as *;\n$theme-bg: ${THEME_BG};\n` },
       },
     },
   },

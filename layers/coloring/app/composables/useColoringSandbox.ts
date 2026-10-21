@@ -2,9 +2,7 @@ import { convertSvg, DEFAULT_COLOR } from '../../shared'
 import type { ColoringArt, Op, Tool } from '../../shared'
 import { EMPTY_PROGRESS, type Progress } from '../engine'
 import { createFrameStats, type ColoringStageHandle, type FrameStats } from './useColoringStage'
-
-/** Idle time after the last change before the share image is re-rendered. */
-const EXPORT_IDLE_MS = 800
+import { useShareImage } from './useShareImage'
 
 /**
  * State of the developer sandbox: the built-in arts, the current tool and
@@ -25,30 +23,7 @@ export function useColoringSandbox(stage: Readonly<Ref<ColoringStageHandle | nul
   const progress = ref<Progress>({ ...EMPTY_PROGRESS })
   const frameStats = ref<FrameStats>(createFrameStats())
 
-  let preparedPng: Blob | null = null
-  let exportTimer: ReturnType<typeof setTimeout> | undefined
-  /** Bumped on every change; an export finishing for an older generation is stale. */
-  let generation = 0
-
-  function prepareExport() {
-    clearTimeout(exportTimer)
-    preparedPng = null
-    const current = ++generation
-    exportTimer = setTimeout(() => {
-      // A stroke in progress may still be taken back: wait until the picture is final.
-      if (stage.value?.isDrawing()) {
-        prepareExport()
-        return
-      }
-      stage.value?.exportPng()
-        .then((png) => {
-          if (current === generation) preparedPng = png
-        })
-        .catch(() => {
-          // Share renders on demand when no prepared image is available.
-        })
-    }, EXPORT_IDLE_MS)
-  }
+  const { prepare: prepareExport, share } = useShareImage(stage, () => `coloring-${artName.value}`)
 
   /** Shows the stage's frame timings (reset per art); refreshed after strokes, nothing polls in idle. */
   function refreshStats() {
@@ -80,13 +55,6 @@ export function useColoringSandbox(stage: Readonly<Ref<ColoringStageHandle | nul
     stage.value?.replay([])
     prepareExport()
   }
-
-  async function share() {
-    const png = preparedPng ?? await stage.value?.exportPng()
-    if (png) await shareOrDownload(png, `coloring-${artName.value}-${new Date().toISOString().slice(0, 10)}.png`)
-  }
-
-  onBeforeUnmount(() => clearTimeout(exportTimer))
 
   return { arts, artName, art, tool, color, ops, progress, frameStats, addOps, onProgress, replay, clear, share }
 }
