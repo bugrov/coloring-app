@@ -29,6 +29,9 @@ const RADIUS = 64
       :band="BAND"
       :radius="RADIUS"
     />
+    <div class="frame__status">
+      <slot name="status" />
+    </div>
     <p class="frame__percent">
       <span class="frame__hint">Закрашено </span>{{ percent }}%
     </p>
@@ -49,6 +52,7 @@ const RADIUS = 64
 }
 
 .frame__inner {
+  position: relative;
   height: 100%;
   overflow: hidden;
   border-radius: calc(var(--radius-card) - var(--border-card));
@@ -64,6 +68,14 @@ const RADIUS = 64
   font-size: 32px;
   line-height: 32px;
   letter-spacing: 0.2px;
+  pointer-events: none;
+}
+
+// Top-left corner of the picture, mirroring the percent in the top-right one.
+.frame__status {
+  position: absolute;
+  top: 48px;
+  left: 45px;
   pointer-events: none;
 }
 

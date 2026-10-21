@@ -19,6 +19,8 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   ops: [ops: Op[]]
   progress: [progress: Progress]
+  /** The canvas is ready for a picture to be put on it. */
+  ready: []
 }>()
 
 const stage = useTemplateRef<HTMLElement>('stage')
@@ -43,6 +45,7 @@ const { contentStyle, handle } = useColoringStage({ stage, content, canvas }, {
   opacity: toRef(props, 'opacity'),
   thickness: toRef(props, 'thickness'),
   locked: toRef(props, 'locked'),
+  onReady: () => emit('ready'),
   onHold,
   onOps: ops => emit('ops', ops),
   onProgress: progress => emit('progress', progress),

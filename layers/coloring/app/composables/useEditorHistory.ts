@@ -1,0 +1,228 @@
+import { readApiError } from '#layers/core/shared/errors'
+import type { HistoryState, HistoryStep } from '../../shared'
+import { HISTORY_ERROR_MESSAGES } from '../../shared'
+import { Timeline, type PaintSnapshot } from '../engine'
+import { useEditorStore } from '../stores/editor'
+import { HistorySync, IndexedDbOutbox, SyncConflict, SyncRejected, type SyncApi } from '../sync'
+import type { ColoringStageHandle } from './useColoringStage'
+
+/** HTTP statuses after which the same save would only fail again: not signed in, no such art, invalid. */
+const REFUSED_STATUSES = new Set([401, 403, 404, 413, 422])
+
+const MERGED_MESSAGE = 'Рисунок изменили на другом устройстве. Мы загрузили свежую версию и дописали ваши последние действия.'
+const REPLACED_MESSAGE = 'Рисунок изменили на другом устройстве. Загрузили свежую версию.'
+
+export interface EditorHistoryHooks {
+  /** The picture or the history changed by itself (loaded, undone, settled after a conflict). */
+  onChanged: () => void
+  notify: (message: string) => void
+}
+
+/**
+ * The saved history of the art being edited: loads it onto the canvas, keeps the timeline (undo,
+ * redo, snapshots) and the background saving (`HistorySync`) together, and guards the work when the
+ * page goes away. The editor store mirrors what the buttons need.
+ */
+export function useEditorHistory(
+  artId: Readonly<Ref<string>>,
+  stage: Readonly<Ref<ColoringStageHandle | null>>,
+  hooks: EditorHistoryHooks,
+) {
+  const editor = useEditorStore()
+  const api = useRequestFetch()
+  const { user } = useUserSession()
+  const outbox = new IndexedDbOutbox()
+
+  /** Why the saved history could not be loaded, for the player; empty when it loaded or is loading. */
+  const loadError = ref('')
+
+  let timeline: Timeline<PaintSnapshot> | null = null
+  let sync: HistorySync | null = null
+  /** Counts the opens, so that a slow one for an art the player has left is dropped. */
+  let generation = 0
+
+  const outboxKey = (id: string) => `${user.value?.id ?? ''}:${id}`
+  const historyUrl = (id: string) => `/api/coloring/arts/${id}/history`
+
+  function syncApi(id: string): SyncApi {
+    return {
+      async save(request) {
+        try {
+          return await api(historyUrl(id), { method: 'PUT', body: request })
+        }
+        catch (failure) {
+          const status = (failure as { statusCode?: number }).statusCode
+          if (status === 409 && readApiError(failure).code === 'history_conflict') throw new SyncConflict()
+          if (status !== undefined && REFUSED_STATUSES.has(status)) throw new SyncRejected()
+          throw failure
+        }
+      },
+      load: () => api<HistoryState>(historyUrl(id)),
+    }
+  }
+
+  /** Tells the interface what the history and the picture look like now. */
+  function publish() {
+    if (!timeline || !stage.value) return
+    stage.value.publishProgress()
+    editor.syncHistory(timeline.log)
+    hooks.onChanged()
+  }
+
+  /** Stops saving for the current art; what is not saved yet stays in the outbox and goes out on the next visit. */
+  function close() {
+    generation++
+    const old = { sync, timeline }
+    sync = null
+    timeline = null
+    if (!old.sync) {
+      old.timeline?.dispose()
+      return
+    }
+    // A last try to save; if it fails the outbox has the work. Nobody awaits it.
+    void old.sync.persist()
+      .then(() => old.sync!.flush())
+      .catch(() => undefined)
+      .finally(() => {
+        old.sync!.dispose()
+        old.timeline?.dispose()
+      })
+  }
+
+  /** Loads the art's history onto the blank canvas of the stage; call it when the stage reports it is ready. */
+  async function open() {
+    const handle = stage.value
+    const id = artId.value
+    if (!handle) return
+    close()
+    const mine = generation
+    editor.historyReady = false
+    loadError.value = ''
+
+    let server: HistoryState
+    try {
+      server = await api<HistoryState>(historyUrl(id))
+    }
+    catch (failure) {
+      if (mine === generation) loadError.value = readApiError(failure).message
+      return
+    }
+    const unsent = await outbox.read(outboxKey(id))
+    if (mine !== generation) return
+
+    const opened = new Timeline(handle.paint)
+    const result = await opened.open(server, unsent)
+    if (mine !== generation) {
+      opened.dispose()
+      return
+    }
+    timeline = opened
+    sync = new HistorySync({
+      timeline: opened,
+      api: syncApi(id),
+      outbox,
+      key: outboxKey(id),
+      percent: () => editor.progress.percent,
+      onStatus: (status) => {
+        editor.saveStatus = status
+      },
+      onReconciled: (reconciliation) => {
+        if (reconciliation.merged) hooks.notify(MERGED_MESSAGE)
+        else if (reconciliation.rebuild) hooks.notify(REPLACED_MESSAGE)
+        publish()
+      },
+      onRebuilding: (rebuilding) => {
+        editor.rebuilding = rebuilding
+      },
+    })
+    editor.historyReady = true
+    publish()
+    if (result.merged || opened.log.dirty) sync.changed()
+  }
+
+  /** A step the player just drew. */
+  function record(step: HistoryStep) {
+    if (!timeline || !sync) return
+    timeline.record(step)
+    publish()
+    sync.changed()
+  }
+
+  function undo() {
+    if (!timeline || !sync || !timeline.undo()) return
+    publish()
+    sync.changed()
+  }
+
+  function redo() {
+    if (!timeline || !sync || !timeline.redo()) return
+    publish()
+    sync.changed()
+  }
+
+  /**
+   * Starts the attempt over: what is unsent goes to the server first, so the old attempt stays
+   * complete there, then the server starts the new one and its (empty) history is loaded.
+   * Throws when something could not be done; the old attempt is then untouched.
+   */
+  async function startOver(restart: () => Promise<void>): Promise<boolean> {
+    const id = artId.value
+    if (!timeline || !sync) return false
+    await sync.flush()
+    if (timeline.log.dirty) {
+      hooks.notify(HISTORY_ERROR_MESSAGES.history_unsaved)
+      return false
+    }
+    await restart()
+    const fresh = await api<HistoryState>(historyUrl(id))
+    if (artId.value !== id || !timeline) return false
+    await outbox.remove(outboxKey(id))
+    editor.rebuilding = true
+    try {
+      await timeline.load(fresh)
+    }
+    finally {
+      editor.rebuilding = false
+    }
+    publish()
+    return true
+  }
+
+  // The page going away: write the work down, try to send it, and warn when it would be lost.
+  function onVisibility() {
+    if (document.visibilityState === 'hidden') leave()
+  }
+
+  function leave() {
+    if (!sync) return
+    void sync.persist()
+    void sync.flush()
+  }
+
+  function onBeforeUnload(event: BeforeUnloadEvent) {
+    if (!timeline?.log.dirty) return
+    event.preventDefault()
+  }
+
+  function onOnline() {
+    sync?.retryNow()
+  }
+
+  onMounted(() => {
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('pagehide', leave)
+    window.addEventListener('beforeunload', onBeforeUnload)
+    window.addEventListener('online', onOnline)
+  })
+  onBeforeUnmount(() => {
+    document.removeEventListener('visibilitychange', onVisibility)
+    window.removeEventListener('pagehide', leave)
+    window.removeEventListener('beforeunload', onBeforeUnload)
+    window.removeEventListener('online', onOnline)
+    close()
+  })
+
+  watch(artId, close)
+
+  return { loadError, open, record, undo, redo, startOver }
+}

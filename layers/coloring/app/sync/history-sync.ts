@@ -88,7 +88,13 @@ export class HistorySync {
 
   /** Saves what waits, now; resolves when everything is on the server or a save failed. */
   flush(): Promise<void> {
-    if (!this.running) this.running = this.run().finally(() => (this.running = null))
+    // Whatever goes wrong inside (a rebuild that cannot run) must not escape as an unhandled
+    // rejection from a timer; the work is in the outbox and the status says it is not saved.
+    this.running ??= this.run()
+      .catch(() => this.giveUp('failed'))
+      .finally(() => {
+        this.running = null
+      })
     return this.running
   }
 

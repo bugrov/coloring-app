@@ -35,6 +35,8 @@ export interface ColoringStageOptions {
   /** Feedback for a long press; position is in px relative to the stage. */
   onHold?: (feedback: HoldFeedback) => void
   onOps: (ops: Op[]) => void
+  /** A fresh engine is ready on a blank canvas (a new art, or the first one): the picture can be rebuilt. */
+  onReady?: () => void
   onProgress: (progress: Progress) => void
 }
 
@@ -146,7 +148,10 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     view.value = IDENTITY_VIEW
     Object.assign(stats, createFrameStats())
     // The content box changes with the art's proportions; remember it once laid out.
-    nextTick(rememberContentSize)
+    nextTick(() => {
+      rememberContentSize()
+      options.onReady?.()
+    })
     options.onProgress(engine.value.progress)
   }, { immediate: true })
 
