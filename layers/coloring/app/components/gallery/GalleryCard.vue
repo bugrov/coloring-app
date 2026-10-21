@@ -9,8 +9,7 @@ const emit = defineEmits<{ restart: [], remove: [] }>()
 const BAND = 16
 const RADIUS = 64
 
-const started = computed(() => props.item.attempt > 0)
-const canRestart = computed(() => started.value)
+const canRestart = computed(() => props.item.attempt > 0)
 const canRemove = computed(() => props.item.source === 'user')
 const hasActions = computed(() => canRestart.value || canRemove.value)
 
@@ -76,13 +75,11 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
       <div
         v-if="menuOpen"
         class="gallery-card__menu"
-        role="menu"
       >
         <button
           v-if="canRestart"
           class="gallery-card__action"
           type="button"
-          role="menuitem"
           @click="choose('restart')"
         >
           Начать заново
@@ -91,7 +88,6 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
           v-if="canRemove"
           class="gallery-card__action gallery-card__action--danger"
           type="button"
-          role="menuitem"
           @click="choose('remove')"
         >
           Удалить

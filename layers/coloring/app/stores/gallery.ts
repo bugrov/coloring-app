@@ -18,31 +18,42 @@ export const useGalleryStore = defineStore('coloring-gallery', () => {
   /** Result of the last action (import, delete, restart): a message, or empty. */
   const notice = ref('')
 
+  /** Bumped by every first-page load: a page request that started before it is stale and dropped. */
+  let generation = 0
+
   async function fetchPage(cursor?: string): Promise<GalleryPage> {
     return request<GalleryPage>('/api/coloring/arts', { query: cursor ? { cursor } : undefined })
   }
 
   /** First page; also the way to start over after an error or an import. */
-  async function loadFirst() {
-    status.value = 'loading'
+  async function loadFirst(): Promise<void> {
+    generation += 1
+    const mine = generation
+    // A refresh of a shown list keeps the cards on screen instead of flashing placeholders.
+    if (status.value !== 'ready') status.value = 'loading'
     error.value = ''
     try {
       const page = await fetchPage()
+      if (mine !== generation) return
       items.value = page.items
       nextCursor.value = page.nextCursor
       status.value = 'ready'
     }
     catch (failure) {
+      if (mine !== generation) return
       error.value = readApiError(failure).message
       status.value = 'error'
     }
   }
 
-  async function loadMore() {
+  async function loadMore(): Promise<void> {
     if (!nextCursor.value || loadingMore.value || status.value !== 'ready') return
+    const mine = generation
     loadingMore.value = true
     try {
       const page = await fetchPage(nextCursor.value)
+      // The list was reloaded meanwhile: this page belongs to the old one.
+      if (mine !== generation) return
       // A card removed or added meanwhile cannot repeat: keep the first occurrence of an id.
       const known = new Set(items.value.map(item => item.id))
       items.value.push(...page.items.filter(item => !known.has(item.id)))
@@ -84,17 +95,23 @@ export const useGalleryStore = defineStore('coloring-gallery', () => {
   }
 
   async function remove(id: string): Promise<boolean> {
-    const done = await act(() => $fetch(`/api/coloring/arts/${id}`, { method: 'DELETE' }).then(() => undefined))
+    const done = await act(async () => {
+      await $fetch(`/api/coloring/arts/${id}`, { method: 'DELETE' })
+    })
     if (done) items.value = items.value.filter(item => item.id !== id)
     return done
   }
 
   async function restart(id: string): Promise<boolean> {
-    const done = await act(() => $fetch(`/api/coloring/arts/${id}/restart`, { method: 'POST' }).then(() => undefined))
+    let attempt = 0
+    const done = await act(async () => {
+      const result = await $fetch<{ attempt: number }>(`/api/coloring/arts/${id}/restart`, { method: 'POST' })
+      attempt = result.attempt
+    })
     if (done) {
-      // A new attempt starts empty; the server keeps the old one.
+      // The new attempt starts empty; the server keeps the old one and says which attempt is current.
       const card = items.value.find(item => item.id === id)
-      if (card) Object.assign(card, { percent: 0, completed: false, attempt: card.attempt + 1 })
+      if (card) Object.assign(card, { percent: 0, completed: false, attempt })
     }
     return done
   }

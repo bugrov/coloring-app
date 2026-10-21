@@ -54,14 +54,12 @@ describe('gallery services', () => {
 
   it('keeps imports private to their owner', async () => {
     const result = await importArt(db, anna, 'Тайный', ART)
-    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('import failed')
 
     expect((await listGallery(db, anna)).items.map(item => item.title)).toContain('Тайный')
     expect((await listGallery(db, boris)).items.map(item => item.title)).not.toContain('Тайный')
-    if (result.ok) {
-      expect(await findVisibleArt(db, boris, result.id)).toBeNull()
-      expect(await findVisibleArt(db, anna, result.id)).not.toBeNull()
-    }
+    expect(await findVisibleArt(db, boris, result.id)).toBeNull()
+    expect(await findVisibleArt(db, anna, result.id)).not.toBeNull()
   })
 
   it('pages through everything exactly once by keyset', async () => {
@@ -106,6 +104,17 @@ describe('gallery services', () => {
     expect((await listGallery(db, player)).items[0]).toMatchObject({ percent: 0, attempt: 2 })
     const attempts = await db.select().from(progress).where(eq(progress.artId, imported.id))
     expect(attempts.map(row => row.attempt).sort()).toEqual([1, 2])
+  })
+
+  it('does not pile up empty attempts when restarted again', async () => {
+    const player = await newUser()
+    const imported = await importArt(db, player, 'Пустой', ART)
+    if (!imported.ok) throw new Error('import failed')
+    await db.insert(progress).values({ userId: player, artId: imported.id, attempt: 1, percent: 30 })
+
+    expect(await restartArt(db, player, imported.id)).toEqual({ ok: true, attempt: 2 })
+    expect(await restartArt(db, player, imported.id)).toEqual({ ok: true, attempt: 2 })
+    expect(await db.select().from(progress).where(eq(progress.artId, imported.id))).toHaveLength(2)
   })
 
   it('does not show another player\'s progress', async () => {

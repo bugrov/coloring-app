@@ -29,8 +29,12 @@ async function confirm() {
 
 async function onPick(file: File) {
   importing.value = true
-  await gallery.importSvg(file)
-  importing.value = false
+  try {
+    await gallery.importSvg(file)
+  }
+  finally {
+    importing.value = false
+  }
 }
 
 // The next page loads when the end of the list scrolls into view.
@@ -42,7 +46,10 @@ onMounted(() => {
   observer = new IntersectionObserver(([entry]) => {
     if (entry?.isIntersecting) void gallery.loadMore()
   }, { root: scroller.value, rootMargin: '200px' })
+  // The observer reports changes only: observing again after each load makes it report a
+  // sentinel that is still in view, so a screen taller than the loaded cards keeps filling.
   watchEffect(() => {
+    void gallery.items.length
     observer?.disconnect()
     if (sentinel.value) observer?.observe(sentinel.value)
   })

@@ -17,7 +17,7 @@ watch(() => props.open, (open) => {
   if (!dialog.value) return
   if (open && !dialog.value.open) dialog.value.showModal()
   if (!open && dialog.value.open) dialog.value.close()
-}, { flush: 'post' })
+}, { flush: 'post', immediate: true })
 </script>
 
 <template>
@@ -27,28 +27,30 @@ watch(() => props.open, (open) => {
     @cancel.prevent="emit('cancel')"
     @click.self="emit('cancel')"
   >
-    <h2 class="confirm__title">
-      {{ title }}
-    </h2>
-    <p class="confirm__text">
-      {{ text }}
-    </p>
-    <div class="confirm__actions">
-      <button
-        class="button button--ghost"
-        type="button"
-        @click="emit('cancel')"
-      >
-        Отмена
-      </button>
-      <button
-        class="button button--primary"
-        :class="{ 'confirm__confirm--danger': danger }"
-        type="button"
-        @click="emit('confirm')"
-      >
-        {{ confirmLabel }}
-      </button>
+    <div class="confirm__body">
+      <h2 class="confirm__title">
+        {{ title }}
+      </h2>
+      <p class="confirm__text">
+        {{ text }}
+      </p>
+      <div class="confirm__actions">
+        <button
+          class="button button--ghost"
+          type="button"
+          @click="emit('cancel')"
+        >
+          Отмена
+        </button>
+        <button
+          class="button button--primary"
+          :class="{ 'confirm__confirm--danger': danger }"
+          type="button"
+          @click="emit('confirm')"
+        >
+          {{ confirmLabel }}
+        </button>
+      </div>
     </div>
   </dialog>
 </template>
@@ -56,7 +58,7 @@ watch(() => props.open, (open) => {
 <style scoped lang="scss">
 .confirm {
   width: min(92vw, 360px);
-  padding: var(--space-6);
+  padding: 0;
   border: 0;
   border-radius: var(--radius-l);
   background: var(--color-surface);
@@ -65,6 +67,10 @@ watch(() => props.open, (open) => {
   &::backdrop {
     background: var(--color-overlay);
   }
+}
+
+.confirm__body {
+  padding: var(--space-6);
 }
 
 .confirm__title {

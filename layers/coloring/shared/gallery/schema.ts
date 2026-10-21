@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ART_TITLE_MAX_LENGTH, GALLERY_PAGE_SIZE } from './constants'
+import { ART_TITLE_MAX_LENGTH, GALLERY_PAGE_SIZE, PERCENT_MAX } from './constants'
 
 /**
  * Keyset cursor: the `seq` of the last card of the previous page. The client treats it as an
@@ -19,7 +19,7 @@ export const galleryItemSchema = z.object({
   title: z.string().max(ART_TITLE_MAX_LENGTH),
   source: z.enum(['builtin', 'user']),
   /** Whole percent of the current attempt, 0 when not started. */
-  percent: z.number().int().min(0).max(100),
+  percent: z.number().int().min(0).max(PERCENT_MAX),
   attempt: z.number().int().min(0),
   completed: z.boolean(),
 })

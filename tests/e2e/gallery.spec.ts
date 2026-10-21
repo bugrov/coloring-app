@@ -56,8 +56,8 @@ test.describe('gallery with the database', () => {
     await expect(imported).toBeVisible()
 
     await page.getByRole('button', { name: 'Действия с рисунком' }).click()
-    await page.getByRole('menuitem', { name: 'Удалить' }).click()
-    await page.getByRole('button', { name: 'Удалить' }).click()
+    await page.getByRole('button', { name: 'Удалить', exact: true }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Удалить' }).click()
     await expect(imported).toBeHidden()
   })
 

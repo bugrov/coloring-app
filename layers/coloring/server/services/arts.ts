@@ -56,6 +56,15 @@ export async function findVisibleArt(db: Database, userId: string, artId: string
   return row ?? null
 }
 
+/** True when the player keeps `IMPORT_LIMIT` imports already. Cheap: checked before the costly SVG conversion. */
+export async function importLimitReached(db: Database, userId: string): Promise<boolean> {
+  const [{ total } = { total: 0 }] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(arts)
+    .where(and(eq(arts.ownerId, userId), eq(arts.source, 'user')))
+  return total >= IMPORT_LIMIT
+}
+
 export type ImportResult = { ok: true, id: string } | { ok: false, reason: 'limit_reached' }
 
 /**
@@ -64,11 +73,7 @@ export type ImportResult = { ok: true, id: string } | { ok: false, reason: 'limi
  * parallel requests could overshoot by a few; the import route is rate limited.
  */
 export async function importArt(db: Database, userId: string, title: string, data: ColoringArt): Promise<ImportResult> {
-  const [{ total } = { total: 0 }] = await db
-    .select({ total: sql<number>`count(*)::int` })
-    .from(arts)
-    .where(and(eq(arts.ownerId, userId), eq(arts.source, 'user')))
-  if (total >= IMPORT_LIMIT) return { ok: false, reason: 'limit_reached' }
+  if (await importLimitReached(db, userId)) return { ok: false, reason: 'limit_reached' }
 
   const [row] = await db.insert(arts).values({ source: 'user', ownerId: userId, title, data }).returning({ id: arts.id })
   if (!row) throw new Error('import insert returned no row')
