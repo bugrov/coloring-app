@@ -284,7 +284,8 @@ class SvgConverter {
       throw new SvgConversionError('too-complex')
     }
 
-    const processed = isValidPathData(raw) ? processPath(raw, matrix, PATH_PRECISION) : null
+    // The tokenizer keeps the valid part before any junk (as browsers do) and emits only commands and numbers.
+    const processed = processPath(raw, matrix, PATH_PRECISION)
     // Extreme transforms can produce Infinity or NaN coordinates.
     if (!processed || !isValidPathData(processed.d)) {
       this.warn('invalid-path', tag)

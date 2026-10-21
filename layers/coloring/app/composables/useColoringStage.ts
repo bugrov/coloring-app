@@ -110,6 +110,7 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
   let gesture: Gesture | null = null
   let holdTimer: ReturnType<typeof setTimeout> | undefined
   let frame = 0
+  let contentSize = { width: 0, height: 0 }
 
   watch([options.art, canvas], ([art, element]) => {
     // The canvas is about to be rebuilt for another art: nothing of the old stroke is kept.
@@ -119,6 +120,7 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     if (!element) return
     engine.value = markRaw(new ColoringEngine(art, element))
     view.value = IDENTITY_VIEW
+    contentSize = { width: 0, height: 0 }
     options.onProgress(engine.value.progress)
   }, { immediate: true })
 
@@ -332,8 +334,6 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
       view.value = panBy(view.value, -dx, -dy, box.width, box.height)
     }
   }
-
-  let contentSize = { width: 0, height: 0 }
 
   /** Keeps the same part of the art in view when the stage changes size (rotation, window resize). */
   function onResize() {

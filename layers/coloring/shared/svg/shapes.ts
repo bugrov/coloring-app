@@ -8,6 +8,11 @@ export function numberAttr(element: Element, name: string, fallback = 0): number
   return Number.isFinite(value) ? value : fallback
 }
 
+/** Rounds float artefacts away (0.30000000000000004 → 0.3) so generated paths stay compact. */
+function n(value: number): number {
+  return Math.round(value * 1e6) / 1e6
+}
+
 function pointsToPath(points: string, close: boolean): string | null {
   const numbers = points.trim().split(/[\s,]+/).map(Number)
   if (numbers.length < 4 || numbers.some(n => !Number.isFinite(n))) return null
@@ -32,25 +37,25 @@ function rectToPath(element: Element): string | null {
   const ry = Math.min(Math.max(ryAttr ?? rxAttr ?? 0, 0), height / 2)
 
   if (rx === 0 || ry === 0) {
-    return `M${x} ${y}H${x + width}V${y + height}H${x}Z`
+    return `M${x} ${y}H${n(x + width)}V${n(y + height)}H${x}Z`
   }
   return [
-    `M${x + rx} ${y}`,
-    `H${x + width - rx}`,
-    `A${rx} ${ry} 0 0 1 ${x + width} ${y + ry}`,
-    `V${y + height - ry}`,
-    `A${rx} ${ry} 0 0 1 ${x + width - rx} ${y + height}`,
-    `H${x + rx}`,
-    `A${rx} ${ry} 0 0 1 ${x} ${y + height - ry}`,
-    `V${y + ry}`,
-    `A${rx} ${ry} 0 0 1 ${x + rx} ${y}`,
+    `M${n(x + rx)} ${y}`,
+    `H${n(x + width - rx)}`,
+    `A${rx} ${ry} 0 0 1 ${n(x + width)} ${n(y + ry)}`,
+    `V${n(y + height - ry)}`,
+    `A${rx} ${ry} 0 0 1 ${n(x + width - rx)} ${n(y + height)}`,
+    `H${n(x + rx)}`,
+    `A${rx} ${ry} 0 0 1 ${x} ${n(y + height - ry)}`,
+    `V${n(y + ry)}`,
+    `A${rx} ${ry} 0 0 1 ${n(x + rx)} ${y}`,
     'Z',
   ].join('')
 }
 
 function ellipseToPath(cx: number, cy: number, rx: number, ry: number): string | null {
   if (rx <= 0 || ry <= 0) return null
-  return `M${cx - rx} ${cy}A${rx} ${ry} 0 1 0 ${cx + rx} ${cy}A${rx} ${ry} 0 1 0 ${cx - rx} ${cy}Z`
+  return `M${n(cx - rx)} ${cy}A${rx} ${ry} 0 1 0 ${n(cx + rx)} ${cy}A${rx} ${ry} 0 1 0 ${n(cx - rx)} ${cy}Z`
 }
 
 /**
