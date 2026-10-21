@@ -15,9 +15,18 @@ function fakeHost() {
     snapshots: 0,
     released: 0,
     clear() { host.picture = [] },
-    apply(value: HistoryStep) { host.picture.push(regionOf(value)); host.applied++ },
-    snapshot() { host.snapshots++; return [...host.picture] },
-    restore(snapshot: number[]) { host.restores++; host.picture = [...snapshot] },
+    apply(value: HistoryStep) {
+      host.picture.push(regionOf(value))
+      host.applied++
+    },
+    snapshot() {
+      host.snapshots++
+      return [...host.picture]
+    },
+    restore(snapshot: number[]) {
+      host.restores++
+      host.picture = [...snapshot]
+    },
     release() { host.released++ },
   }
   return host satisfies PaintHost<number[]> & Record<string, unknown>
