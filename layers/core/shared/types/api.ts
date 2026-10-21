@@ -15,6 +15,4 @@ export interface ApiErrorData {
   message: string
   /** Per-field messages for form validation errors. */
   fields?: Record<string, string>
-  /** Seconds until a rate-limited call may be retried. */
-  retryAfter?: number
 }

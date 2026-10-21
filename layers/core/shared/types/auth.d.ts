@@ -4,7 +4,8 @@ declare module '#auth-utils' {
   interface User {
     id: string
     username: string
-    country: string
+    /** ISO country of a player; the administrator has none. */
+    country?: string
     role: 'user' | 'admin'
   }
 

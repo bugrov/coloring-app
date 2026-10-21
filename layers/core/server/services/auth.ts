@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { usernameKey } from '../../shared/auth'
+import { normalizeUsername, usernameKey } from '../../shared/auth/username'
 import type { Database } from '../utils/db'
 import { users, type UserRow } from '../db/schema'
 
@@ -21,11 +21,13 @@ export type SignInResult
  * The insert and the unique index decide races between two first sign-ins.
  */
 export async function signIn(db: Database, { username, country }: SignInInput): Promise<SignInResult> {
+  // The schema normalizes already; the service does not rely on its callers to.
+  const displayName = normalizeUsername(username)
   const key = usernameKey(username)
 
   const [created] = await db
     .insert(users)
-    .values({ username, usernameKey: key, country })
+    .values({ username: displayName, usernameKey: key, country })
     .onConflictDoNothing({ target: users.usernameKey })
     .returning()
   if (created) return { ok: true, user: created, created: true }

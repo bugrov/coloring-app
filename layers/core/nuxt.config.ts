@@ -55,7 +55,7 @@ export default defineNuxtConfig({
   security: {
     // The built-in limiter keeps its counters in memory of one server instance and
     // would also throttle classes sharing a school IP on every page; it is switched
-    // on only for the sign-in routes below.
+    // on only for the sign-in routes in routeRules.
     rateLimiter: false,
   },
 })
