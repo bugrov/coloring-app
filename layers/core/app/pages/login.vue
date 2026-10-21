@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { loginSchema } from '../../shared/auth'
+import { USERNAME_MAX_LENGTH, loginSchema } from '../../shared/auth'
+import type { CountryOption } from '../utils/countries'
 
 definePageMeta({ auth: 'public' })
 
@@ -7,8 +8,9 @@ definePageMeta({ auth: 'public' })
 // server's: the list is built after mounting, so server and client markup match.
 const countries = ref<CountryOption[]>([])
 onMounted(() => {
-  countries.value = useCountries()
+  countries.value = countryOptions()
 })
+
 const { values, pending, fieldErrors, formError, submit } = useCredentialsForm({
   endpoint: '/api/auth/login',
   schema: loginSchema,
@@ -19,34 +21,43 @@ const { values, pending, fieldErrors, formError, submit } = useCredentialsForm({
 
 <template>
   <AuthCard title="Войти в игру">
-    <form
-      class="login__form"
-      novalidate
-      @submit.prevent="submit"
+    <AuthForm
+      submit-label="Играть"
+      :pending="pending"
+      :error="formError"
+      @submit="submit"
     >
       <FormField
+        v-slot="field"
         label="Имя"
         :error="fieldErrors.username"
       >
         <input
+          :id="field.id"
           v-model="values.username"
           class="form-input"
           name="username"
           autocomplete="username"
           autocapitalize="off"
           spellcheck="false"
-          maxlength="20"
+          :maxlength="USERNAME_MAX_LENGTH"
+          :aria-describedby="field.describedBy"
+          :aria-invalid="field.invalid"
         >
       </FormField>
 
       <FormField
+        v-slot="field"
         label="Страна"
         :error="fieldErrors.country"
       >
         <select
+          :id="field.id"
           v-model="values.country"
           class="form-input"
           name="country"
+          :aria-describedby="field.describedBy"
+          :aria-invalid="field.invalid"
         >
           <option
             value=""
@@ -63,22 +74,7 @@ const { values, pending, fieldErrors, formError, submit } = useCredentialsForm({
           </option>
         </select>
       </FormField>
-
-      <p
-        class="login__error"
-        role="alert"
-      >
-        {{ formError }}
-      </p>
-
-      <button
-        class="button button--primary"
-        type="submit"
-        :disabled="pending"
-      >
-        Играть
-      </button>
-    </form>
+    </AuthForm>
 
     <p class="login__notice">
       Мы сохраняем имя, страну и ваши рисунки, чтобы вы могли продолжить позже,
@@ -88,19 +84,6 @@ const { values, pending, fieldErrors, formError, submit } = useCredentialsForm({
 </template>
 
 <style scoped lang="scss">
-.login__form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.login__error {
-  min-height: 1.25em;
-  margin: 0;
-  color: var(--color-danger);
-  font-size: var(--font-size-s);
-}
-
 .login__notice {
   margin: 0;
   color: var(--color-text-muted);

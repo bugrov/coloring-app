@@ -23,14 +23,20 @@ defineProps<{ title: string }>()
   overflow-y: auto;
 }
 
+// Compact by default: a phone held in landscape is only ~375px tall.
 .auth-card__panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-2);
   width: min(100%, 420px);
-  padding: var(--space-6);
+  padding: var(--space-4) var(--space-6);
   border-radius: var(--radius-l);
   background: var(--color-surface);
+
+  @media (min-height: 560px) {
+    gap: var(--space-4);
+    padding: var(--space-6);
+  }
 }
 
 .auth-card__title {

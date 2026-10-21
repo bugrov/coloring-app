@@ -6,7 +6,7 @@ export interface CountryOption {
 }
 
 /** Countries with Russian names (from the browser's own data), sorted by name. */
-export function useCountries(): CountryOption[] {
+export function countryOptions(): CountryOption[] {
   const names = new Intl.DisplayNames('ru', { type: 'region' })
   return COUNTRY_CODES
     .map(code => ({ code, name: names.of(code) ?? code }))

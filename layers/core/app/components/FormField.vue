@@ -1,20 +1,31 @@
 <script setup lang="ts">
 defineProps<{
   label: string
-  /** The message of the field, shown under it. */
+  /** The validation message of the field, shown under it. */
   error?: string
 }>()
+
+const id = useId()
 </script>
 
 <template>
-  <label class="form-field">
-    <span class="form-field__label">{{ label }}</span>
-    <slot />
+  <div class="form-field">
+    <label
+      class="form-field__label"
+      :for="id"
+    >{{ label }}</label>
+    <!-- The control takes these: its label, and the message that describes its state. -->
+    <slot
+      :id="id"
+      :described-by="`${id}-error`"
+      :invalid="Boolean(error)"
+    />
     <span
+      :id="`${id}-error`"
       class="form-field__error"
       role="alert"
     >{{ error }}</span>
-  </label>
+  </div>
 </template>
 
 <style scoped lang="scss">
@@ -30,8 +41,12 @@ defineProps<{
 }
 
 .form-field__error {
-  min-height: 1.25em;
   font-size: var(--font-size-s);
   color: var(--color-danger);
+
+  // Room for the message is reserved only where height is plentiful, so it does not shift the form.
+  @media (min-height: 560px) {
+    min-height: 1.25em;
+  }
 }
 </style>

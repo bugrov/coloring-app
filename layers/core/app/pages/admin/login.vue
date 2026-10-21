@@ -13,67 +13,46 @@ const { values, pending, fieldErrors, formError, submit } = useCredentialsForm({
 
 <template>
   <AuthCard title="Вход для администратора">
-    <form
-      class="admin-login__form"
-      novalidate
-      @submit.prevent="submit"
+    <AuthForm
+      submit-label="Войти"
+      :pending="pending"
+      :error="formError"
+      @submit="submit"
     >
       <FormField
+        v-slot="field"
         label="Логин"
         :error="fieldErrors.login"
       >
         <input
+          :id="field.id"
           v-model="values.login"
           class="form-input"
           name="login"
           autocomplete="username"
           autocapitalize="off"
           spellcheck="false"
+          :aria-describedby="field.describedBy"
+          :aria-invalid="field.invalid"
         >
       </FormField>
 
       <FormField
+        v-slot="field"
         label="Пароль"
         :error="fieldErrors.password"
       >
         <input
+          :id="field.id"
           v-model="values.password"
           class="form-input"
           name="password"
           type="password"
           autocomplete="current-password"
+          :aria-describedby="field.describedBy"
+          :aria-invalid="field.invalid"
         >
       </FormField>
-
-      <p
-        class="admin-login__error"
-        role="alert"
-      >
-        {{ formError }}
-      </p>
-
-      <button
-        class="button button--primary"
-        type="submit"
-        :disabled="pending"
-      >
-        Войти
-      </button>
-    </form>
+    </AuthForm>
   </AuthCard>
 </template>
-
-<style scoped lang="scss">
-.admin-login__form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.admin-login__error {
-  min-height: 1.25em;
-  margin: 0;
-  color: var(--color-danger);
-  font-size: var(--font-size-s);
-}
-</style>
