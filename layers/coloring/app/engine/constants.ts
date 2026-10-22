@@ -43,6 +43,9 @@ export const HOLD_TOLERANCE_PX = 6
 /** Short haptic tick when a hold fills a region (Android; ignored elsewhere). */
 export const HOLD_VIBRATION_MS = 15
 
+/** Mouse buttons that drag the zoomed art instead of drawing: the middle (1) and the right (2) one. */
+export const PAN_BUTTONS: readonly number[] = [1, 2]
+
 /** Progress grid resolution along the art's long side. */
 export const PROGRESS_GRID_LONG_SIDE = 256
 /**

@@ -12,16 +12,14 @@ const PRIORITY_CARDS = 6
 const SKELETON_COUNT = 7
 
 type Pending = { kind: 'restart' | 'remove', item: GalleryItem }
+
+const DIALOGS = {
+  remove: { title: 'Удалить рисунок?', text: 'Рисунок и вся раскраска пропадут насовсем.', confirmLabel: 'Удалить' },
+  restart: { title: 'Начать заново?', text: 'Закрашенное сбросится, и рисунок начнётся с чистого листа.', confirmLabel: 'Начать заново' },
+} as const
+
 const pending = ref<Pending | null>(null)
 const importing = ref(false)
-
-const dialog = computed(() => {
-  if (!pending.value) return { title: '', text: '', confirmLabel: '' }
-
-  return pending.value.kind === 'remove'
-    ? { title: 'Удалить рисунок?', text: 'Рисунок и вся раскраска пропадут насовсем.', confirmLabel: 'Удалить' }
-    : { title: 'Начать заново?', text: 'Закрашенное сбросится, и рисунок начнётся с чистого листа.', confirmLabel: 'Начать заново' }
-})
 
 async function confirm() {
   const current = pending.value
@@ -154,9 +152,7 @@ onBeforeUnmount(() => observer?.disconnect())
     <LazyConfirmDialog
       v-if="pending !== null"
       open
-      :title="dialog.title"
-      :text="dialog.text"
-      :confirm-label="dialog.confirmLabel"
+      v-bind="DIALOGS[pending.kind]"
       :danger="pending?.kind === 'remove'"
       @confirm="confirm"
       @cancel="pending = null"

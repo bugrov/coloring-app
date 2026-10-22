@@ -6,6 +6,7 @@ import {
   HOLD_DURATION_MS,
   HOLD_TOLERANCE_PX,
   HOLD_VIBRATION_MS,
+  PAN_BUTTONS,
   HoldDetector,
   IDENTITY_VIEW,
   panBy,
@@ -359,7 +360,7 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
 
   function startDrag(event: PointerEvent) {
     // Only the right and the middle button pan; a stroke or another drag in progress is left alone.
-    if (event.button === 3 || event.button === 4 || stroke || drag) return
+    if (!PAN_BUTTONS.includes(event.button) || stroke || drag) return
     event.preventDefault()
     drag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY }
     stage.value!.setPointerCapture(event.pointerId)
@@ -520,8 +521,15 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
    * the pixels of a half-drawn stroke must not stay on it (an undo tapped by a second finger).
    */
   function ready(): ColoringEngine {
-    if (!engine.value) throw new Error('Engine is not ready')
+    const current = requireEngine()
+
     abortStroke()
+
+    return current
+  }
+
+  function requireEngine(): ColoringEngine {
+    if (!engine.value) throw new Error('Engine is not ready')
 
     return engine.value
   }
@@ -554,8 +562,8 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     publishProgress: () => {
       if (engine.value) options.onProgress(engine.value.progress)
     },
-    exportThumbnail: longSide => engine.value?.exportThumbnail(longSide) ?? Promise.reject(new Error('Engine is not ready')),
-    exportPng: () => engine.value?.exportPng() ?? Promise.reject(new Error('Engine is not ready')),
+    exportThumbnail: async longSide => requireEngine().exportThumbnail(longSide),
+    exportPng: async () => requireEngine().exportPng(),
     isDrawing: () => stroke !== null,
   }
 

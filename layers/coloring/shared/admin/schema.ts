@@ -33,7 +33,9 @@ export const assignmentsSchema = z.object({
 })
 
 export const settingsSchema = z.object({
-  paintedTolerance: z.number().min(MIN_PAINTED_TOLERANCE, 'Не меньше 50 %').max(MAX_PAINTED_TOLERANCE, 'Не больше 100 %'),
+  paintedTolerance: z.number()
+    .min(MIN_PAINTED_TOLERANCE, `Не меньше ${Math.round(MIN_PAINTED_TOLERANCE * 100)} %`)
+    .max(MAX_PAINTED_TOLERANCE, `Не больше ${Math.round(MAX_PAINTED_TOLERANCE * 100)} %`),
 })
 
 /** The colour panel: exactly PALETTE_SIZE colours, each `#rrggbb` in lowercase with a name, no colour twice. */

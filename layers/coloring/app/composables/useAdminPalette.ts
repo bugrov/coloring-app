@@ -1,6 +1,6 @@
 import { readApiError } from '#layers/core/shared/errors'
 import type { PaletteColor } from '../../shared'
-import { PALETTE } from '../../shared'
+import { clonePalette } from '../../shared'
 
 /** The colours of the panel for the administrator: loaded, edited as a draft, saved or reset to the standard set. */
 export function useAdminPalette() {
@@ -11,7 +11,7 @@ export function useAdminPalette() {
   const colors = ref<PaletteColor[]>([])
 
   watch(data, (saved) => {
-    if (saved) colors.value = saved.map(color => ({ ...color }))
+    if (saved) colors.value = clonePalette(saved)
   }, { immediate: true })
 
   const message = ref('')
@@ -38,10 +38,14 @@ export function useAdminPalette() {
 
   /** Puts the standard set into the draft; nothing is saved until the administrator saves. */
   function resetToStandard(): void {
-    colors.value = PALETTE.map(color => ({ ...color }))
+    colors.value = clonePalette()
   }
 
-  const dirty = computed(() => JSON.stringify(colors.value) !== JSON.stringify(data.value))
+  /** Something differs from what is saved; never before the saved palette has arrived. */
+  const dirty = computed(() => data.value !== undefined && JSON.stringify(colors.value) !== JSON.stringify(data.value))
+  const loadError = computed(() => (error.value ? readApiError(error.value).message : ''))
+  /** What the form tells the administrator: a loading error first, then the result of the last save. */
+  const status = computed(() => loadError.value || message.value)
 
-  return { colors, loadError: computed(() => (error.value ? readApiError(error.value).message : '')), message, saving, dirty, save, resetToStandard }
+  return { colors, status, saving, dirty, save, resetToStandard }
 }
