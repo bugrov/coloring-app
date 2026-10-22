@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { PALETTE } from '../../../shared'
 import type { Tool } from '../../../shared'
 import brushImage from '../../assets/editor/brush.svg'
 import eraserImage from '../../assets/editor/eraser.svg'
@@ -19,12 +18,12 @@ const root = ref<HTMLElement>()
 const palette = ref<HTMLElement>()
 
 function colorName(hex: string): string {
-  return PALETTE.find(entry => entry.hex === hex)?.name ?? hex
+  return editor.palette.find(entry => entry.hex === hex)?.name ?? hex
 }
 
 /** Position counted from the bottom crayon, capped: the first ones in view arrive in a quick sequence. */
 function staggerIndex(index: number): number {
-  return Math.min(PALETTE.length - 1 - index, STAGGER_COUNT)
+  return Math.min(editor.palette.length - 1 - index, STAGGER_COUNT)
 }
 
 function pickRecent(hex: string) {
@@ -144,7 +143,7 @@ watch(() => editor.paletteOpen, async (open) => {
       aria-label="Все цвета"
     >
       <button
-        v-for="(swatch, index) in PALETTE"
+        v-for="(swatch, index) in editor.palette"
         :key="swatch.hex"
         type="button"
         class="toolbar__item toolbar__item--arriving"

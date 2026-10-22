@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { DEFAULT_COLOR, DEFAULT_OPACITY, OPACITY_LEVELS } from '../../shared'
-import type { Tool } from '../../shared'
+import { DEFAULT_COLOR, DEFAULT_OPACITY, OPACITY_LEVELS, PALETTE } from '../../shared'
+import type { PaletteColor, Tool } from '../../shared'
 import { MAX_HISTORY_STEPS, type HistoryLog } from '../../shared/history'
 import type { SyncStatus } from '../sync'
 import { DEFAULT_THICKNESS, EMPTY_PROGRESS, THICKNESS_SCALES, type Progress } from '../engine'
@@ -24,6 +24,8 @@ export const useEditorStore = defineStore('coloring-editor', () => {
   const opacity = ref<number>(DEFAULT_OPACITY)
   /** Multiplier of the tool's line width, one of THICKNESS_SCALES. */
   const thickness = ref<number>(DEFAULT_THICKNESS)
+  /** The colours of the panel; the standard set until the art that was opened brings the administrator's. */
+  const palette = ref<readonly PaletteColor[]>(PALETTE)
   const paletteOpen = ref(false)
   const progress = ref<Progress>({ ...EMPTY_PROGRESS })
 
@@ -46,6 +48,10 @@ export const useEditorStore = defineStore('coloring-editor', () => {
   const canRestart = computed(() => historyLength.value > 0 || progress.value.percent > 0)
   function selectColor(hex: string) {
     recentColors.value = [...recentColors.value.filter(entry => entry !== hex), hex].slice(-RECENT_COLOR_COUNT)
+  }
+
+  function setPalette(colors: readonly PaletteColor[]) {
+    palette.value = colors
   }
 
   function togglePalette(open = !paletteOpen.value) {
@@ -96,6 +102,7 @@ export const useEditorStore = defineStore('coloring-editor', () => {
     color,
     opacity,
     thickness,
+    palette,
     paletteOpen,
     progress,
     canUndo,
@@ -108,6 +115,7 @@ export const useEditorStore = defineStore('coloring-editor', () => {
     saveStatus,
     locked,
     selectColor,
+    setPalette,
     togglePalette,
     cycleOpacity,
     cycleThickness,

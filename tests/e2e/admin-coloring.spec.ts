@@ -56,6 +56,8 @@ const ENDPOINTS: { method: 'get' | 'post' | 'patch' | 'put' | 'delete', path: st
   { method: 'get', path: '/api/admin/coloring/players?query=a' },
   { method: 'get', path: `/api/admin/coloring/players/${NIL}/arts` },
   { method: 'get', path: `/api/admin/coloring/players/${NIL}/arts/${NIL}` },
+  { method: 'get', path: '/api/admin/coloring/palette' },
+  { method: 'put', path: '/api/admin/coloring/palette' },
   { method: 'get', path: '/api/admin/coloring/settings' },
   { method: 'put', path: '/api/admin/coloring/settings' },
 ]
@@ -174,6 +176,27 @@ test.describe('administration with the database', () => {
     expect(art.tolerance).toBe(0.8)
 
     await page.request.put('/api/admin/coloring/settings', { data: { paintedTolerance: before } })
+    await playerContext.close()
+  })
+
+  test('the palette of the administrator reaches the player and is validated', async ({ page, browser }) => {
+    await signInAdmin(page)
+    const before = await (await page.request.get('/api/admin/coloring/palette')).json()
+    expect(before).toHaveLength(32)
+
+    expect((await page.request.put('/api/admin/coloring/palette', { data: { palette: before.slice(1) } })).status()).toBe(422)
+    expect((await page.request.put('/api/admin/coloring/palette', { data: { palette: before.map((color: { name: string }) => ({ ...color, hex: 'red' })) } })).status()).toBe(422)
+    const custom = before.map((color: { hex: string, name: string }, index: number) => (index === 0 ? { hex: '#123456', name: 'Мой цвет' } : color))
+    expect((await page.request.put('/api/admin/coloring/palette', { data: { palette: custom } })).status()).toBe(200)
+
+    const playerContext = await browser.newContext()
+    const player = await playerContext.newPage()
+    await signInPlayer(player)
+    const seen = await player.request.get('/api/coloring/arts').then(response => response.json())
+    const art = await (await player.request.get(`/api/coloring/arts/${seen.items[0].id}`)).json()
+    expect(art.palette[0]).toEqual({ hex: '#123456', name: 'Мой цвет' })
+
+    await page.request.put('/api/admin/coloring/palette', { data: { palette: before } })
     await playerContext.close()
   })
 

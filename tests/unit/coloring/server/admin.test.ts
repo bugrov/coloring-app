@@ -12,8 +12,9 @@ import { artIsVisible, findVisibleArt, listGallery } from '../../../../layers/co
 import { recordEvent } from '../../../../layers/coloring/server/services/events'
 import { saveHistory } from '../../../../layers/coloring/server/services/history'
 import { restartArt } from '../../../../layers/coloring/server/services/progress'
-import { getPaintedTolerance, setPaintedTolerance } from '../../../../layers/coloring/server/services/settings'
+import { getPaintedTolerance, getPalette, setPaintedTolerance, setPalette } from '../../../../layers/coloring/server/services/settings'
 import { DEFAULT_PAINTED_TOLERANCE } from '../../../../layers/coloring/shared/admin'
+import { PALETTE } from '../../../../layers/coloring/shared/palette'
 import { convertSvg } from '../../../../layers/coloring/shared/svg'
 
 const SQUARE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="#fff"/></svg>'
@@ -311,6 +312,23 @@ describe('admin and analytics services', () => {
       expect(await getPaintedTolerance(db)).toBe(0.8)
       await setPaintedTolerance(db, 0.9)
       expect(await getPaintedTolerance(db)).toBe(0.9)
+    })
+
+    it('answers the standard palette until the administrator sets one, then that one', async () => {
+      await db.delete(appSettings)
+      expect(await getPalette(db)).toEqual(PALETTE)
+
+      const custom = PALETTE.map((color, index) => (index === 0 ? { hex: '#123456', name: 'Мой цвет' } : { ...color }))
+      await setPalette(db, custom)
+
+      expect(await getPalette(db)).toEqual(custom)
+    })
+
+    it('falls back to the standard palette for a stored one that is broken', async () => {
+      await db.delete(appSettings)
+      await db.insert(appSettings).values({ key: 'palette', value: [{ hex: 'red', name: 'x' }] })
+
+      expect(await getPalette(db)).toEqual(PALETTE)
     })
 
     it('falls back to the default for a value that makes no sense', async () => {

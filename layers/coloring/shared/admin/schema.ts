@@ -8,6 +8,8 @@ import {
   MAX_PAINTED_TOLERANCE,
   MAX_STATS_DAYS,
   MIN_PAINTED_TOLERANCE,
+  PALETTE_NAME_MAX_LENGTH,
+  PALETTE_SIZE,
 } from './constants'
 
 const country = z.enum(COUNTRY_CODES as unknown as [string, ...string[]])
@@ -33,6 +35,14 @@ export const assignmentsSchema = z.object({
 export const settingsSchema = z.object({
   paintedTolerance: z.number().min(MIN_PAINTED_TOLERANCE, 'Не меньше 50 %').max(MAX_PAINTED_TOLERANCE, 'Не больше 100 %'),
 })
+
+/** The colour panel: exactly PALETTE_SIZE colours, each `#rrggbb` in lowercase with a name, no colour twice. */
+export const paletteSchema = z.array(z.object({
+  hex: z.string().regex(/^#[0-9a-f]{6}$/, 'Цвет вида #rrggbb'),
+  name: z.string().trim().min(1, 'Введите название').max(PALETTE_NAME_MAX_LENGTH),
+})).length(PALETTE_SIZE).refine(colors => new Set(colors.map(color => color.hex)).size === colors.length, 'Цвета не должны повторяться')
+
+export const settingsPaletteBodySchema = z.object({ palette: paletteSchema })
 
 export const statsQuerySchema = z.object({
   days: z.coerce.number().int().min(1).max(MAX_STATS_DAYS).default(DEFAULT_STATS_DAYS),

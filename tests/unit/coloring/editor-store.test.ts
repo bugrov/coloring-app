@@ -54,6 +54,15 @@ describe('editor store', () => {
     expect(seen).toEqual([100, 75, 50, 25, 100])
   })
 
+  it('shows the standard palette until an art brings the one of the administrator, and the toolbar reads it from the store', () => {
+    const editor = useEditorStore()
+    expect(editor.palette).toHaveLength(32)
+
+    editor.setPalette([{ hex: '#123456', name: 'Мой цвет' }])
+
+    expect(editor.palette).toEqual([{ hex: '#123456', name: 'Мой цвет' }])
+  })
+
   it('mirrors what the history allows, and starting over needs something to start over from', () => {
     const editor = useEditorStore()
     expect(editor.canRestart).toBe(false)

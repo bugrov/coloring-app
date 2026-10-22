@@ -1,5 +1,6 @@
 import type { z } from 'zod'
 import type { artSchema, inkSchema, regionSchema } from '../art/schema'
+import type { PaletteColor } from './palette'
 
 export type ArtRegion = z.infer<typeof regionSchema>
 export type ArtInk = z.infer<typeof inkSchema>
@@ -21,4 +22,6 @@ export interface ArtDetails {
   art: ColoringArt
   /** Share of a region that counts it as coloured, as the administrator set it. */
   tolerance: number
+  /** The colours of the panel, as the administrator set them. */
+  palette: PaletteColor[]
 }

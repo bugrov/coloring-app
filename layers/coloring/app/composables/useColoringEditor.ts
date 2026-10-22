@@ -25,6 +25,10 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
   const title = computed(() => data.value?.title ?? '')
   /** Share of a region that counts it as coloured (the administrator's setting). */
   const tolerance = computed(() => data.value?.tolerance)
+  // The colours of the panel come with the art, as the administrator set them.
+  watch(() => data.value?.palette, (colors) => {
+    if (colors) editor.setPalette(colors)
+  }, { immediate: true })
 
   /** Why the art is not shown: the message for the player, or empty while it loads or is ready. */
   const loadError = computed(() => (error.value ? readApiError(error.value).message : ''))
