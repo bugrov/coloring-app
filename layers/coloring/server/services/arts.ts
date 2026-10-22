@@ -116,7 +116,8 @@ export async function getRegionIds(db: Database, artId: string): Promise<Readonl
   if (!row) return null
   const ids = new Set(row.data.items.flatMap(item => (item.type === 'region' ? [item.id] : [])))
 
-  if (regionIds.size >= REGION_IDS_CACHE_SIZE) regionIds.delete(regionIds.keys().next().value!)
+  // Two reads of the same art may overlap: the second finds its key stored already and makes no room for it.
+  if (!regionIds.has(artId) && regionIds.size >= REGION_IDS_CACHE_SIZE) regionIds.delete(regionIds.keys().next().value!)
   regionIds.set(artId, { ids, at: Date.now() })
 
   return ids

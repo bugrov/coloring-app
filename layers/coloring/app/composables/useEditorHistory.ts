@@ -273,6 +273,9 @@ export function useEditorHistory(
       if (!isCurrent(mine) || artId.value !== id) return false
       await outbox.remove(outboxKey(id))
       await opened.load(fresh)
+
+      // Left during the rebuild: the picture on the screen is another art's now, and it is not told about this one.
+      if (!isCurrent(mine)) return false
     } finally {
       // Another art's editor (opened meanwhile) has its own flag.
       if (isCurrent(mine)) editor.restarting = false
