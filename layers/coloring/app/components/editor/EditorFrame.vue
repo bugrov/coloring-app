@@ -64,12 +64,12 @@ const RADIUS = 64
 
 .frame__percent {
   position: absolute;
-  top: 42px;
-  right: 45px;
+  top: calc(42px * var(--ui-scale));
+  right: calc(45px * var(--ui-scale));
   margin: 0;
   font-family: "Rubik Bubbles", var(--font-family);
-  font-size: 32px;
-  line-height: 32px;
+  font-size: calc(32px * var(--ui-scale));
+  line-height: calc(32px * var(--ui-scale));
   letter-spacing: 0.2px;
   pointer-events: none;
 }
@@ -77,8 +77,8 @@ const RADIUS = 64
 // Top-left corner of the picture, mirroring the percent in the top-right one.
 .frame__status {
   position: absolute;
-  top: 48px;
-  left: 45px;
+  top: calc(48px * var(--ui-scale));
+  left: calc(45px * var(--ui-scale));
   pointer-events: none;
 }
 
