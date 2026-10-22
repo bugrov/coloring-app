@@ -162,14 +162,27 @@ onBeforeUnmount(() => observer?.disconnect())
 
 <style scoped lang="scss">
 .gallery-board {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   height: 100%;
   overflow-y: auto;
   color: var(--color-text);
 }
 
+// A row above the grid on small screens; in the corner of the page where there is room for it (the design has no button).
 .gallery-board__nav {
+  width: 100%;
   max-width: 1100px;
   margin: 0 auto var(--space-2);
+
+  @media (min-width: 1000px) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: auto;
+    margin: 0;
+  }
 }
 
 .gallery-board__back {
@@ -184,13 +197,15 @@ onBeforeUnmount(() => observer?.disconnect())
   text-decoration: none;
 }
 
-// Figma: 4 columns, 24px gaps, tiles 200px tall, the block at most 1100px wide and centred.
+// Figma: 4 columns, 24px gaps, tiles 200px tall, the block at most 1100px wide and centred both ways
+// (auto margins: a list taller than the screen starts at the top and scrolls).
 .gallery-board__grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-gallery);
+  width: 100%;
   max-width: 1100px;
-  margin: 0 auto;
+  margin: auto;
   padding: 0;
   list-style: none;
 

@@ -12,10 +12,12 @@
   flex-direction: column;
   gap: var(--space-4);
   height: 100%;
+
+  // A page may set --page-gutter for a wider margin than the usual one.
   padding:
-    calc(var(--safe-top) + var(--space-4))
-    calc(var(--safe-right) + var(--space-4))
-    calc(var(--safe-bottom) + var(--space-4))
-    calc(var(--safe-left) + var(--space-4));
+    calc(var(--safe-top) + var(--page-gutter, var(--space-4)))
+    calc(var(--safe-right) + var(--page-gutter, var(--space-4)))
+    calc(var(--safe-bottom) + var(--page-gutter, var(--space-4)))
+    calc(var(--safe-left) + var(--page-gutter, var(--space-4)));
 }
 </style>

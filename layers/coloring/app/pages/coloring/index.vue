@@ -25,6 +25,8 @@ await useAsyncData('coloring-gallery', async () => {
 
 <style scoped lang="scss">
 .gallery-page {
+  --page-gutter: var(--space-gallery);
+
   position: fixed;
   inset: 0;
   background: var(--color-sky);
