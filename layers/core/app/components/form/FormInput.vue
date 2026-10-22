@@ -9,7 +9,10 @@ const [model, modifiers] = defineModel<string | number | null>({
   set: value => (modifiers.number ? toNumber(value) : value),
 })
 
-/** What `v-model.number` gives a native input, except that an empty field is `null`, not an empty string. */
+/**
+ * What `v-model.number` gives a native input, except that an empty field is `null`, not an empty string.
+ * Meant for `type="number"`: in a text field a half-typed "5." would be rewritten to "5".
+ */
 function toNumber(value: string | number | null): number | null {
   if (value === null || value === '') return null
   const parsed = Number(value)

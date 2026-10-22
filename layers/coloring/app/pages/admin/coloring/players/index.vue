@@ -2,7 +2,7 @@
 import { ColoringRoutes } from '../../../../../shared/routes'
 
 definePageMeta({ name: ColoringRoutes.ADMIN_PLAYERS, auth: 'admin' })
-useHead({ title: 'Игроки: администратор', meta: [{ name: 'robots', content: 'noindex' }] })
+useHead({ title: 'Игроки: администратор' })
 
 const { query, found, selected, arts, error, searched, search, select } = useAdminPlayers()
 const when = (iso: string) => new Date(iso).toLocaleString('ru')

@@ -8,5 +8,7 @@ export const API_TIMEOUT_MS = 30_000
 export function useApi() {
   const request = useRequestFetch()
 
-  return ((url: string, options?: object) => request(url, { timeout: API_TIMEOUT_MS, ...options })) as typeof request
+  // The cast keeps the typing of `$fetch` (its overloads); `.raw` and `.create` are not offered here.
+  // `timeout` makes ofetch replace a `signal` of the caller: calls that bring their own signal use `useRequestFetch`.
+  return ((url: string, options?: Parameters<typeof request>[1]) => request(url, { timeout: API_TIMEOUT_MS, ...options })) as typeof request
 }

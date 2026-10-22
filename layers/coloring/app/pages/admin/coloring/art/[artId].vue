@@ -2,7 +2,7 @@
 import { ColoringRoutes } from '../../../../../shared/routes'
 
 definePageMeta({ name: ColoringRoutes.ADMIN_ART, auth: 'admin' })
-useHead({ title: 'Рисунок: администратор', meta: [{ name: 'robots', content: 'noindex' }] })
+useHead({ title: 'Рисунок: администратор' })
 
 const route = useRoute()
 const artId = computed(() => String(route.params.artId))

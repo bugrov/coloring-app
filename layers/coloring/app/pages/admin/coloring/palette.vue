@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { PALETTE_NAME_MAX_LENGTH } from '../../../../shared/admin'
+import { PALETTE_NAME_MAX_LENGTH, PALETTE_SIZE } from '../../../../shared/admin'
 import { ColoringRoutes } from '../../../../shared/routes'
 
 definePageMeta({ name: ColoringRoutes.ADMIN_PALETTE, auth: 'admin' })
-useHead({ title: 'Палитра: администратор', meta: [{ name: 'robots', content: 'noindex' }] })
+useHead({ title: 'Палитра: администратор' })
 
-const { colors, loadError, message, saving, dirty, save, resetToStandard } = useAdminPalette()
+const { colors, status, saving, dirty, save, resetToStandard } = useAdminPalette()
 </script>
 
 <template>
@@ -19,7 +19,7 @@ const { colors, loadError, message, saving, dirty, save, resetToStandard } = use
       @submit.prevent="save"
     >
       <p class="palette__hint">
-        32 цвета панели в редакторе, в том порядке, как их видит игрок. Название читают экранные дикторы, в панели подписей нет. Цвета в уже нарисованных рисунках не меняются.
+        {{ PALETTE_SIZE }} цветов панели в редакторе, в том порядке, как их видит игрок. Название читают экранные дикторы, в панели подписей нет. Цвета в уже нарисованных рисунках не меняются.
       </p>
 
       <ul
@@ -76,11 +76,11 @@ const { colors, loadError, message, saving, dirty, save, resetToStandard } = use
         </button>
       </div>
       <p
-        v-if="message || loadError"
+        v-if="status"
         class="palette__message"
         role="status"
       >
-        {{ loadError || message }}
+        {{ status }}
       </p>
     </form>
   </AdminPage>

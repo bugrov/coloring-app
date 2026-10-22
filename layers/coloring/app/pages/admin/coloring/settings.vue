@@ -3,7 +3,7 @@ import { ColoringRoutes } from '../../../../shared/routes'
 import { MAX_PAINTED_TOLERANCE, MIN_PAINTED_TOLERANCE } from '../../../../shared/admin'
 
 definePageMeta({ name: ColoringRoutes.ADMIN_SETTINGS, auth: 'admin' })
-useHead({ title: 'Настройки: администратор', meta: [{ name: 'robots', content: 'noindex' }] })
+useHead({ title: 'Настройки: администратор' })
 
 const { tolerance, loadError, message, saving, saveTolerance } = useAdminSettings()
 

@@ -3,7 +3,7 @@ import { DEFAULT_STATS_DAYS } from '../../../../shared/admin'
 import { ColoringRoutes } from '../../../../shared/routes'
 
 definePageMeta({ name: ColoringRoutes.ADMIN_STATS, auth: 'admin' })
-useHead({ title: 'Статистика: администратор', meta: [{ name: 'robots', content: 'noindex' }] })
+useHead({ title: 'Статистика: администратор' })
 
 const PERIODS = [7, 30, 90] as const
 const days = ref<number>(DEFAULT_STATS_DAYS)

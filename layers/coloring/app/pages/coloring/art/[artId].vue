@@ -11,7 +11,7 @@ const editor = useEditorStore()
 const stage = useTemplateRef<ColoringStageHandle>('stage')
 const { art, title, tolerance, loadError, retry, historyError, retryHistory, notice, restarting, celebrating, congratulating, onStageReady, onOps, onProgress, undo, redo, restart, shareImage } = useColoringEditor(artId, stage)
 
-useHead({ title: computed(() => title.value || 'Раскраска'), meta: [{ name: 'robots', content: 'noindex' }] })
+useHead({ title: computed(() => title.value || 'Раскраска') })
 
 /** The message of whatever stopped the editor from opening: the art, or its saved history. */
 const failure = computed(() => loadError.value || historyError.value)
