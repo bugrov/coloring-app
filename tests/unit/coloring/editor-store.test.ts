@@ -66,6 +66,18 @@ describe('editor store', () => {
     expect(editor.palette).toEqual([{ hex: '#123456', name: 'Мой цвет' }])
   })
 
+  it('replaces recent colours that the palette of the administrator does not have, and keeps those it has', () => {
+    const editor = useEditorStore()
+    const palette = [{ hex: '#111111', name: 'A' }, { hex: '#222222', name: 'B' }, { hex: '#333333', name: 'C' }, { hex: '#444444', name: 'D' }]
+
+    editor.selectColor('#222222')
+    editor.setPalette(palette)
+
+    expect(editor.recentColors).toHaveLength(3)
+    expect(editor.recentColors.every(hex => palette.some(color => color.hex === hex))).toBe(true)
+    expect(editor.color).toBe('#222222')
+  })
+
   it('mirrors what the history allows, and starting over needs something to start over from', () => {
     const editor = useEditorStore()
 

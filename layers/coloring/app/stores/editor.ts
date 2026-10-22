@@ -51,8 +51,17 @@ export const useEditorStore = defineStore('coloring-editor', () => {
     recentColors.value = [...recentColors.value.filter(entry => entry !== hex), hex].slice(-RECENT_COLOR_COUNT)
   }
 
+  /** Takes the colours of the administrator; recent colours the new palette no longer has are replaced by its first ones. */
   function setPalette(colors: readonly PaletteColor[]) {
     palette.value = colors
+
+    if (colors.length === 0) return
+
+    const offered = colors.map(entry => entry.hex)
+    const kept = recentColors.value.filter(hex => offered.includes(hex))
+    const fillers = offered.filter(hex => !kept.includes(hex)).slice(0, RECENT_COLOR_COUNT - kept.length)
+
+    recentColors.value = [...fillers, ...kept]
   }
 
   function togglePalette(open = !paletteOpen.value) {

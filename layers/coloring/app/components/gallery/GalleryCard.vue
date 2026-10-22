@@ -38,9 +38,14 @@ function onError() {
   picture.value = picture.value === 'thumbnail' ? 'preview' : 'none'
 }
 
-// The server-rendered image may be in the cache and loaded before the page woke up: no `load` event then.
+// The server-rendered image may have loaded, or failed, before the page woke up: no event reaches us then.
+// An SVG without its own size reports no width in some browsers even when it loaded.
 onMounted(() => {
-  if (image.value?.complete && image.value.naturalWidth > 0) loaded.value = true
+  const element = image.value
+
+  if (!element?.complete) return
+  if (element.naturalWidth > 0 || picture.value === 'preview') loaded.value = true
+  else onError()
 })
 
 const canRestart = computed(() => props.item.attempt > 0)
