@@ -7,9 +7,9 @@ type Status = 'idle' | 'loading' | 'ready' | 'error'
 /** Gallery cards and the paging state. Server calls go through the player's own session. */
 export const useGalleryStore = defineStore('coloring-gallery', () => {
   // Every call goes through this one function. During SSR a plain `$fetch` to our own API would
-  // not carry the player's cookie (Nuxt docs), so the first page would be refused; `useRequestFetch`
-  // forwards the incoming headers there, and in the browser it is the usual `$fetch`.
-  const api = useRequestFetch()
+  // not carry the player's cookie (Nuxt docs), so the first page would be refused; `useApi`
+  // (`useRequestFetch` with a time limit) forwards the incoming headers there, and in the browser it is the usual `$fetch`.
+  const api = useApi()
 
   const items = ref<GalleryItem[]>([])
   const nextCursor = ref<string | null>(null)

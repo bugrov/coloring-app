@@ -30,6 +30,7 @@ interface CredentialsForm<T> {
  */
 export function useCredentialsForm<T extends Record<string, unknown>>({ endpoint, schema, initial, redirectTo }: CredentialsFormOptions<T>): CredentialsForm<T> {
   const { fetch: refreshSession } = useUserSession()
+  const api = useApi()
 
   const values = reactive({ ...initial }) as T
   const pending = ref(false)
@@ -57,7 +58,7 @@ export function useCredentialsForm<T extends Record<string, unknown>>({ endpoint
 
     pending.value = true
     try {
-      await $fetch(endpoint, { method: 'POST', body: parsed.data })
+      await api(endpoint, { method: 'POST', body: parsed.data })
     }
     catch (error) {
       showServerError(error)

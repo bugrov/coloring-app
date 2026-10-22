@@ -4,8 +4,8 @@ import { PALETTE } from '../../shared'
 
 /** The colours of the panel for the administrator: loaded, edited as a draft, saved or reset to the standard set. */
 export function useAdminPalette() {
-  const api = useRequestFetch()
-  const { data, error, refresh } = useFetch<PaletteColor[]>('/api/admin/coloring/palette', { key: 'admin-coloring-palette' })
+  const api = useApi()
+  const { data, error, refresh } = useFetch<PaletteColor[]>('/api/admin/coloring/palette', { timeout: API_TIMEOUT_MS, key: 'admin-coloring-palette' })
 
   /** The draft the administrator is editing; independent copies, so typing does not touch what is saved. */
   const colors = ref<PaletteColor[]>([])

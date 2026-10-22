@@ -2,8 +2,8 @@ import { readApiError } from '#layers/core/shared/errors'
 
 /** The settings the administrator changes: for now the share of a region that counts as coloured. */
 export function useAdminSettings() {
-  const api = useRequestFetch()
-  const { data, error, refresh } = useFetch<{ paintedTolerance: number }>('/api/admin/coloring/settings', { key: 'admin-coloring-settings' })
+  const api = useApi()
+  const { data, error, refresh } = useFetch<{ paintedTolerance: number }>('/api/admin/coloring/settings', { timeout: API_TIMEOUT_MS, key: 'admin-coloring-settings' })
 
   const message = ref('')
   const saving = ref(false)

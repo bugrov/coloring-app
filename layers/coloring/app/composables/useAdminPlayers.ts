@@ -3,7 +3,7 @@ import type { AdminPlayer, PlayerArt } from '../../shared'
 
 /** Finding a player by the beginning of the name. */
 export function usePlayerSearch() {
-  const api = useRequestFetch()
+  const api = useApi()
   const query = ref('')
   const found = ref<AdminPlayer[]>([])
   const error = ref('')
@@ -27,7 +27,7 @@ export function usePlayerSearch() {
 
 /** Finding a player and listing what they have started. */
 export function useAdminPlayers() {
-  const api = useRequestFetch()
+  const api = useApi()
   const { query, found, error, searched, search } = usePlayerSearch()
   const selected = ref<AdminPlayer | null>(null)
   const arts = ref<PlayerArt[]>([])

@@ -25,7 +25,7 @@ export function usePlayerArtView(
 ) {
   const { data, error } = useFetch<PlayerArtState>(
     () => `/api/admin/coloring/players/${playerId.value}/arts/${artId.value}`,
-    { query: computed(() => ({ attempt: attempt.value })), key: () => `admin-coloring-view-${playerId.value}-${artId.value}-${attempt.value ?? 'latest'}` },
+    { timeout: API_TIMEOUT_MS, query: computed(() => ({ attempt: attempt.value })), key: () => `admin-coloring-view-${playerId.value}-${artId.value}-${attempt.value ?? 'latest'}` },
   )
 
   const state = computed(() => data.value)

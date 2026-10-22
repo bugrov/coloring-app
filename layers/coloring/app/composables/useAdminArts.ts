@@ -3,8 +3,8 @@ import type { AdminArt } from '../../shared'
 
 /** The built-in and admin arts for the administrator, and the upload of a new one. */
 export function useAdminArts() {
-  const api = useRequestFetch()
-  const { data, status, error, refresh } = useFetch<AdminArt[]>('/api/admin/coloring/arts', { key: 'admin-coloring-arts' })
+  const api = useApi()
+  const { data, status, error, refresh } = useFetch<AdminArt[]>('/api/admin/coloring/arts', { timeout: API_TIMEOUT_MS, key: 'admin-coloring-arts' })
 
   const arts = computed(() => data.value ?? [])
   const loadError = computed(() => (error.value ? readApiError(error.value).message : ''))

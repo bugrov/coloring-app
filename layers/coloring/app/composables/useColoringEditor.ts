@@ -18,9 +18,9 @@ const CONGRATS_MS = 4500
  */
 export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<Ref<ColoringStageHandle | null>>) {
   const editor = useEditorStore()
-  const api = useRequestFetch()
+  const api = useApi()
 
-  const { data, error, refresh } = useFetch<ArtDetails>(() => `/api/coloring/arts/${artId.value}`, { key: () => `coloring-art-${artId.value}` })
+  const { data, error, refresh } = useFetch<ArtDetails>(() => `/api/coloring/arts/${artId.value}`, { timeout: API_TIMEOUT_MS, key: () => `coloring-art-${artId.value}` })
   const art = computed(() => data.value?.art ?? null)
   const title = computed(() => data.value?.title ?? '')
   /** Share of a region that counts it as coloured (the administrator's setting). */
