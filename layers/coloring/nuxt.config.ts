@@ -27,6 +27,8 @@ export default defineNuxtConfig({
     '/api/coloring/imports': { security: { rateLimiter: { tokensPerInterval: 30, interval: 300_000 }, xssValidator: false } },
     // The editor saves a batch every few seconds while someone draws, and a class may share one IP.
     // The body is numbers and colours checked by a strict schema: the XSS scan would only cost CPU.
+    // An SVG upload of the administrator: the body is a file, so no XSS scan (the server converts it and stores only its own format).
+    '/api/admin/coloring/arts': { security: { xssValidator: false } },
     // A thumbnail is a small image, uploaded now and then while someone draws.
     '/api/coloring/arts/*/thumbnail': { security: { rateLimiter: { tokensPerInterval: 600, interval: 60_000 }, xssValidator: false } },
     '/api/coloring/arts/*/history': { security: { rateLimiter: { tokensPerInterval: 1200, interval: 60_000 }, xssValidator: false } },
