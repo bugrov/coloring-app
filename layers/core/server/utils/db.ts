@@ -28,8 +28,10 @@ let database: Database | undefined
 export function useDb(): Database {
   if (!database) {
     const url = process.env.DATABASE_URL
+
     if (!url) throw new Error('DATABASE_URL is not set')
     database = drizzle({ client: neon(url) })
   }
+
   return database
 }

@@ -8,6 +8,7 @@ const withDb = process.env.E2E_WITH_DB === '1'
 /** A random private address: tests running in parallel never share a rate limit bucket. */
 function freshAddress(): string {
   const octet = () => Math.floor(Math.random() * 254) + 1
+
   return `10.${octet()}.${octet()}.${octet()}`
 }
 
@@ -127,12 +128,14 @@ test.describe('administrator', () => {
 
   test('admin API routes check the role on the server', async ({ page, request }) => {
     const anonymous = await request.get('/api/admin/session', { headers: { 'x-forwarded-for': freshAddress() } })
+
     expect(anonymous.status()).toBe(401)
     expect((await anonymous.json()).data.code).toBe('unauthorized')
 
     await signInAsAdmin(page)
     await expect(page).toHaveURL('/admin')
     const asAdmin = await page.request.get('/api/admin/session')
+
     expect(asAdmin.status()).toBe(200)
   })
 
@@ -150,8 +153,10 @@ test.describe('administrator', () => {
   test('the admin password is rate limited', async ({ request }) => {
     const headers = { 'x-forwarded-for': freshAddress() }
     const statuses: number[] = []
+
     for (let attempt = 0; attempt < 10; attempt++) {
       const response = await request.post('/api/admin/login', { data: { login: E2E_ADMIN.login, password: 'nope' }, headers })
+
       statuses.push(response.status())
     }
 
@@ -159,6 +164,7 @@ test.describe('administrator', () => {
     // through, which its documentation does not promise), then answers 429 until the window passes.
     // The client is told apart by x-forwarded-for, which only a proxy such as Vercel's edge makes trustworthy.
     const refused = statuses.filter(status => status === 401).length
+
     expect(refused).toBeGreaterThanOrEqual(5)
     expect(refused).toBeLessThanOrEqual(6)
     expect(statuses.slice(6).every(status => status === 429)).toBe(true)
@@ -172,6 +178,7 @@ test.describe('sign-in with the database', () => {
   test('a new player signs in, stays signed in after a reload and signs out', async ({ page }) => {
     await ownAddress(page)
     const name = `e2e${Date.now().toString(36)}`
+
     await page.goto('/login')
     await page.getByLabel('Имя').fill(name)
     await page.getByLabel('Страна').selectOption('RU')
@@ -195,6 +202,7 @@ test.describe('sign-in with the database', () => {
     await ownAddress(page)
     const name = `e2e${Date.now().toString(36)}b`
     const first = await page.request.post('/api/auth/login', { data: { username: name, country: 'RU' } })
+
     expect(first.status()).toBe(200)
 
     await page.context().clearCookies()

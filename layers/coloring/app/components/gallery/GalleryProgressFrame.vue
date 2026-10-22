@@ -11,14 +11,17 @@ const props = defineProps<{
 }>()
 
 // Server render and first client render use the design size; the real size arrives after mount,
-// so the markup matches while hydrating.
+// so the markup matches while hydrating. A card of another size would show the frame drawn for the
+// design size, then jump: the line stays invisible until the real size is known.
 const DESIGN_SIZE = { width: 257, height: 200 }
 
 const root = ref<SVGSVGElement>()
 const size = ref({ ...DESIGN_SIZE })
+const measured = ref(false)
 
 useResizeObserver(root, (box) => {
   size.value = { width: box.width, height: box.height }
+  measured.value = true
 })
 
 const path = computed(() => progressFramePath(size.value.width, size.value.height, props.band / 2, props.radius - props.band / 2))
@@ -34,6 +37,7 @@ const offset = computed(() => progressDashOffset(props.percent))
   >
     <path
       v-if="percent > 0"
+      :class="{ 'progress-frame__line--shown': measured }"
       :d="path"
       :stroke-width="band"
       pathLength="1"
@@ -55,6 +59,16 @@ const offset = computed(() => progressDashOffset(props.percent))
     fill: none;
     stroke: var(--color-progress);
     stroke-linecap: butt;
+    opacity: 0;
+    transition: opacity var(--duration-base) var(--ease-out);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
   }
+}
+
+.progress-frame path.progress-frame__line--shown {
+  opacity: 1;
 }
 </style>

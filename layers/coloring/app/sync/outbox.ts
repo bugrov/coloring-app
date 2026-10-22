@@ -19,7 +19,9 @@ function requestResult<T>(request: IDBRequest<T>): Promise<T> {
 
 function openDatabase(): Promise<IDBDatabase> {
   const request = indexedDB.open(DATABASE, 1)
+
   request.onupgradeneeded = () => request.result.createObjectStore(STORE)
+
   return requestResult(request)
 }
 
@@ -51,22 +53,25 @@ export class IndexedDbOutbox implements Outbox {
 
   private open(): Promise<IDBDatabase | null> {
     this.database ??= typeof indexedDB === 'undefined' ? Promise.resolve(null) : openDatabase().catch(() => null)
+
     return this.database
   }
 
   private async run<T>(mode: IDBTransactionMode, action: (store: IDBObjectStore) => IDBRequest<T>): Promise<T | undefined> {
     const database = await this.open()
+
     if (!database) return undefined
+
     try {
       return await requestResult(action(database.transaction(STORE, mode).objectStore(STORE)))
-    }
-    catch {
+    } catch {
       return undefined
     }
   }
 
   async read(key: string) {
     const stored = await this.run<UnsentHistory | undefined>('readonly', store => store.get(key))
+
     return stored ?? this.fallback.read(key)
   }
 

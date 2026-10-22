@@ -62,6 +62,17 @@ $theme-bg: #fff !default;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
 
+  // The undo/redo plate of the editor (Figma: 184×56 on a phone, 221×75 from 1000px).
+  --plate-button: 56px;
+  --plate-pad: 24px;
+  --plate-height: 56px;
+
+  @media (min-width: 1000px) {
+    --plate-button: 67px;
+    --plate-pad: 29px;
+    --plate-height: 75px;
+  }
+
   // Layers
   --z-overlay: 100;
 }

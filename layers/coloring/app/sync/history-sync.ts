@@ -76,11 +76,14 @@ export class HistorySync {
     this.setStatus('saving')
     this.firstChangeAt ||= Date.now()
     this.scheduleOutbox()
+
     if (this.log.unsavedSteps >= SAVE_AT_STEPS) {
       void this.flush()
+
       return
     }
     const waited = Date.now() - this.firstChangeAt
+
     clearTimeout(this.saveTimer)
     this.saveTimer = setTimeout(() => void this.flush(), Math.max(0, Math.min(SAVE_DELAY_MS, SAVE_MAX_WAIT_MS - waited)))
   }
@@ -94,6 +97,7 @@ export class HistorySync {
       .finally(() => {
         this.running = null
       })
+
     return this.running
   }
 
@@ -101,6 +105,7 @@ export class HistorySync {
   persist(): Promise<void> {
     clearTimeout(this.outboxTimer)
     const unsent = this.log.unsent
+
     return unsent ? this.options.outbox.write(this.options.key, unsent) : this.options.outbox.remove(this.options.key)
   }
 
@@ -134,20 +139,24 @@ export class HistorySync {
     clearTimeout(this.saveTimer)
     clearTimeout(this.retryTimer)
     let conflicts = 0
+
     // A step drawn while the work was being written down starts another round before "saved" is claimed.
     do {
       while (!this.disposed) {
         const request = this.log.nextSave(this.options.percent())
+
         if (!request) break
         this.setStatus('saving')
+
         try {
           const result = await this.options.api.save(request)
+
           this.log.accepted(result.attempt, result.rev)
           this.retryDelay = RETRY_BASE_MS
           conflicts = 0
-        }
-        catch (error) {
+        } catch (error) {
           this.log.failed()
+
           if (!(error instanceof SyncConflict)) return this.giveUp(error instanceof SyncRejected ? 'failed' : 'offline')
           if (++conflicts > MAX_CONFLICTS_IN_A_ROW) return this.giveUp('failed')
           // The server's version could not be read (network): try the whole save again later.
@@ -163,25 +172,27 @@ export class HistorySync {
   /** Reads the server's version and puts local steps on top of it; false when it could not be read. */
   private async settleConflict(): Promise<boolean> {
     let server: HistoryState
+
     try {
       server = await this.options.api.load()
-    }
-    catch {
+    } catch {
       return false
     }
     this.options.onRebuilding(true)
+
     try {
       this.options.onReconciled(await this.options.timeline.reconcile(server))
-    }
-    finally {
+    } finally {
       this.options.onRebuilding(false)
     }
+
     return true
   }
 
   private async giveUp(status: 'offline' | 'failed') {
     await this.persist()
     this.setStatus(status)
+
     if (status === 'offline' && !this.disposed) {
       this.retryTimer = setTimeout(() => void this.flush(), this.retryDelay)
       this.retryDelay = Math.min(this.retryDelay * 2, RETRY_MAX_MS)

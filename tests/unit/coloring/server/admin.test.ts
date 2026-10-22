@@ -12,18 +12,22 @@ import { artIsVisible, findVisibleArt, listGallery } from '../../../../layers/co
 import { recordEvent } from '../../../../layers/coloring/server/services/events'
 import { saveHistory } from '../../../../layers/coloring/server/services/history'
 import { restartArt } from '../../../../layers/coloring/server/services/progress'
-import { getPaintedTolerance, setPaintedTolerance } from '../../../../layers/coloring/server/services/settings'
+import { getPaintedTolerance, getPalette, setPaintedTolerance, setPalette } from '../../../../layers/coloring/server/services/settings'
 import { DEFAULT_PAINTED_TOLERANCE } from '../../../../layers/coloring/shared/admin'
+import { PALETTE } from '../../../../layers/coloring/shared/palette'
 import { convertSvg } from '../../../../layers/coloring/shared/svg'
 
 const SQUARE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="#fff"/></svg>'
 const converted = convertSvg(SQUARE)
+
 if (!converted.ok) throw new Error('fixture SVG must convert')
 const ART = converted.art
 
 async function createDatabase() {
   const db = drizzle(new PGlite())
+
   await migrate(db, { migrationsFolder: 'layers/core/server/db/migrations' })
+
   return db
 }
 
@@ -33,11 +37,14 @@ describe('admin and analytics services', () => {
 
   const newUser = async (country = 'DE', name = `p${++counter}`) => {
     const [row] = await db.insert(users).values({ username: name, usernameKey: name.toLowerCase(), country }).returning()
+
     return row!.id
   }
   const newArt = async (status: 'draft' | 'published' | 'hidden' = 'published') => {
     const id = await createAdminArt(db, `Арт ${++counter}`, ART)
+
     await updateAdminArt(db, id, { status })
+
     return id
   }
 
@@ -57,6 +64,7 @@ describe('admin and analytics services', () => {
       expect(await artIsVisible(db, player, published)).toBe(true)
       expect(await findVisibleArt(db, player, draft)).toBeNull()
       const gallery = (await listGallery(db, player)).items.map(item => item.id)
+
       expect(gallery).toContain(published)
       expect(gallery).not.toContain(draft)
       expect(gallery).not.toContain(hidden)
@@ -89,6 +97,7 @@ describe('admin and analytics services', () => {
     it('opens the art to everyone again when the assignments are cleared', async () => {
       const french = await newUser('FR')
       const id = await newArt()
+
       await setAssignments(db, id, { countries: ['DE'], players: [] })
       expect(await artIsVisible(db, french, id)).toBe(false)
 
@@ -116,6 +125,7 @@ describe('admin and analytics services', () => {
       await setAssignments(db, id, { countries: ['FR', 'IT'], players: [] })
 
       const art = (await listAdminArts(db)).find(entry => entry.id === id)!
+
       expect([...art.assignedCountries].sort()).toEqual(['FR', 'IT'])
       expect(art.assignedPlayers).toEqual([])
       expect(await db.select().from(artAssignments).where(eq(artAssignments.artId, id))).toHaveLength(2)
@@ -124,6 +134,7 @@ describe('admin and analytics services', () => {
     it('refuses a list with a player that does not exist and changes nothing: a restricted art must not become public', async () => {
       const player = await newUser('FR')
       const id = await newArt()
+
       await setAssignments(db, id, { countries: ['DE'], players: [] })
 
       const result = await setAssignments(db, id, { countries: [], players: ['00000000-0000-4000-8000-000000000000'] })
@@ -140,6 +151,7 @@ describe('admin and analytics services', () => {
       await setAssignments(db, id, { countries: [], players: [player] })
 
       const art = (await listAdminArts(db)).find(entry => entry.id === id)!
+
       expect(art.assignedPlayers).toEqual([{ id: player, username: 'Greta', country: 'SE' }])
     })
 
@@ -198,6 +210,7 @@ describe('admin and analytics services', () => {
       await recordEvent(db, { ...event, attempt: 2, type: 'start' })
 
       const rows = await db.select().from(artEvents).where(eq(artEvents.artId, id))
+
       expect(rows.filter(row => row.type === 'open')).toHaveLength(2)
       expect(rows.filter(row => row.type === 'start')).toHaveLength(2)
       expect(rows.filter(row => row.type === 'complete')).toHaveLength(1)
@@ -210,6 +223,7 @@ describe('admin and analytics services', () => {
     it('records a restart as an event of the new attempt', async () => {
       const player = await newUser()
       const id = await newArt()
+
       await saveHistory(db, player, id, { attempt: 0, rev: 0, keep: 0, steps: [[{ type: 'fill', region: 1, color: '#e53935' }]], cursor: 1, percent: 10 })
 
       const restarted = await restartArt(db, player, id)
@@ -225,6 +239,7 @@ describe('admin and analytics services', () => {
       const french = await newUser('FR')
       const id = await newArt()
       const base = { artId: id }
+
       await recordEvent(db, { ...base, userId: german, attempt: 1, country: 'DE', type: 'open' })
       await recordEvent(db, { ...base, userId: german, attempt: 1, country: 'DE', type: 'start' })
       await recordEvent(db, { ...base, userId: french, attempt: 1, country: 'FR', type: 'open' })
@@ -233,6 +248,7 @@ describe('admin and analytics services', () => {
       const stats = await loadStats(db, 7)
 
       const art = stats.arts.find(entry => entry.id === id)!
+
       expect(art).toMatchObject({ opens: 3, starts: 1, completes: 0, restarts: 0 })
       expect(stats.totals.opens).toBeGreaterThanOrEqual(3)
       expect(stats.daily).toHaveLength(7)
@@ -244,6 +260,7 @@ describe('admin and analytics services', () => {
     it('leaves out events older than the period', async () => {
       const player = await newUser()
       const id = await newArt()
+
       await db.insert(artEvents).values({ type: 'open', userId: player, artId: id, attempt: 0, country: 'DE', createdAt: new Date(Date.now() - 40 * 86_400_000) })
 
       const stats = await loadStats(db, 7)
@@ -254,6 +271,7 @@ describe('admin and analytics services', () => {
     it('shows the counters of the arts in the admin list', async () => {
       const player = await newUser()
       const id = await newArt()
+
       await recordEvent(db, { type: 'open', userId: player, artId: id, attempt: 0, country: 'DE' })
       await recordEvent(db, { type: 'complete', userId: player, artId: id, attempt: 1, country: 'DE' })
 
@@ -277,17 +295,21 @@ describe('admin and analytics services', () => {
     it('shows the attempts of a player and replays the history of one of them', async () => {
       const player = await newUser()
       const id = await newArt()
+
       await saveHistory(db, player, id, { attempt: 0, rev: 0, keep: 0, steps: [[{ type: 'fill', region: 1, color: '#e53935' }]], cursor: 1, percent: 40 })
       await restartArt(db, player, id)
       await saveHistory(db, player, id, { attempt: 2, rev: 0, keep: 0, steps: [[{ type: 'fill', region: 1, color: '#43a047' }], [{ type: 'clear', region: 1 }]], cursor: 2, percent: 0 })
 
       const listed = (await listPlayerArts(db, player)).find(entry => entry.artId === id)!
+
       expect(listed.attempts.map(attempt => [attempt.attempt, attempt.percent, attempt.steps]).sort()).toEqual([[1, 40, 1], [2, 0, 2]])
 
       const first = await loadPlayerArtState(db, player, id, 1)
+
       expect(first?.history).toMatchObject({ attempt: 1, cursor: 1 })
       expect(first?.history.steps).toHaveLength(1)
       const latest = await loadPlayerArtState(db, player, id)
+
       expect(latest?.history.attempt).toBe(2)
     })
 
@@ -311,6 +333,24 @@ describe('admin and analytics services', () => {
       expect(await getPaintedTolerance(db)).toBe(0.8)
       await setPaintedTolerance(db, 0.9)
       expect(await getPaintedTolerance(db)).toBe(0.9)
+    })
+
+    it('answers the standard palette until the administrator sets one, then that one', async () => {
+      await db.delete(appSettings)
+      expect(await getPalette(db)).toEqual(PALETTE)
+
+      const custom = PALETTE.map((color, index) => (index === 0 ? { hex: '#123456', name: 'Мой цвет' } : { ...color }))
+
+      await setPalette(db, custom)
+
+      expect(await getPalette(db)).toEqual(custom)
+    })
+
+    it('falls back to the standard palette for a stored one that is broken', async () => {
+      await db.delete(appSettings)
+      await db.insert(appSettings).values({ key: 'palette', value: [{ hex: 'red', name: 'x' }] })
+
+      expect(await getPalette(db)).toEqual(PALETTE)
     })
 
     it('falls back to the default for a value that makes no sense', async () => {

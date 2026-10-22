@@ -12,6 +12,6 @@ describe('game registry', () => {
   it('renders a link to every registered game on the hub page', async () => {
     const page = await mountSuspended(IndexPage)
 
-    expect(page.find('a[href="/coloring"]').text()).toBe('Раскраска')
+    expect(page.find('a[href="/coloring"] h2').text()).toBe('Раскраска')
   })
 })

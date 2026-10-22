@@ -13,6 +13,7 @@ describe('progressFramePath', () => {
     const arcs = progressFramePath(257, 200, 8, 56).match(/A[^AHV]*/g) ?? []
 
     expect(arcs).toHaveLength(4)
+
     for (const arc of arcs) expect(arc).toMatch(/^A\d+ \d+ 0 0 1 /)
   })
 

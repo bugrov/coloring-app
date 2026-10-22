@@ -2,7 +2,7 @@
 import { ColoringRoutes } from '../../../../../shared/routes'
 
 definePageMeta({ name: ColoringRoutes.ADMIN_ART, auth: 'admin' })
-useHead({ title: 'Рисунок: администратор', meta: [{ name: 'robots', content: 'noindex' }] })
+useHead({ title: 'Рисунок: администратор' })
 
 const route = useRoute()
 const artId = computed(() => String(route.params.artId))
@@ -11,13 +11,16 @@ const { details, summary, loadError, notice, busy, rename, setStatus, assign, re
 const STATUS_LABELS = { draft: 'Черновик', published: 'Опубликован', hidden: 'Скрыт' } as const
 
 const title = ref('')
+
 watch(details, (value) => {
   if (value) title.value = value.title
 }, { immediate: true })
 
 const confirmDelete = ref(false)
+
 async function onDelete() {
   confirmDelete.value = false
+
   if (await remove()) await navigateTo({ name: ColoringRoutes.ADMIN_ARTS })
 }
 </script>
@@ -41,7 +44,7 @@ async function onDelete() {
       class="art"
     >
       <section
-        class="art__preview"
+        class="admin-card art__preview"
         aria-label="Как выглядит рисунок"
       >
         <ArtPreview
@@ -56,20 +59,20 @@ async function onDelete() {
       <div class="art__side">
         <form
           v-if="details.source === 'admin'"
-          class="art__card"
+          class="admin-card"
           @submit.prevent="rename(title)"
         >
           <label
             class="art__label"
             for="art-title"
           >Название</label>
-          <input
+          <FormInput
             id="art-title"
             v-model="title"
-            class="art__input"
+            on-surface
             maxlength="60"
             required
-          >
+          />
           <button
             class="button button--ghost"
             type="submit"
@@ -80,7 +83,7 @@ async function onDelete() {
         </form>
 
         <section
-          class="art__card"
+          class="admin-card"
           aria-labelledby="art-status"
         >
           <h2
@@ -159,8 +162,9 @@ async function onDelete() {
       </div>
     </div>
 
-    <ConfirmDialog
-      :open="confirmDelete"
+    <LazyConfirmDialog
+      v-if="confirmDelete"
+      open
       title="Удалить рисунок?"
       text="Рисунок, попытки игроков и статистика по нему пропадут насовсем."
       confirm-label="Удалить"
@@ -177,31 +181,19 @@ async function onDelete() {
   gap: var(--space-4);
 }
 
-.art__preview {
-  padding: var(--space-4);
-  border-radius: var(--radius-m);
-  background: var(--color-surface);
-}
-
 .art__svg {
   display: block;
   width: 100%;
   max-height: 60dvh;
-  background: var(--color-surface);
+
+  // The page colour behind the drawing: its white areas stand out from the white card.
+  background: var(--color-bg);
 }
 
 .art__side {
   display: grid;
   align-content: start;
   gap: var(--space-4);
-}
-
-.art__card {
-  display: grid;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border-radius: var(--radius-m);
-  background: var(--color-surface);
 }
 
 .art__label {
@@ -211,20 +203,6 @@ async function onDelete() {
 .art__heading {
   margin: 0;
   font-size: var(--font-size-m);
-}
-
-.art__input {
-  min-height: 44px;
-  padding: 0 var(--space-3);
-  border: 2px solid var(--color-bg);
-  border-radius: var(--radius-m);
-  background: var(--color-surface);
-  font: inherit;
-}
-
-.art__input:focus-visible {
-  border-color: var(--color-accent);
-  outline: none;
 }
 
 .art__actions {

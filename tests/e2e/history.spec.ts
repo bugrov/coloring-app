@@ -6,12 +6,14 @@ const withDb = process.env.E2E_WITH_DB === '1'
 
 function freshAddress(): string {
   const octet = () => Math.floor(Math.random() * 254) + 1
+
   return `10.${octet()}.${octet()}.${octet()}`
 }
 
 async function signIn(page: Page, suffix: string) {
   await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': freshAddress() })
   const login = await page.request.post('/api/auth/login', { data: { username: `e2h${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}${suffix}`, country: 'RU' } })
+
   expect(login.status()).toBe(200)
 }
 
@@ -28,6 +30,7 @@ async function scribble(page: Page, offset = 0) {
   const box = (await page.locator('canvas').boundingBox())!
   const x = box.x + box.width * 0.5
   const y = box.y + box.height * (0.3 + offset)
+
   await page.mouse.move(x - 40, y)
   await page.mouse.down()
   await page.mouse.move(x, y + 10, { steps: 6 })
@@ -41,13 +44,16 @@ const saved = (page: Page) => expect(page.locator('.save-status')).toContainText
 const paintedPixels = (page: Page) => page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => {
   const { data } = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height)
   let count = 0
+
   for (let i = 3; i < data.length; i += 4) if (data[i]! > 0) count++
+
   return count
 })
 
 test.describe('history without a session', () => {
   test('both history requests answer 401', async ({ request }) => {
     const id = '00000000-0000-4000-8000-000000000000'
+
     expect((await request.get(`/api/coloring/arts/${id}/history`)).status()).toBe(401)
     expect((await request.put(`/api/coloring/arts/${id}/history`, { data: {} })).status()).toBe(401)
     expect((await request.get(`/api/coloring/arts/${id}/thumbnail`)).status()).toBe(401)
@@ -65,6 +71,7 @@ test.describe('history with the database', () => {
     await scribble(page, 0.1)
     await saved(page)
     const before = await paintedPixels(page)
+
     expect(before).toBeGreaterThan(1000)
 
     await page.reload()
@@ -128,6 +135,7 @@ test.describe('history with the database', () => {
     expect(await paintedPixels(page)).toBeGreaterThan(1000)
     await saved(page)
     const history = await page.request.get(`/api/coloring/arts/${artIdOf(page)}/history`)
+
     expect((await history.json()).steps).toHaveLength(1)
   })
 
@@ -136,6 +144,7 @@ test.describe('history with the database', () => {
     await openOctopus(page)
     await saved(page)
     const second = await context.newPage()
+
     await second.goto(page.url())
     await expect(second.locator('.save-status')).toBeVisible()
 
@@ -146,6 +155,7 @@ test.describe('history with the database', () => {
     await expect(second.getByRole('alert')).toContainText('Рисунок изменили на другом устройстве', { timeout: 15_000 })
     await saved(second)
     const history = await page.request.get(`/api/coloring/arts/${artIdOf(page)}/history`)
+
     expect((await history.json()).steps).toHaveLength(2)
     // The second window now shows both strokes.
     expect(await paintedPixels(second)).toBeGreaterThan(await paintedPixels(page))
@@ -163,6 +173,7 @@ test.describe('history with the database', () => {
     await expect.poll(() => paintedPixels(page), { timeout: 30_000 }).toBe(0)
     await expect(page.getByRole('button', { name: 'Отменить' })).toBeDisabled()
     const history = await (await page.request.get(`/api/coloring/arts/${artIdOf(page)}/history`)).json()
+
     expect(history).toMatchObject({ attempt: 2, steps: [] })
     await page.reload()
     await expect(page.locator('.save-status')).toBeVisible()
@@ -180,21 +191,36 @@ test.describe('history with the database', () => {
     expect((await page.request.put(url, { data: { attempt: 0, rev: 0, keep: 0, steps: [step], cursor: 5, percent: 0 } })).status()).toBe(422)
     expect((await page.request.put(url, { data: { attempt: 0, rev: 0, keep: 0, steps: [[{ type: 'fill', region: 99999, color: '#e53935' }]], cursor: 1, percent: 0 } })).status()).toBe(422)
     const ok = await page.request.put(url, { data: { attempt: 0, rev: 0, keep: 0, steps: [step], cursor: 1, percent: 0 } })
+
     expect(ok.status()).toBe(200)
     const stale = await page.request.put(url, { data: { attempt: 1, rev: 0, keep: 1, steps: [step], cursor: 2, percent: 0 } })
+
     expect(stale.status()).toBe(409)
     expect((await stale.json()).data.code).toBe('history_conflict')
 
     // Someone else's own import is not visible to this player: 404 for both requests.
     const other = await browser.newContext()
     const otherPage = await other.newPage()
+
     await signIn(otherPage, 'h')
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="#fff"/></svg>'
     const imported = await otherPage.request.post('/api/coloring/imports?name=mine.svg', { data: svg, headers: { 'content-type': 'image/svg+xml' } })
+
     expect(imported.status()).toBe(200)
-    const foreign = `/api/coloring/arts/${(await imported.json()).id}/history`
+    const foreignArt = `/api/coloring/arts/${(await imported.json()).id}`
+    const foreign = `${foreignArt}/history`
+    // The owner saves first, which puts the regions of that art into the server's memory: the other player
+    // must be refused all the same (the check of who may see the art comes before it).
+    const regions = (await (await otherPage.request.get(foreignArt)).json()).art.items.filter((item: { type: string }) => item.type === 'region')
+
+    expect((await otherPage.request.put(foreign, { data: { attempt: 0, rev: 0, keep: 0, steps: [[{ type: 'fill', region: regions[0].id, color: '#e53935' }]], cursor: 1, percent: 0 } })).status()).toBe(200)
+
     expect((await page.request.get(foreign)).status()).toBe(404)
     expect((await page.request.put(foreign, { data: { attempt: 0, rev: 0, keep: 0, steps: [step], cursor: 1, percent: 0 } })).status()).toBe(404)
+    // The other writing routes are closed to this player as well.
+    expect((await page.request.put(`${foreignArt}/thumbnail`, { data: Buffer.from('RIFF'), headers: { 'content-type': 'image/webp' } })).status()).toBe(404)
+    expect((await page.request.post(`${foreignArt}/restart`)).status()).toBe(404)
+    expect((await page.request.delete(foreignArt)).status()).toBe(404)
     await other.close()
   })
 
@@ -204,12 +230,15 @@ test.describe('history with the database', () => {
     const keep = (index: number) => page.locator('canvas').evaluate((canvas: HTMLCanvasElement, at) => {
       const { data } = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height)
       const store = ((window as unknown as { states?: Uint8ClampedArray[] }).states ??= [])
+
       store[at] = new Uint8ClampedArray(data)
     }, index)
     const sameAsKept = (index: number) => page.locator('canvas').evaluate((canvas: HTMLCanvasElement, at) => {
       const { data } = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height)
       const kept = (window as unknown as { states: Uint8ClampedArray[] }).states[at]!
+
       for (let i = 0; i < data.length; i++) if (data[i] !== kept[i]) return false
+
       return true
     }, index)
 
@@ -222,6 +251,7 @@ test.describe('history with the database', () => {
     await page.getByRole('button', { name: /^Прозрачность краски/ }).click()
     await page.getByRole('button', { name: 'Кисть' }).click()
     const box = (await page.locator('canvas').boundingBox())!
+
     await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5)
     await page.mouse.down()
     await page.waitForTimeout(700)
@@ -233,6 +263,7 @@ test.describe('history with the database', () => {
       await page.getByRole('button', { name: 'Отменить' }).click()
       expect(await sameAsKept(target)).toBe(true)
     }
+
     for (const target of [1, 2, 3]) {
       await page.getByRole('button', { name: 'Вернуть' }).click()
       expect(await sameAsKept(target)).toBe(true)
@@ -244,6 +275,7 @@ test.describe('history with the database', () => {
     await openOctopus(page)
     await expect(page.locator('.frame__percent')).toContainText('Закрашено 0%')
     const box = (await page.locator('canvas').boundingBox())!
+
     await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.3)
     await page.mouse.down()
     await page.waitForTimeout(700)
@@ -275,17 +307,21 @@ test.describe('history with the database', () => {
 
     // Built through the API: 10 saves of 100 steps each.
     let rev = 0
+
     for (let batch = 0; batch < 10; batch++) {
       const steps = Array.from({ length: 100 }, (_, i) => stroke(regions[(batch * 100 + i) % regions.length]!, batch * 100 + i))
       const response = await page.request.put(url, { data: { attempt: batch === 0 ? 0 : 1, rev, keep: batch * 100, steps, cursor: batch * 100 + 100, percent: 50 } })
+
       expect(response.status()).toBe(200)
       rev = (await response.json()).rev
     }
 
     const opened = Date.now()
+
     await page.reload()
     await expect(page.locator('.save-status')).toBeVisible({ timeout: 60_000 })
     const openMs = Date.now() - opened
+
     expect(await paintedPixels(page)).toBeGreaterThan(1000)
 
     // The click handler does the whole undo synchronously: restore a snapshot, replay a few steps.
@@ -293,9 +329,12 @@ test.describe('history with the database', () => {
       const click = (label: string) => {
         const button = document.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!
         const started = performance.now()
+
         button.click()
+
         return performance.now() - started
       }
+
       return { undo: Array.from({ length: times }, () => click('Отменить')), redo: Array.from({ length: times }, () => click('Вернуть')) }
     }, count)
     const mean = (timings: { undo: number[], redo: number[] }) => [...timings.undo, ...timings.redo].reduce((sum, value) => sum + value, 0) / (timings.undo.length * 2)
@@ -305,6 +344,7 @@ test.describe('history with the database', () => {
 
     // Steps drawn in this session also carry their own pixels: undo is a swap, not a replay.
     const box = (await page.locator('canvas').boundingBox())!
+
     for (let i = 0; i < 30; i++) {
       await page.mouse.move(box.x + box.width * (0.3 + (i % 7) * 0.05), box.y + box.height * (0.25 + (i % 5) * 0.04))
       await page.mouse.down()
@@ -329,10 +369,12 @@ test.describe('history with the database', () => {
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="#fff"/></svg>'
     const imported = await page.request.post('/api/coloring/imports?name=thumb.svg', { data: svg, headers: { 'content-type': 'image/svg+xml' } })
     const id = (await imported.json()).id
+
     await page.goto('/coloring')
     await page.getByRole('link', { name: 'thumb' }).click()
     await expect(page.locator('.save-status')).toBeVisible()
     const box = (await page.locator('canvas').boundingBox())!
+
     await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5)
     await page.mouse.down()
     await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.55, { steps: 6 })
@@ -348,6 +390,7 @@ test.describe('history with the database', () => {
       await expect(page.getByRole('link', { name: /^thumb/ }).locator('img')).toHaveAttribute('src', /\/thumbnail\?v=\d+/, { timeout: 10_000 })
     }).toPass({ timeout: 90_000 })
     const image = await page.request.get(`/api/coloring/arts/${id}/thumbnail`)
+
     expect(image.status()).toBe(200)
     expect(image.headers()['content-type']).toMatch(/^image\/(webp|png)$/)
     expect((await image.body()).length).toBeGreaterThan(100)
@@ -366,6 +409,7 @@ test.describe('history with the database', () => {
     const areas = (art.art.items as { type: string, id: number, kind: string }[]).filter(item => item.type === 'region' && item.kind === 'area')
     const fills = areas.map(area => [{ type: 'fill', region: area.id, color: '#e53935' }])
     const saved = await page.request.put(`/api/coloring/arts/${id}/history`, { data: { attempt: 0, rev: 0, keep: 0, steps: fills, cursor: fills.length, percent: 100 } })
+
     expect(saved.status()).toBe(200)
 
     await page.goto(`/coloring/art/${id}`)

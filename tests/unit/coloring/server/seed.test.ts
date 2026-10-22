@@ -16,22 +16,27 @@ const sources: BuiltinArtSource[] = [
 
 async function createDatabase() {
   const db = drizzle(new PGlite())
+
   await migrate(db, { migrationsFolder: 'layers/core/server/db/migrations' })
+
   return db
 }
 
 describe('seedBuiltinArts', () => {
   it('stores the three built-in arts as valid normalized art, first card last in insertion order', async () => {
     const db = await createDatabase()
+
     await seedBuiltinArts(db, sources)
     const rows = await db.select().from(arts).orderBy(arts.seq)
 
     expect(rows.map(row => row.builtinKey)).toEqual(['house', 'cat', 'octopus'])
+
     for (const row of rows) expect(artSchema.safeParse(row.data).success).toBe(true)
   })
 
   it('is idempotent and refreshes an existing art without moving it', async () => {
     const db = await createDatabase()
+
     await seedBuiltinArts(db, sources)
     const [before] = await db.select().from(arts).where(eq(arts.builtinKey, 'cat'))
 

@@ -14,6 +14,7 @@ import { convertSvg } from '../../../../layers/coloring/shared/svg'
 
 const SQUARE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="#fff"/></svg>'
 const converted = convertSvg(SQUARE)
+
 if (!converted.ok) throw new Error('fixture SVG must convert')
 
 const step = (region: number): HistoryStep => [{ type: 'fill', region, color: '#e53935' }]
@@ -27,7 +28,9 @@ const save = (patch: Partial<SaveHistoryRequest> & Pick<SaveHistoryRequest, 'kee
 
 async function createDatabase() {
   const db = drizzle(new PGlite())
+
   await migrate(db, { migrationsFolder: 'layers/core/server/db/migrations' })
+
   return db
 }
 
@@ -40,12 +43,15 @@ describe('history services', () => {
   const newUser = async () => {
     counter += 1
     const [row] = await db.insert(users).values({ username: `h${counter}`, usernameKey: `h${counter}`, country: 'DE' }).returning()
+
     return row!.id
   }
 
   const newArt = async (owner: string) => {
     const result = await importArt(db, owner, `Рисунок ${counter}`, converted.art)
+
     if (!result.ok) throw new Error('import failed')
+
     return result.id
   }
 
@@ -97,6 +103,7 @@ describe('history services', () => {
     await saveHistory(db, anna, artId, save({ rev: 1, keep: 1, steps: [step(9)] }))
 
     const history = await loadHistory(db, anna, artId)
+
     expect(history.steps).toEqual([step(1), step(9)])
     expect(history.cursor).toBe(2)
     expect((await storedSteps()).map(row => row.seq).sort()).toEqual([1, 2])
@@ -123,6 +130,7 @@ describe('history services', () => {
 
     expect([first.ok, second.ok].filter(Boolean)).toHaveLength(1)
     const history = await loadHistory(db, anna, artId)
+
     expect(history.steps).toHaveLength(2)
     expect(history.rev).toBe(2)
   })
@@ -149,12 +157,14 @@ describe('history services', () => {
     await saveHistory(db, anna, artId, save({ attempt: 0, rev: 0, keep: 0, steps: [step(1)], percent: 100 }))
 
     const item = (await listGallery(db, anna)).items.find(entry => entry.id === artId)
+
     expect(item).toMatchObject({ percent: 100, completed: true, attempt: 1 })
   })
 
   it('keeps one player\'s steps away from another player', async () => {
     await fresh()
     const boris = await newUser()
+
     await saveHistory(db, anna, artId, save({ attempt: 0, rev: 0, keep: 0, steps: [step(1)] }))
 
     expect(await loadHistory(db, boris, artId)).toMatchObject({ attempt: 0, steps: [] })
@@ -185,9 +195,11 @@ describe('history services', () => {
     await fresh()
     const stroke: HistoryStep = [{ type: 'stroke', region: 1, tool: 'brush', color: '#e53935', width: 40, points: [1, 2, 3, 4] }]
     const log = new HistoryLog({ attempt: 0, rev: 0, cursor: 0, steps: [] })
+
     log.push(stroke)
     log.push(step(2))
     const request = log.nextSave(0)!
+
     await saveHistory(db, anna, artId, request)
 
     const stored = await loadHistory(db, anna, artId)

@@ -10,4 +10,5 @@ export const ColoringRoutes = {
   ADMIN_PLAYERS: 'admin-coloring-players',
   ADMIN_PLAYER_ART: 'admin-coloring-player-art',
   ADMIN_SETTINGS: 'admin-coloring-settings',
+  ADMIN_PALETTE: 'admin-coloring-palette',
 } as const

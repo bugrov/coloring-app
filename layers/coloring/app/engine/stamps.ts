@@ -14,9 +14,11 @@ export class StampWalker {
   /** Returns stamp centres for the new points, as a flat x, y list. */
   walk(points: readonly number[]): number[] {
     const stamps: number[] = []
+
     for (let i = 0; i + 1 < points.length; i += 2) {
       const x = points[i]!
       const y = points[i + 1]!
+
       if (!this.started) {
         this.started = true
         this.lastX = x
@@ -29,8 +31,10 @@ export class StampWalker {
       const dy = y - this.lastY
       const length = Math.hypot(dx, dy)
       let distance = this.spacing - this.carry
+
       while (distance <= length) {
         const t = distance / length
+
         stamps.push(this.lastX + dx * t, this.lastY + dy * t)
         distance += this.spacing
       }
@@ -38,6 +42,7 @@ export class StampWalker {
       this.lastX = x
       this.lastY = y
     }
+
     return stamps
   }
 }

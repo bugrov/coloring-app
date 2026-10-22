@@ -11,13 +11,32 @@ const props = defineProps<{
 const emit = defineEmits<{ confirm: [], cancel: [] }>()
 
 const dialog = ref<HTMLDialogElement>()
+/** What had the focus before the dialog opened; it gets it back when the dialog goes away. */
+let opener: HTMLElement | null = null
 
 // The native <dialog> gives a focus trap, Escape and a backdrop; Vue only mirrors `open` onto it.
-watch(() => props.open, (open) => {
+function mirror(open: boolean) {
   if (!dialog.value) return
-  if (open && !dialog.value.open) dialog.value.showModal()
+
+  if (open && !dialog.value.open) {
+    opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    dialog.value.showModal()
+  }
+
   if (!open && dialog.value.open) dialog.value.close()
-}, { flush: 'post', immediate: true })
+}
+
+// The element does not exist while the component is being set up (it is mounted already open when the
+// parent adds it with `v-if`), so the first state is mirrored after mounting, the later ones on change.
+onMounted(() => mirror(props.open))
+watch(() => props.open, mirror, { flush: 'post' })
+
+// A parent may remove the dialog instead of closing it: the native close (and its focus return) never happens then.
+onBeforeUnmount(() => {
+  dialog.value?.close()
+
+  if (opener?.isConnected) opener.focus()
+})
 </script>
 
 <template>

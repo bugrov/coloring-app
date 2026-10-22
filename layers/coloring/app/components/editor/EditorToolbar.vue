@@ -1,15 +1,14 @@
 <script setup lang="ts">
-import { PALETTE } from '../../../shared'
 import type { Tool } from '../../../shared'
 import brushImage from '../../assets/editor/brush.svg'
 import eraserImage from '../../assets/editor/eraser.svg'
 import pencilImage from '../../assets/editor/pencil.svg'
 
 // Top to bottom, as in the design.
-const TOOLS: { name: Tool, label: string, image: string, flipped: boolean }[] = [
-  { name: 'brush', label: 'Кисть', image: brushImage, flipped: false },
-  { name: 'pencil', label: 'Карандаш', image: pencilImage, flipped: true },
-  { name: 'eraser', label: 'Резинка', image: eraserImage, flipped: true },
+const TOOLS: { name: Tool, label: string, image: string }[] = [
+  { name: 'brush', label: 'Кисть', image: brushImage },
+  { name: 'pencil', label: 'Карандаш', image: pencilImage },
+  { name: 'eraser', label: 'Резинка', image: eraserImage },
 ]
 /** At most this many crayons animate one after another when the palette opens (about 250 ms in all). */
 const STAGGER_COUNT = 8
@@ -19,12 +18,12 @@ const root = ref<HTMLElement>()
 const palette = ref<HTMLElement>()
 
 function colorName(hex: string): string {
-  return PALETTE.find(entry => entry.hex === hex)?.name ?? hex
+  return editor.palette.find(entry => entry.hex === hex)?.name ?? hex
 }
 
 /** Position counted from the bottom crayon, capped: the first ones in view arrive in a quick sequence. */
 function staggerIndex(index: number): number {
-  return Math.min(PALETTE.length - 1 - index, STAGGER_COUNT)
+  return Math.min(editor.palette.length - 1 - index, STAGGER_COUNT)
 }
 
 function pickRecent(hex: string) {
@@ -63,14 +62,15 @@ onBeforeUnmount(() => {
 // colour, which is also scrolled to the middle; closing brings focus back to the chosen crayon.
 watch(() => editor.paletteOpen, async (open) => {
   await nextTick()
+
   if (open) {
     const list = palette.value
     const chosen = list?.querySelector<HTMLElement>('[aria-pressed="true"]')
+
     if (!list || !chosen) return
     list.scrollTop = chosen.offsetTop - (list.clientHeight - chosen.offsetHeight) / 2
     chosen.focus({ preventScroll: true })
-  }
-  else if (root.value?.contains(document.activeElement) || document.activeElement === document.body) {
+  } else if (root.value?.contains(document.activeElement) || document.activeElement === document.body) {
     root.value?.querySelector<HTMLElement>('.toolbar__recent [aria-pressed="true"]')?.focus()
   }
 })
@@ -101,7 +101,6 @@ watch(() => editor.paletteOpen, async (open) => {
       >
         <img
           class="toolbar__tool"
-          :class="{ 'toolbar__tool--flipped': tool.flipped }"
           :src="tool.image"
           alt=""
           draggable="false"
@@ -144,7 +143,7 @@ watch(() => editor.paletteOpen, async (open) => {
       aria-label="Все цвета"
     >
       <button
-        v-for="(swatch, index) in PALETTE"
+        v-for="(swatch, index) in editor.palette"
         :key="swatch.hex"
         type="button"
         class="toolbar__item toolbar__item--arriving"
@@ -161,13 +160,15 @@ watch(() => editor.paletteOpen, async (open) => {
 </template>
 
 <style scoped lang="scss">
+// `clip`, not `hidden`: a hidden box can still be scrolled, and focusing a crayon that waits behind the
+// screen edge scrolled the whole rail sideways (the brush lost its tip).
 .toolbar {
   position: relative;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   height: 100%;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .toolbar__tools,
@@ -234,17 +235,15 @@ watch(() => editor.paletteOpen, async (open) => {
   pointer-events: none;
 }
 
-.toolbar__tool--flipped {
-  transform: scaleY(-1);
-}
-
 .toolbar__item--arriving {
   animation: toolbar-arrive var(--duration-fast) var(--ease-out) both;
   animation-delay: calc(var(--i) * 12ms);
 }
 
 // Crayons swap places when a colour is picked; the one dropping out leaves at once.
+// A flex box, so that the line box of a bare button does not add a few pixels under every crayon.
 .toolbar__slot {
+  display: flex;
   flex: none;
 }
 

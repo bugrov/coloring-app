@@ -13,10 +13,12 @@ const options = countryOptions()
 
 const chosenCountries = ref<string[]>([...props.countries])
 const chosenPlayers = ref<AdminPlayer[]>([...props.players])
+
 watch(() => props.countries, value => (chosenCountries.value = [...value]))
 watch(() => props.players, value => (chosenPlayers.value = [...value]))
 
 const pickedCountry = ref('')
+
 function addCountry() {
   if (pickedCountry.value && !chosenCountries.value.includes(pickedCountry.value)) chosenCountries.value.push(pickedCountry.value)
   pickedCountry.value = ''
@@ -33,7 +35,7 @@ const everyone = computed(() => chosenCountries.value.length === 0 && chosenPlay
 
 <template>
   <section
-    class="assign"
+    class="admin-card"
     aria-labelledby="assign-heading"
   >
     <h2
@@ -51,23 +53,24 @@ const everyone = computed(() => chosenCountries.value.length === 0 && chosenPlay
         class="assign__label"
         for="assign-country"
       >Страна</label>
-      <select
+      <FormSelect
         id="assign-country"
         v-model="pickedCountry"
+        on-surface
         class="assign__input"
         @change="addCountry"
       >
-        <option value="">
+        <FormOption value="">
           Добавить страну…
-        </option>
-        <option
+        </FormOption>
+        <FormOption
           v-for="option in options"
           :key="option.code"
           :value="option.code"
         >
           {{ option.name }}
-        </option>
-      </select>
+        </FormOption>
+      </FormSelect>
     </div>
     <ul
       class="assign__chips"
@@ -98,14 +101,15 @@ const everyone = computed(() => chosenCountries.value.length === 0 && chosenPlay
         class="assign__label"
         for="assign-player"
       >Игрок</label>
-      <input
+      <FormInput
         id="assign-player"
         v-model="query"
+        on-surface
         class="assign__input"
         type="search"
         placeholder="Начало имени"
         autocomplete="off"
-      >
+      />
       <button
         class="button button--ghost"
         type="submit"
@@ -171,14 +175,6 @@ const everyone = computed(() => chosenCountries.value.length === 0 && chosenPlay
 </template>
 
 <style scoped lang="scss">
-.assign {
-  display: grid;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border-radius: var(--radius-m);
-  background: var(--color-surface);
-}
-
 .assign__heading {
   margin: 0;
   font-size: var(--font-size-m);
@@ -203,18 +199,8 @@ const everyone = computed(() => chosenCountries.value.length === 0 && chosenPlay
 
 .assign__input {
   flex: 1;
+  width: auto;
   min-width: 160px;
-  min-height: 44px;
-  padding: 0 var(--space-3);
-  border: 2px solid var(--color-bg);
-  border-radius: var(--radius-m);
-  background: var(--color-surface);
-  font: inherit;
-}
-
-.assign__input:focus-visible {
-  border-color: var(--color-accent);
-  outline: none;
 }
 
 .assign__chips,

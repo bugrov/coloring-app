@@ -3,13 +3,14 @@ import { ColoringRoutes } from '../../../../../../shared/routes'
 import type { ColoringStageHandle } from '../../../../../composables/useColoringStage'
 
 definePageMeta({ name: ColoringRoutes.ADMIN_PLAYER_ART, auth: 'admin' })
-useHead({ title: 'Рисунок игрока: администратор', meta: [{ name: 'robots', content: 'noindex' }] })
+useHead({ title: 'Рисунок игрока: администратор' })
 
 const route = useRoute()
 const playerId = computed(() => String(route.params.playerId))
 const artId = computed(() => String(route.params.artId))
 const attempt = computed(() => {
   const value = Number(route.query.attempt)
+
   return Number.isInteger(value) && value > 0 ? value : undefined
 })
 

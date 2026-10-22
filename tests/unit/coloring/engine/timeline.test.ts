@@ -31,6 +31,7 @@ function fakeHost() {
     swap(delta: FakeDelta) {
       host.swapped++
       const current = host.picture
+
       host.picture = [...delta.saved]
       delta.saved = current
     },
@@ -43,6 +44,7 @@ function fakeHost() {
     },
     snapshot() {
       host.snapshots++
+
       return [...host.picture]
     },
     restore(snapshot: number[]) {
@@ -51,6 +53,7 @@ function fakeHost() {
     },
     release() { host.released++ },
   }
+
   return host satisfies PaintHost<number[], FakeDelta> & Record<string, unknown>
 }
 
@@ -77,6 +80,7 @@ describe('Timeline: a long history', () => {
   it('goes back and forth with a restore and fewer than CHECKPOINT_EVERY steps of replay', async () => {
     const host = fakeHost()
     const timeline = new Timeline<number[], FakeDelta>(host)
+
     await timeline.load(history(1000))
 
     for (let i = 0; i < UNDO_LIMIT; i++) {
@@ -98,6 +102,7 @@ describe('Timeline: a long history', () => {
   it('does not hold more snapshots as the player keeps drawing', async () => {
     const host = fakeHost()
     const timeline = new Timeline<number[], FakeDelta>(host)
+
     await timeline.load(history(0))
 
     for (let i = 1; i <= 1000; i++) {
@@ -114,6 +119,7 @@ describe('Timeline: undo, redo and new steps', () => {
   it('shows the picture of the cursor after an undo, a redo and a new step', async () => {
     const host = fakeHost()
     const timeline = new Timeline<number[], FakeDelta>(host)
+
     await timeline.load(history(0))
 
     for (let i = 1; i <= 60; i++) {
@@ -140,7 +146,9 @@ describe('Timeline: undo, redo and new steps', () => {
   it('forgets the snapshots of an undone branch when a new step replaces it', async () => {
     const host = fakeHost()
     const timeline = new Timeline<number[], FakeDelta>(host)
+
     await timeline.load(history(80))
+
     for (let i = 0; i < 40; i++) timeline.undo()
 
     host.picture.push(500)
@@ -156,6 +164,7 @@ describe('Timeline: undo, redo and new steps', () => {
   it('starts blank when a fresh, empty history is loaded (start over)', async () => {
     const host = fakeHost()
     const timeline = new Timeline<number[], FakeDelta>(host)
+
     await timeline.load(history(60))
 
     await timeline.load({ attempt: 2, rev: 0, cursor: 0, steps: [] })
@@ -171,6 +180,7 @@ describe('Timeline: the pixels of single steps', () => {
   /** Draws a step the way the editor does: the picture changes, the delta is what it was before. */
   const draw = (host: ReturnType<typeof fakeHost>, timeline: Timeline<number[], FakeDelta>, region: number, pixels = 10) => {
     const delta = { saved: [...host.picture], pixels }
+
     host.picture.push(region)
     timeline.record(step(region), delta)
   }
@@ -178,7 +188,9 @@ describe('Timeline: the pixels of single steps', () => {
   it('undoes and redoes the latest steps by swapping pixels, without replaying anything', async () => {
     const host = fakeHost()
     const timeline = new Timeline<number[], FakeDelta>(host)
+
     await timeline.load(history(0))
+
     for (let i = 1; i <= 30; i++) draw(host, timeline, i)
     host.applied = 0
     host.restores = 0
@@ -187,6 +199,7 @@ describe('Timeline: the pixels of single steps', () => {
       timeline.undo()
       expect(host.picture).toEqual(upTo(i))
     }
+
     for (let i = 11; i <= 30; i++) {
       timeline.redo()
       expect(host.picture).toEqual(upTo(i))
@@ -200,6 +213,7 @@ describe('Timeline: the pixels of single steps', () => {
   it('saves the pixels of the latest steps while a history loads, so they undo quickly after a reload', async () => {
     const host = fakeHost()
     const timeline = new Timeline<number[], FakeDelta>(host)
+
     await timeline.load(history(150))
     host.applied = 0
 
@@ -215,8 +229,10 @@ describe('Timeline: the pixels of single steps', () => {
 
   it('falls back to a snapshot and replay for a step that has no pixels saved', async () => {
     const host = fakeHost()
+
     host.capture = () => null
     const timeline = new Timeline<number[], FakeDelta>(host)
+
     await timeline.load(history(60))
     host.applied = 0
 
@@ -230,6 +246,7 @@ describe('Timeline: the pixels of single steps', () => {
   it('keeps the memory of the saved pixels within the budget, dropping the oldest first', async () => {
     const host = fakeHost()
     const timeline = new Timeline<number[], FakeDelta>(host)
+
     await timeline.load(history(0))
 
     for (let i = 1; i <= 10; i++) draw(host, timeline, i, 5_000_000)
@@ -247,7 +264,9 @@ describe('Timeline: the pixels of single steps', () => {
   it('drops the pixels of an undone branch when a new step replaces it', async () => {
     const host = fakeHost()
     const timeline = new Timeline<number[], FakeDelta>(host)
+
     await timeline.load(history(0))
+
     for (let i = 1; i <= 5; i++) draw(host, timeline, i)
     timeline.undo()
     timeline.undo()
@@ -265,7 +284,9 @@ describe('Timeline: the pixels of single steps', () => {
   it('forgets the pixels when the history is replaced', async () => {
     const host = fakeHost()
     const timeline = new Timeline<number[], FakeDelta>(host)
+
     await timeline.load(history(0))
+
     for (let i = 1; i <= 3; i++) draw(host, timeline, i)
 
     // The new history brings its own pixels (saved while it loads), none of the old ones remain.
@@ -281,6 +302,7 @@ describe('Timeline: a conflict', () => {
   it('rebuilds the picture from the server steps with the local ones on top', async () => {
     const host = fakeHost()
     const timeline = new Timeline<number[], FakeDelta>(host)
+
     await timeline.load(history(3))
     host.picture.push(10)
     timeline.record(step(10))
@@ -294,6 +316,7 @@ describe('Timeline: a conflict', () => {
   it('leaves the picture alone for a resent save that had arrived', async () => {
     const host = fakeHost()
     const timeline = new Timeline<number[], FakeDelta>(host)
+
     await timeline.load(history(2))
     host.picture.push(3)
     timeline.record(step(3))
@@ -303,5 +326,64 @@ describe('Timeline: a conflict', () => {
 
     expect(result.rebuild).toBe(false)
     expect(host.applied).toBe(before)
+  })
+})
+
+describe('Timeline: a rebuild that is no longer wanted', () => {
+  it('stops applying steps once the timeline is disposed, and holds nothing', async () => {
+    const host = fakeHost()
+    const timeline = new Timeline<number[], FakeDelta>(host)
+    const loading = timeline.load(history(200))
+
+    timeline.dispose()
+    await loading
+
+    // Only the chunk that was already running was applied.
+    expect(host.applied).toBeLessThanOrEqual(CHECKPOINT_EVERY)
+    expect(timeline.checkpointCount).toBe(0)
+    expect(timeline.deltaCount).toBe(0)
+  })
+
+  it('does not touch the picture again when a later rebuild has taken over', async () => {
+    const host = fakeHost()
+    const timeline = new Timeline<number[], FakeDelta>(host)
+    const first = timeline.load(history(200))
+    const second = timeline.load(history(50))
+
+    await Promise.all([first, second])
+
+    expect(host.picture).toEqual(upTo(50))
+  })
+
+  it('takes a new step into no account after it is disposed, and gives its pixels back', () => {
+    const host = fakeHost()
+    const timeline = new Timeline<number[], FakeDelta>(host)
+
+    timeline.dispose()
+    timeline.record(step(1), { saved: [], pixels: 10 })
+
+    expect(timeline.log.length).toBe(0)
+    expect(host.discarded).toBe(1)
+  })
+})
+
+describe('Timeline: a save that arrived whose answer was lost', () => {
+  it('keeps the picture as it is when the server holds only steps the editor has too', async () => {
+    const host = fakeHost()
+    const timeline = new Timeline<number[], FakeDelta>(host)
+
+    await timeline.load(history(2))
+    timeline.record(step(3))
+    timeline.record(step(4))
+    const appliedBefore = host.applied
+
+    const result = await timeline.reconcile(history(3, 3, 5))
+
+    expect(result).toEqual({ rebuild: false, merged: false })
+    expect(host.applied).toBe(appliedBefore)
+    // The fake host does not draw the recorded steps itself: what counts is that nothing was cleared or replayed.
+    expect(host.picture).toEqual([1, 2])
+    expect(timeline.log.length).toBe(4)
+    expect(timeline.log.rev).toBe(5)
   })
 })

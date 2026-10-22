@@ -23,6 +23,7 @@ function clampOffset(value: number, size: number, scale: number): number {
  */
 export function clampView(view: View, width: number, height: number): View {
   const scale = clampScale(view.scale)
+
   return { scale, x: clampOffset(view.x, width, scale), y: clampOffset(view.y, height, scale) }
 }
 
@@ -30,6 +31,7 @@ export function clampView(view: View, width: number, height: number): View {
 export function zoomAt(view: View, factor: number, px: number, py: number, width: number, height: number): View {
   const scale = clampScale(view.scale * factor)
   const ratio = scale / view.scale
+
   return clampView({ scale, x: px - (px - view.x) * ratio, y: py - (py - view.y) * ratio }, width, height)
 }
 

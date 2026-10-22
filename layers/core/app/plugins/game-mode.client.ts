@@ -12,6 +12,7 @@ export default defineNuxtPlugin(() => {
   // iOS Safari ignores viewport scaling limits and pinch-zooms the page via
   // its proprietary gesture events.
   const preventDefault = (event: Event) => event.preventDefault()
+
   for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
     document.addEventListener(type, preventDefault, { passive: false })
   }

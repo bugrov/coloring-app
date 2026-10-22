@@ -48,6 +48,9 @@ export class Timeline<Snapshot, Delta = never> {
   /** Saved pixels of single steps by the step's index (0 is the first step). */
   private readonly deltas = new Map<number, Delta>()
   private deltaPixels = 0
+  /** Counts the rebuilds (and the disposal): a rebuild that finds the count moved on stops, so it never touches the picture of a later owner. */
+  private epoch = 0
+  private disposed = false
 
   constructor(private readonly host: PaintHost<Snapshot, Delta>) {}
 
@@ -60,26 +63,37 @@ export class Timeline<Snapshot, Delta = never> {
   /** Opens an attempt: the server's version and the work an earlier visit left unsent. */
   async open(server: HistoryState, unsent: UnsentHistory | null): Promise<Reconciliation> {
     const result = this.log.restore(server, unsent)
+
     await this.rebuild()
+
     return result
   }
 
   /** Puts the server's newer version together with the local steps (see `HistoryLog.reconcile`). */
   async reconcile(server: HistoryState): Promise<Reconciliation> {
     const result = this.log.reconcile(server)
+
     if (result.rebuild) await this.rebuild()
+
     return result
   }
 
   /** A step the player just drew: the picture already shows it. `delta` is what it covered before. */
   record(step: HistoryStep, delta?: Delta | null) {
+    if (this.disposed) {
+      if (delta) this.host.discard(delta)
+
+      return
+    }
     const before = this.log.cursor
+
     this.log.push(step)
     this.applied = this.log.cursor
     // The old redo branch is gone, snapshots and deltas of it with it.
     this.dropCheckpoints(index => index > before)
     this.dropCheckpoints(index => index < this.firstCheckpoint())
     this.dropDeltas(index => index >= before || index < this.log.floor)
+
     if (delta) this.keepDelta(before, delta)
     this.keepCheckpoint(this.applied)
   }
@@ -87,16 +101,20 @@ export class Timeline<Snapshot, Delta = never> {
   undo(): boolean {
     if (!this.log.undo()) return false
     this.moveTo(this.log.cursor)
+
     return true
   }
 
   redo(): boolean {
     if (!this.log.redo()) return false
     this.moveTo(this.log.cursor)
+
     return true
   }
 
   dispose() {
+    this.disposed = true
+    this.epoch++
     this.releaseAll()
   }
 
@@ -138,9 +156,11 @@ export class Timeline<Snapshot, Delta = never> {
   private keepDelta(index: number, delta: Delta) {
     this.deltas.set(index, delta)
     this.deltaPixels += this.host.cost(delta)
+
     // Over the budget the oldest go first: those are the steps least likely to be undone next.
     while (this.deltaPixels > DELTA_BUDGET_PIXELS && this.deltas.size > 0) {
       const oldest = Math.min(...this.deltas.keys())
+
       this.dropDeltas(candidate => candidate === oldest)
     }
   }
@@ -156,17 +176,26 @@ export class Timeline<Snapshot, Delta = never> {
 
   /** Replays the whole history from a blank picture, in chunks, keeping the snapshots on the way. */
   private async rebuild() {
+    // The picture belongs to whoever owns the timeline now: a disposed one leaves it alone.
+    if (this.disposed) return
+    const mine = ++this.epoch
+
     this.releaseAll()
     this.host.clear()
     this.applied = 0
     const target = this.log.cursor
     // The latest steps get their pixels saved on the way, so undoing them after a reload is as quick as right after drawing.
     const saveFrom = Math.max(0, target - UNDO_LIMIT)
+
     while (this.applied < target) {
       const next = Math.min(target, this.applied + REBUILD_CHUNK)
+
       // Reading the canvas back for the progress is the costly part: once at the end, not after every chunk.
       this.replay(this.applied, next, saveFrom, next === target)
       await pause()
+
+      // Disposed, or a newer rebuild started meanwhile: this one must not go on applying old steps.
+      if (mine !== this.epoch) return
     }
   }
 
@@ -175,28 +204,31 @@ export class Timeline<Snapshot, Delta = never> {
     // One step either way and its pixels are at hand: swap them, no replay.
     if (Math.abs(target - this.applied) === 1) {
       const delta = this.deltas.get(Math.min(target, this.applied))
+
       if (delta !== undefined) {
         this.host.swap(delta)
         this.applied = target
         this.host.settle()
         this.keepCheckpoint(target)
+
         return
       }
     }
     let from = this.applied
+
     if (target < from) {
       const base = this.nearest(index => index <= target)
+
       if (base === undefined) {
         this.host.clear()
         from = 0
-      }
-      else {
+      } else {
         this.host.restore(this.checkpoints.get(base)!)
         from = base
       }
-    }
-    else {
+    } else {
       const ahead = this.nearest(index => index > from && index <= target)
+
       if (ahead !== undefined) {
         this.host.restore(this.checkpoints.get(ahead)!)
         from = ahead
@@ -208,9 +240,11 @@ export class Timeline<Snapshot, Delta = never> {
   /** The highest checkpoint index that passes `accept`. */
   private nearest(accept: (index: number) => boolean): number | undefined {
     let best: number | undefined
+
     for (const index of this.checkpoints.keys()) {
       if (accept(index) && (best === undefined || index > best)) best = index
     }
+
     return best
   }
 
@@ -218,8 +252,10 @@ export class Timeline<Snapshot, Delta = never> {
   private replay(from: number, to: number, saveDeltasFrom = Infinity, settle = true) {
     for (let index = from; index < to; index++) {
       const step = this.log.stepAt(index)
+
       if (index >= saveDeltasFrom) {
         const delta = this.host.capture(step)
+
         if (delta) this.keepDelta(index, delta)
       }
       this.host.apply(step)
@@ -227,6 +263,7 @@ export class Timeline<Snapshot, Delta = never> {
       this.keepCheckpoint(this.applied)
     }
     this.applied = to
+
     if (settle) this.host.settle()
   }
 }

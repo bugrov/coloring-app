@@ -3,7 +3,7 @@ import type { AdminPlayer, PlayerArt } from '../../shared'
 
 /** Finding a player by the beginning of the name. */
 export function usePlayerSearch() {
-  const api = useRequestFetch()
+  const api = useApi()
   const query = ref('')
   const found = ref<AdminPlayer[]>([])
   const error = ref('')
@@ -12,12 +12,13 @@ export function usePlayerSearch() {
   async function search(): Promise<void> {
     error.value = ''
     const text = query.value.trim()
+
     if (!text) return
+
     try {
       found.value = await api<AdminPlayer[]>('/api/admin/coloring/players', { query: { query: text } })
       searched.value = true
-    }
-    catch (failure) {
+    } catch (failure) {
       error.value = readApiError(failure).message
     }
   }
@@ -27,19 +28,20 @@ export function usePlayerSearch() {
 
 /** Finding a player and listing what they have started. */
 export function useAdminPlayers() {
-  const api = useRequestFetch()
+  const api = useApi()
   const { query, found, error, searched, search } = usePlayerSearch()
   const selected = ref<AdminPlayer | null>(null)
   const arts = ref<PlayerArt[]>([])
 
   async function select(player: AdminPlayer): Promise<void> {
     error.value = ''
+
     try {
       const result = await api<{ player: AdminPlayer, arts: PlayerArt[] }>(`/api/admin/coloring/players/${player.id}/arts`)
+
       selected.value = result.player
       arts.value = result.arts
-    }
-    catch (failure) {
+    } catch (failure) {
       error.value = readApiError(failure).message
     }
   }

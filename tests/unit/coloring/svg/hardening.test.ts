@@ -14,6 +14,7 @@ const errorOf = (result: SvgConversion) => (result.ok ? null : result.error)
 function timed(source: string): { result: SvgConversion, ms: number } {
   const started = performance.now()
   const result = convertSvg(source)
+
   return { result, ms: performance.now() - started }
 }
 
@@ -64,6 +65,7 @@ describe('SVG hardening: CPU', () => {
 
   it('rejects deep nesting with a clear error instead of overflowing the stack', () => {
     const depth = 1000
+
     expect(errorOf(convertSvg(svg(`${'<g>'.repeat(depth)}${SQUARE}${'</g>'.repeat(depth)}`)))).toBe('too-complex')
   })
 })
@@ -72,6 +74,7 @@ describe('SVG hardening: output size', () => {
   it('rejects <use> fan-out that multiplies a tiny file into a huge result', () => {
     // 5 levels × 5 references to the level below = 3125 copies of one stroke.
     let defs = '<path id="l0" d="M0 0L10 10" stroke="#000" fill="none"/>'
+
     for (let level = 1; level <= 5; level++) {
       defs += `<g id="l${level}">${`<use href="#l${level - 1}"/>`.repeat(5)}</g>`
     }
@@ -137,6 +140,7 @@ describe('SVG hardening: art format', () => {
     if (area?.type !== 'region') throw new Error('Expected an area')
     // The stored path is rounded to 10.12,10.13 – 30.12,30.13; bounds must contain it.
     const [minX, minY, maxX, maxY] = area.bounds
+
     expect(minX).toBeLessThanOrEqual(10.12)
     expect(minY).toBeLessThanOrEqual(10.13)
     expect(maxX).toBeGreaterThanOrEqual(30.12)

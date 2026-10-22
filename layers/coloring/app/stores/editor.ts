@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { DEFAULT_COLOR, DEFAULT_OPACITY, OPACITY_LEVELS } from '../../shared'
-import type { Tool } from '../../shared'
+import { DEFAULT_COLOR, DEFAULT_OPACITY, OPACITY_LEVELS, PALETTE } from '../../shared'
+import type { PaletteColor, Tool } from '../../shared'
 import { MAX_HISTORY_STEPS, type HistoryLog } from '../../shared/history'
 import type { SyncStatus } from '../sync'
 import { DEFAULT_THICKNESS, EMPTY_PROGRESS, THICKNESS_SCALES, type Progress } from '../engine'
@@ -24,6 +24,8 @@ export const useEditorStore = defineStore('coloring-editor', () => {
   const opacity = ref<number>(DEFAULT_OPACITY)
   /** Multiplier of the tool's line width, one of THICKNESS_SCALES. */
   const thickness = ref<number>(DEFAULT_THICKNESS)
+  /** The colours of the panel; the standard set until the art that was opened brings the administrator's. */
+  const palette = ref<readonly PaletteColor[]>(PALETTE)
   const paletteOpen = ref(false)
   const progress = ref<Progress>({ ...EMPTY_PROGRESS })
 
@@ -35,17 +37,33 @@ export const useEditorStore = defineStore('coloring-editor', () => {
   const historyReady = ref(false)
   /** The picture is being rebuilt (a conflict was settled): drawing waits. */
   const rebuilding = ref(false)
+  /** The attempt is being started over: drawing waits until the new one is on the canvas. Its own flag, so that a conflict settled meanwhile cannot lift it. */
+  const restarting = ref(false)
   /** The attempt holds as many steps as it may; nothing more can be drawn until it is started over. */
   const historyFull = ref(false)
   const saveStatus = ref<SyncStatus>('saved')
 
   const color = computed(() => recentColors.value.at(-1)!)
   /** Drawing is possible only on a loaded picture that is not being rebuilt. */
-  const locked = computed(() => !historyReady.value || rebuilding.value || historyFull.value)
+  const locked = computed(() => !historyReady.value || rebuilding.value || restarting.value || historyFull.value)
   /** Starting over makes sense once something was drawn (or undone) in this picture. */
   const canRestart = computed(() => historyLength.value > 0 || progress.value.percent > 0)
+
   function selectColor(hex: string) {
     recentColors.value = [...recentColors.value.filter(entry => entry !== hex), hex].slice(-RECENT_COLOR_COUNT)
+  }
+
+  /** Takes the colours of the administrator; recent colours the new palette no longer has are replaced by its first ones. */
+  function setPalette(colors: readonly PaletteColor[]) {
+    palette.value = colors
+
+    if (colors.length === 0) return
+
+    const offered = colors.map(entry => entry.hex)
+    const kept = recentColors.value.filter(hex => offered.includes(hex))
+    const fillers = offered.filter(hex => !kept.includes(hex)).slice(0, RECENT_COLOR_COUNT - kept.length)
+
+    recentColors.value = [...fillers, ...kept]
   }
 
   function togglePalette(open = !paletteOpen.value) {
@@ -55,12 +73,14 @@ export const useEditorStore = defineStore('coloring-editor', () => {
   /** Steps 100 → 75 → 50 → 25 → 100. */
   function cycleOpacity() {
     const index = (OPACITY_LEVELS as readonly number[]).indexOf(opacity.value)
+
     opacity.value = OPACITY_LEVELS[(index + 1) % OPACITY_LEVELS.length] ?? DEFAULT_OPACITY
   }
 
   /** Steps thin → normal → thick → thin. */
   function cycleThickness() {
     const index = (THICKNESS_SCALES as readonly number[]).indexOf(thickness.value)
+
     thickness.value = THICKNESS_SCALES[(index + 1) % THICKNESS_SCALES.length] ?? DEFAULT_THICKNESS
   }
 
@@ -86,6 +106,7 @@ export const useEditorStore = defineStore('coloring-editor', () => {
     resetPicture()
     historyReady.value = false
     rebuilding.value = false
+    restarting.value = false
     saveStatus.value = 'saved'
     paletteOpen.value = false
   }
@@ -96,6 +117,7 @@ export const useEditorStore = defineStore('coloring-editor', () => {
     color,
     opacity,
     thickness,
+    palette,
     paletteOpen,
     progress,
     canUndo,
@@ -105,9 +127,11 @@ export const useEditorStore = defineStore('coloring-editor', () => {
     historyReady,
     historyFull,
     rebuilding,
+    restarting,
     saveStatus,
     locked,
     selectColor,
+    setPalette,
     togglePalette,
     cycleOpacity,
     cycleThickness,

@@ -32,6 +32,7 @@ export async function signIn(db: Database, { username, country }: SignInInput): 
 
   // A returning player costs one round trip: most sign-ins find their row here.
   const existing = await find()
+
   if (existing) return { user: existing, created: false }
 
   const [created] = await db
@@ -39,10 +40,13 @@ export async function signIn(db: Database, { username, country }: SignInInput): 
     .values({ username: displayName, usernameKey: key, country })
     .onConflictDoNothing({ target: [users.usernameKey, users.country] })
     .returning()
+
   if (created) return { user: created, created: true }
 
   // Lost a race with a concurrent first sign-in of the same player: the winner's row is theirs too.
   const winner = await find()
+
   if (!winner) throw new Error('sign-in found no row after a unique conflict')
+
   return { user: winner, created: false }
 }

@@ -2,22 +2,25 @@ import { PGlite } from '@electric-sql/pglite'
 import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/pglite'
 import { migrate } from 'drizzle-orm/pglite/migrator'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { users } from '../../../../layers/core/server/db/schema'
 import { arts, progress } from '../../../../layers/coloring/server/db/schema'
-import { deleteImport, findVisibleArt, importArt, listGallery } from '../../../../layers/coloring/server/services/arts'
+import { deleteImport, findVisibleArt, getRegionIds, importArt, listGallery } from '../../../../layers/coloring/server/services/arts'
 import { restartArt } from '../../../../layers/coloring/server/services/progress'
 import { GALLERY_PAGE_SIZE, IMPORT_LIMIT } from '../../../../layers/coloring/shared/gallery'
 import { convertSvg } from '../../../../layers/coloring/shared/svg'
 
 const SQUARE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="#fff"/></svg>'
 const converted = convertSvg(SQUARE)
+
 if (!converted.ok) throw new Error('fixture SVG must convert')
 const ART = converted.art
 
 async function createDatabase() {
   const db = drizzle(new PGlite())
+
   await migrate(db, { migrationsFolder: 'layers/core/server/db/migrations' })
+
   return db
 }
 
@@ -30,6 +33,7 @@ describe('gallery services', () => {
   const newUser = async () => {
     counter += 1
     const [row] = await db.insert(users).values({ username: `u${counter}`, usernameKey: `u${counter}`, country: 'DE' }).returning()
+
     return row!.id
   }
 
@@ -54,6 +58,7 @@ describe('gallery services', () => {
 
   it('keeps imports private to their owner', async () => {
     const result = await importArt(db, anna, 'Тайный', ART)
+
     if (!result.ok) throw new Error('import failed')
 
     expect((await listGallery(db, anna)).items.map(item => item.title)).toContain('Тайный')
@@ -62,8 +67,55 @@ describe('gallery services', () => {
     expect(await findVisibleArt(db, anna, result.id)).not.toBeNull()
   })
 
+  it('knows the ids of the regions of an art, and of none that does not exist', async () => {
+    const result = await importArt(db, anna, 'Области', ART)
+
+    if (!result.ok) throw new Error('import failed')
+    const expected = ART.items.flatMap(item => (item.type === 'region' ? [item.id] : []))
+
+    expect([...(await getRegionIds(db, result.id))!].sort()).toEqual([...expected].sort())
+    // Asked again it answers from memory: still the same ids, even though the art is gone from the table.
+    await deleteImport(db, anna, result.id)
+
+    expect([...(await getRegionIds(db, result.id))!].sort()).toEqual([...expected].sort())
+    expect(await getRegionIds(db, '00000000-0000-4000-8000-000000000000')).toBeNull()
+  })
+
+  describe('the cache of region ids', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('forgets an art after a while, so a rewritten art is read again', async () => {
+      vi.useFakeTimers()
+      const [row] = await db.insert(arts).values({ source: 'user', ownerId: anna, title: 'Кеш', data: ART }).returning()
+
+      expect(await getRegionIds(db, row!.id)).not.toBeNull()
+      await db.delete(arts).where(eq(arts.id, row!.id))
+
+      expect(await getRegionIds(db, row!.id)).not.toBeNull()
+      vi.advanceTimersByTime(5 * 60_000 + 1)
+
+      expect(await getRegionIds(db, row!.id)).toBeNull()
+    })
+
+    it('drops the art that was not used for the longest time when it is full', async () => {
+      const rows = await db.insert(arts).values(Array.from({ length: 101 }, (_, index) => ({ source: 'user' as const, ownerId: anna, title: `Кеш ${index}`, data: ART }))).returning()
+
+      for (const row of rows.slice(0, 100)) await getRegionIds(db, row.id)
+      // The first one is used again, so it is the second that is dropped to make room for the last.
+      await getRegionIds(db, rows[0]!.id)
+      await getRegionIds(db, rows[100]!.id)
+      await db.delete(arts).where(eq(arts.ownerId, anna))
+
+      expect(await getRegionIds(db, rows[0]!.id)).not.toBeNull()
+      expect(await getRegionIds(db, rows[1]!.id)).toBeNull()
+    })
+  })
+
   it('pages through everything exactly once by keyset', async () => {
     const reader = await newUser()
+
     for (let index = 0; index < IMPORT_LIMIT; index += 1) {
       expect((await importArt(db, reader, `Арт ${index}`, ART)).ok).toBe(true)
     }
@@ -71,8 +123,10 @@ describe('gallery services', () => {
     const seen: string[] = []
     let cursor: number | undefined
     let pages = 0
+
     do {
       const page = await listGallery(db, reader, cursor)
+
       expect(page.items.length).toBeLessThanOrEqual(GALLERY_PAGE_SIZE)
       seen.push(...page.items.map(item => item.id))
       cursor = page.nextCursor ? Number(page.nextCursor) : undefined
@@ -87,6 +141,7 @@ describe('gallery services', () => {
 
   it('refuses an import beyond the limit', async () => {
     const full = await newUser()
+
     for (let index = 0; index < IMPORT_LIMIT; index += 1) await importArt(db, full, `Арт ${index}`, ART)
 
     expect(await importArt(db, full, 'Лишний', ART)).toEqual({ ok: false, reason: 'limit_reached' })
@@ -95,6 +150,7 @@ describe('gallery services', () => {
   it('shows the latest attempt on the card and keeps the old one', async () => {
     const player = await newUser()
     const imported = await importArt(db, player, 'С прогрессом', ART)
+
     if (!imported.ok) throw new Error('import failed')
     await db.insert(progress).values({ userId: player, artId: imported.id, attempt: 1, percent: 60 })
 
@@ -103,12 +159,14 @@ describe('gallery services', () => {
     expect(await restartArt(db, player, imported.id)).toEqual({ ok: true, attempt: 2, created: true })
     expect((await listGallery(db, player)).items[0]).toMatchObject({ percent: 0, attempt: 2 })
     const attempts = await db.select().from(progress).where(eq(progress.artId, imported.id))
+
     expect(attempts.map(row => row.attempt).sort()).toEqual([1, 2])
   })
 
   it('does not pile up empty attempts when restarted again', async () => {
     const player = await newUser()
     const imported = await importArt(db, player, 'Пустой', ART)
+
     if (!imported.ok) throw new Error('import failed')
     await db.insert(progress).values({ userId: player, artId: imported.id, attempt: 1, percent: 30 })
 
@@ -121,15 +179,18 @@ describe('gallery services', () => {
     const owner = await newUser()
     const other = await newUser()
     const [octopus] = await db.select().from(arts).where(eq(arts.builtinKey, 'octopus'))
+
     await db.insert(progress).values({ userId: owner, artId: octopus!.id, attempt: 1, percent: 80 })
 
     const mine = (await listGallery(db, other)).items.find(item => item.id === octopus!.id)
+
     expect(mine).toMatchObject({ percent: 0, attempt: 0 })
   })
 
   it('has nothing to restart before the first attempt', async () => {
     const player = await newUser()
     const imported = await importArt(db, player, 'Новый', ART)
+
     if (!imported.ok) throw new Error('import failed')
 
     expect(await restartArt(db, player, imported.id)).toEqual({ ok: false, reason: 'not_started' })
@@ -139,6 +200,7 @@ describe('gallery services', () => {
     const owner = await newUser()
     const stranger = await newUser()
     const imported = await importArt(db, owner, 'Удалить', ART)
+
     if (!imported.ok) throw new Error('import failed')
     await db.insert(progress).values({ userId: owner, artId: imported.id })
 

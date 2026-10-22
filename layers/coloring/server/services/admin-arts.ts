@@ -65,13 +65,16 @@ export async function getAdminArt(db: Database, artId: string): Promise<AdminArt
     .from(arts)
     .where(and(eq(arts.id, artId), inArray(arts.source, ADMIN_SOURCES)))
     .limit(1)
+
   return row ? { ...row, source: row.source === 'admin' ? 'admin' : 'builtin' } : null
 }
 
 /** Stores an uploaded art as a draft: players do not see it until it is published. */
 export async function createAdminArt(db: Database, title: string, data: ColoringArt): Promise<string> {
   const [row] = await db.insert(arts).values({ source: 'admin', status: 'draft', title, data }).returning({ id: arts.id })
+
   if (!row) throw new Error('art insert returned no row')
+
   return row.id
 }
 
@@ -79,15 +82,18 @@ export async function createAdminArt(db: Database, title: string, data: Coloring
 export async function updateAdminArt(db: Database, artId: string, patch: { title?: string, status?: ArtStatus }): Promise<'ok' | 'not_found' | 'title_locked'> {
   // The seed refreshes the title of a built-in art at every deploy, so a rename would silently revert.
   const current = await getAdminArt(db, artId)
+
   if (!current) return 'not_found'
   if (patch.title !== undefined && current.source === 'builtin') return 'title_locked'
   await db.update(arts).set(patch).where(eq(arts.id, artId))
+
   return 'ok'
 }
 
 /** Deletes an admin art with its attempts and events. Built-in arts are hidden instead (the seed would bring them back). */
 export async function deleteAdminArt(db: Database, artId: string): Promise<boolean> {
   const deleted = await db.delete(arts).where(and(eq(arts.id, artId), eq(arts.source, 'admin'))).returning({ id: arts.id })
+
   return deleted.length > 0
 }
 
@@ -102,10 +108,12 @@ export async function setAssignments(db: Database, artId: string, assignment: { 
   // An art with no assignments is open to everyone: a list that names players who do not exist
   // must not quietly turn into "nobody listed" and publish a restricted art.
   const known = assignment.players.length === 0 ? 0 : await db.select({ id: users.id }).from(users).where(inArray(users.id, assignment.players)).then(rows => rows.length)
+
   if (known !== new Set(assignment.players).size) return 'unknown_player'
   // The lists go in as JSON: a JS array in a sql template is spread into separate parameters, not an array.
   const countries = JSON.stringify(assignment.countries)
   const players = JSON.stringify(assignment.players)
+
   await db.execute(sql`
     WITH added_countries AS (
       INSERT INTO art_assignments (art_id, country)
@@ -124,5 +132,6 @@ export async function setAssignments(db: Database, artId: string, assignment: { 
         OR COALESCE(user_id::text IN (SELECT jsonb_array_elements_text(${players}::jsonb)), false)
       )
   `)
+
   return 'ok'
 }

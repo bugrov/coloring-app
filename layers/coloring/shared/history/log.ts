@@ -21,6 +21,7 @@ function same(a: unknown, b: unknown): boolean {
   const left = a as Record<string, unknown>
   const right = b as Record<string, unknown>
   const keys = Object.keys(left)
+
   return keys.length === Object.keys(right).length && keys.every(key => key in right && same(left[key], right[key]))
 }
 
@@ -29,7 +30,9 @@ const sameStep = (a: HistoryStep, b: HistoryStep) => same(a, b)
 /** How many steps two histories share from the start. */
 function commonPrefix(a: readonly HistoryStep[], b: readonly HistoryStep[]): number {
   let length = 0
+
   while (length < a.length && length < b.length && sameStep(a[length]!, b[length]!)) length++
+
   return length
 }
 
@@ -108,11 +111,6 @@ export class HistoryLog {
     return this.steps[index]!
   }
 
-  /** Steps `from` (included) to `to` (excluded), flattened into ops. */
-  opsBetween(from: number, to: number) {
-    return this.steps.slice(from, to).flat()
-  }
-
   push(step: HistoryStep) {
     this.cutDuringSend = Math.min(this.cutDuringSend, this.position)
     this.confirmed = Math.min(this.confirmed, this.position)
@@ -124,12 +122,14 @@ export class HistoryLog {
   undo(): boolean {
     if (!this.canUndo) return false
     this.position--
+
     return true
   }
 
   redo(): boolean {
     if (!this.canRedo) return false
     this.position++
+
     return true
   }
 
@@ -141,6 +141,7 @@ export class HistoryLog {
   /** The work that is not on the server yet, or null when everything is saved. */
   get unsent(): UnsentHistory | null {
     if (!this.dirty) return null
+
     return { attempt: this.attempt, rev: this.rev, keep: this.confirmed, steps: this.steps.slice(this.confirmed), cursor: this.position }
   }
 
@@ -157,21 +158,27 @@ export class HistoryLog {
     if (this.sending || !this.dirty) return null
     const steps: HistoryStep[] = []
     let bytes = 0
+
     for (const step of this.steps.slice(this.confirmed, this.confirmed + MAX_BATCH_STEPS)) {
       bytes += JSON.stringify(step).length
+
       if (steps.length > 0 && bytes > MAX_BATCH_BYTES) break
       steps.push(step)
     }
     const cursor = Math.min(this.position, this.confirmed + steps.length)
+
     this.sending = { keep: this.confirmed, count: steps.length, cursor }
     this.cutDuringSend = Infinity
+
     return { attempt: this.attempt, rev: this.rev, keep: this.confirmed, steps, cursor, percent }
   }
 
   /** The server took the save that was on its way. */
   accepted(attempt: number, rev: number) {
     const sent = this.sending
+
     this.sending = null
+
     if (!sent) return
     this.attempt = attempt
     this.rev = rev
@@ -197,18 +204,35 @@ export class HistoryLog {
     // server keeps. (Attempt 0 is "not started yet": another device creating attempt 1 is a normal conflict.)
     if (this.attempt !== 0 && server.attempt !== this.attempt) return this.takeServer(server)
     const shared = commonPrefix(this.steps, server.steps)
+
+    // Everything the server has is ours too: an earlier save arrived but its answer was lost (a timeout on a
+    // slow network), and the player drew on since. The picture is right as it is; only the bookkeeping moves on.
+    if (shared === server.steps.length && this.steps.length > shared) {
+      this.attempt = server.attempt
+      this.rev = server.rev
+      this.confirmed = shared
+      this.serverCursor = server.cursor
+      this.sending = null
+      this.cutDuringSend = Infinity
+
+      return { rebuild: false, merged: false }
+    }
     const unsent = this.steps.slice(shared, this.position)
 
     if (unsent.length === 0) {
       // A resent save that had arrived after all: the editor already is the server's version.
       const stored = shared === this.steps.length && shared === server.steps.length
       const cursor = stored ? this.position : server.cursor
+
       this.load({ ...server, cursor })
+
       if (stored && cursor !== server.cursor) this.serverCursor = server.cursor
+
       return { rebuild: !stored, merged: false }
     }
 
     this.loadOnTop(server, server.cursor, unsent, server.cursor + unsent.length)
+
     return { rebuild: true, merged: true }
   }
 
@@ -224,21 +248,27 @@ export class HistoryLog {
     if (!unsent || (unsent.attempt !== 0 && unsent.attempt !== server.attempt)) return this.takeServer(server)
     if (unsent.rev === server.rev && unsent.keep <= server.steps.length) {
       this.loadOnTop(server, unsent.keep, unsent.steps, unsent.cursor)
+
       return { rebuild: true, merged: false }
     }
     const stored = unsent.steps.every((step, index) => {
       const onServer = server.steps[unsent.keep + index]
+
       return onServer !== undefined && sameStep(onServer, step)
     })
+
     if (stored) return this.takeServer(server)
     const mine = unsent.steps.slice(0, Math.max(0, unsent.cursor - unsent.keep))
+
     this.loadOnTop(server, server.cursor, mine, server.cursor + mine.length)
+
     return { rebuild: true, merged: mine.length > 0 }
   }
 
   /** Takes the server's version as it is. */
   private takeServer(server: HistoryState): Reconciliation {
     this.load(server)
+
     return { rebuild: true, merged: false }
   }
 

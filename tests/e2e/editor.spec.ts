@@ -6,12 +6,14 @@ const withDb = process.env.E2E_WITH_DB === '1'
 
 function freshAddress(): string {
   const octet = () => Math.floor(Math.random() * 254) + 1
+
   return `10.${octet()}.${octet()}.${octet()}`
 }
 
 async function openOctopus(page: Page, suffix: string) {
   await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': freshAddress() })
   const login = await page.request.post('/api/auth/login', { data: { username: `e2e${Date.now().toString(36)}${suffix}`, country: 'RU' } })
+
   expect(login.status()).toBe(200)
   await page.goto('/coloring')
   await page.getByRole('link', { name: 'Осьминог' }).click()
@@ -25,6 +27,7 @@ async function scribble(page: Page) {
   const box = (await page.locator('canvas').boundingBox())!
   const x = box.x + box.width * 0.5
   const y = box.y + box.height * 0.3
+
   await page.mouse.move(x - 40, y)
   await page.mouse.down()
   await page.mouse.move(x, y + 10, { steps: 6 })
@@ -35,6 +38,7 @@ async function scribble(page: Page) {
 test.describe('editor without a session', () => {
   test('the art endpoint answers 401 in the API error shape', async ({ request }) => {
     const response = await request.get('/api/coloring/arts/00000000-0000-4000-8000-000000000000')
+
     expect(response.status()).toBe(401)
   })
 })
@@ -109,6 +113,7 @@ test.describe('editor with the database', () => {
     await openOctopus(page, 'e')
 
     const box = (await page.locator('canvas').boundingBox())!
+
     await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.3)
     await page.mouse.down()
     await expect(page.locator('.coloring-stage__hold--ring')).toBeVisible()
@@ -125,6 +130,7 @@ test.describe('editor with the database', () => {
     await page.getByRole('button', { name: 'Красный, открыть все цвета' }).focus()
     await page.keyboard.press('Enter')
     const palette = page.getByRole('group', { name: 'Все цвета' })
+
     await expect(palette).toBeVisible()
     await expect(palette.getByRole('button', { name: 'Красный', exact: true })).toBeFocused()
 
@@ -152,8 +158,10 @@ test.describe('editor with the database', () => {
 
     // A long wiggling stroke: many frames, so the live path accumulates over many chunks.
     const box = (await page.locator('canvas').boundingBox())!
+
     await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.2)
     await page.mouse.down()
+
     for (let i = 0; i < 60; i++) {
       await page.mouse.move(box.x + box.width * (0.4 + 0.2 * Math.abs(Math.sin(i / 7))), box.y + box.height * (0.2 + i * 0.005), { steps: 2 })
     }
@@ -162,6 +170,7 @@ test.describe('editor with the database', () => {
     // Compared inside the page: the paint canvas is millions of pixels.
     await page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => {
       const { data } = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height)
+
       Object.assign(window, { liveAlpha: data.filter((_, i) => i % 4 === 3) })
     })
     await page.getByRole('button', { name: 'Отменить' }).click()
@@ -171,13 +180,17 @@ test.describe('editor with the database', () => {
       const live = (window as unknown as { liveAlpha: Uint8ClampedArray }).liveAlpha
       let differing = 0
       let worst = 0
+
       for (let i = 0; i < live.length; i++) {
         const diff = Math.abs(live[i]! - data[i * 4 + 3]!)
+
         if (diff > 0) differing++
         worst = Math.max(worst, diff)
       }
+
       return { differing, worst, painted: live.filter(alpha => alpha > 0).length }
     })
+
     // Edge pixels may differ slightly (anti-aliasing); a doubled mask edge would differ a lot.
     test.info().annotations.push({ type: 'diff', description: `live vs replay: ${differing} pixels differ, worst alpha difference ${worst}` })
     expect(painted).toBeGreaterThan(1000)

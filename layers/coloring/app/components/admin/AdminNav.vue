@@ -5,6 +5,7 @@ const LINKS = [
   { name: ColoringRoutes.ADMIN_ARTS, label: 'Рисунки' },
   { name: ColoringRoutes.ADMIN_STATS, label: 'Статистика' },
   { name: ColoringRoutes.ADMIN_PLAYERS, label: 'Игроки' },
+  { name: ColoringRoutes.ADMIN_PALETTE, label: 'Палитра' },
   { name: ColoringRoutes.ADMIN_SETTINGS, label: 'Настройки' },
 ]
 </script>

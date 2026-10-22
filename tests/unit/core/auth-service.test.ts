@@ -9,7 +9,9 @@ import { signIn } from '../../../layers/core/server/services/auth'
 /** The real migrations on an in-memory Postgres, so tests see exactly the production schema. */
 async function createDatabase() {
   const db = drizzle(new PGlite())
+
   await migrate(db, { migrationsFolder: 'layers/core/server/db/migrations' })
+
   return db
 }
 
@@ -48,6 +50,7 @@ describe('signIn', () => {
     expect(french.created).toBe(true)
     expect(french.user.id).not.toBe(german.user.id)
     const rows = await db.select().from(users).where(eq(users.usernameKey, 'anna'))
+
     expect(rows.map(row => row.country).sort()).toEqual(['DE', 'FR'])
   })
 

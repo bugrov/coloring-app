@@ -8,6 +8,7 @@ const SOME_ID = '00000000-0000-4000-8000-000000000000'
 
 function freshAddress(): string {
   const octet = () => Math.floor(Math.random() * 254) + 1
+
   return `10.${octet()}.${octet()}.${octet()}`
 }
 
@@ -17,6 +18,7 @@ async function ownAddress(page: Page) {
 
 async function signInAs(page: Page, name: string) {
   const response = await page.request.post('/api/auth/login', { data: { username: name, country: 'RU' } })
+
   expect(response.status()).toBe(200)
 }
 
@@ -47,10 +49,12 @@ test.describe('gallery with the database', () => {
     await page.goto('/coloring')
 
     await expect(page.getByRole('button', { name: 'Импортировать свой SVG-рисунок' })).toBeVisible()
+
     for (const title of ['Осьминог', 'Кот', 'Дом']) await expect(page.getByRole('link', { name: title })).toBeVisible()
 
     await page.locator('input[type=file]').setInputFiles('tests/fixtures/svg/figma-shapes.svg')
     const imported = page.getByRole('link', { name: 'figma-shapes' })
+
     await expect(imported).toBeVisible()
 
     await page.reload()
@@ -77,11 +81,13 @@ test.describe('gallery with the database', () => {
     await signInAs(page, `e2e${Date.now().toString(36)}i`)
     const file = await (await import('node:fs/promises')).readFile('tests/fixtures/svg/figma-shapes.svg')
     const created = await page.request.post('/api/coloring/imports?name=private', { data: file, headers: { 'Content-Type': 'image/svg+xml' } })
+
     expect(created.status()).toBe(200)
     const { id } = await created.json()
 
     const stranger = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': freshAddress() } })
     const other = await stranger.newPage()
+
     await signInAs(other, `e2e${Date.now().toString(36)}j`)
 
     expect((await other.request.get(`/api/coloring/arts/${id}`)).status()).toBe(404)

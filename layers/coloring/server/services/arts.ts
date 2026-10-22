@@ -68,19 +68,59 @@ export async function listGallery(db: Database, userId: string, cursor?: number)
     thumbnail: row.thumbnailAt?.getTime() ?? null,
   }))
   const last = page.at(-1)
+
   return { items, nextCursor: rows.length > GALLERY_PAGE_SIZE && last ? String(last.seq) : null }
 }
 
 /** The art, if this player may see it; null otherwise (also for someone else's import). */
 export async function findVisibleArt(db: Database, userId: string, artId: string): Promise<ArtRow | null> {
   const [row] = await db.select().from(arts).where(and(eq(arts.id, artId), visibleTo(userId))).limit(1)
+
   return row ?? null
 }
 
 /** Whether the player may see the art; reads no more than its id (the art itself can be large). */
 export async function artIsVisible(db: Database, userId: string, artId: string): Promise<boolean> {
   const [row] = await db.select({ id: arts.id }).from(arts).where(and(eq(arts.id, artId), visibleTo(userId))).limit(1)
+
   return row !== undefined
+}
+
+/**
+ * The ids of the regions of an art are kept per server instance, for a while. An art is replaced by a new
+ * id when it changes, except the built-in ones, which a re-seed rewrites under the same id: the time limit
+ * keeps a warm instance from checking steps against regions that are gone.
+ */
+const REGION_IDS_CACHE_SIZE = 100
+const REGION_IDS_TTL_MS = 5 * 60_000
+const regionIds = new Map<string, { ids: ReadonlySet<number>, at: number }>()
+
+/**
+ * The ids of the paintable regions of an art, or null when there is no such art. Saving the history
+ * checks every step against them, every few seconds while someone draws: the art itself (up to 2 MB)
+ * is read once, not each time. Whether the player may see the art is a separate question (`artIsVisible`).
+ */
+export async function getRegionIds(db: Database, artId: string): Promise<ReadonlySet<number> | null> {
+  const cached = regionIds.get(artId)
+
+  if (cached && Date.now() - cached.at < REGION_IDS_TTL_MS) {
+    // Used again: it goes to the back of the line, so the one that is not used for longest is dropped first.
+    regionIds.delete(artId)
+    regionIds.set(artId, cached)
+
+    return cached.ids
+  }
+  regionIds.delete(artId)
+  const [row] = await db.select({ data: arts.data }).from(arts).where(eq(arts.id, artId)).limit(1)
+
+  if (!row) return null
+  const ids = new Set(row.data.items.flatMap(item => (item.type === 'region' ? [item.id] : [])))
+
+  // Two reads of the same art may overlap: the second finds its key stored already and makes no room for it.
+  if (!regionIds.has(artId) && regionIds.size >= REGION_IDS_CACHE_SIZE) regionIds.delete(regionIds.keys().next().value!)
+  regionIds.set(artId, { ids, at: Date.now() })
+
+  return ids
 }
 
 /** True when the player keeps `IMPORT_LIMIT` imports already. Cheap: checked before the costly SVG conversion. */
@@ -89,6 +129,7 @@ export async function importLimitReached(db: Database, userId: string): Promise<
     .select({ total: sql<number>`count(*)::int` })
     .from(arts)
     .where(and(eq(arts.ownerId, userId), eq(arts.source, 'user')))
+
   return total >= IMPORT_LIMIT
 }
 
@@ -103,7 +144,9 @@ export async function importArt(db: Database, userId: string, title: string, dat
   if (await importLimitReached(db, userId)) return { ok: false, reason: 'limit_reached' }
 
   const [row] = await db.insert(arts).values({ source: 'user', ownerId: userId, title, data }).returning({ id: arts.id })
+
   if (!row) throw new Error('import insert returned no row')
+
   return { ok: true, id: row.id }
 }
 
@@ -113,5 +156,6 @@ export async function deleteImport(db: Database, userId: string, artId: string):
     .delete(arts)
     .where(and(eq(arts.id, artId), eq(arts.ownerId, userId), eq(arts.source, 'user')))
     .returning({ id: arts.id })
+
   return deleted.length > 0
 }

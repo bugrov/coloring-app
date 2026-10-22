@@ -33,6 +33,7 @@ export class RegionMasks {
   constructor(private readonly space: ArtSpace, private readonly geometry: ArtGeometry) {
     this.slots = Array.from({ length: 2 }, () => {
       const canvas = createCanvas(space.paintWidth, space.paintHeight)
+
       return { canvas, ctx: context2d(canvas), regionId: 0, rect: null, lastUsed: 0 }
     })
   }
@@ -40,8 +41,11 @@ export class RegionMasks {
   use(region: RegionShape): PreparedMask {
     const cached = this.slots.find(slot => slot.regionId === region.id)
     const slot = cached ?? this.slots.reduce((oldest, next) => (next.lastUsed < oldest.lastUsed ? next : oldest))
+
     slot.lastUsed = ++this.clock
+
     if (!cached) this.build(slot, region)
+
     return { canvas: slot.canvas, rect: slot.rect! }
   }
 
@@ -51,6 +55,7 @@ export class RegionMasks {
 
   private build(slot: Slot, region: RegionShape) {
     const { ctx } = slot
+
     if (slot.rect) ctx.clearRect(slot.rect.x, slot.rect.y, slot.rect.width, slot.rect.height)
 
     ctx.save()
@@ -58,6 +63,7 @@ export class RegionMasks {
     ctx.fillStyle = '#000'
     ctx.fill(region.path, region.fillRule)
     ctx.globalCompositeOperation = 'destination-out'
+
     for (const other of this.geometry.regionsAbove(region.id)) {
       ctx.fill(other.path, other.fillRule)
     }

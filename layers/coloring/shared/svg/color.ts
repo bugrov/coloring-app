@@ -32,21 +32,27 @@ export function parseColor(value: string): Rgb | null {
   const hex = NAMED_COLORS.get(input) ?? input
 
   const short = /^#([0-9a-f])([0-9a-f])([0-9a-f])[0-9a-f]?$/.exec(hex)
+
   if (short) {
     const [r, g, b] = short.slice(1, 4).map(digit => Number.parseInt(digit + digit, 16))
+
     return { r: r!, g: g!, b: b! }
   }
 
   const long = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})(?:[0-9a-f]{2})?$/.exec(hex)
+
   if (long) {
     const [r, g, b] = long.slice(1, 4).map(pair => Number.parseInt(pair, 16))
+
     return { r: r!, g: g!, b: b! }
   }
 
   const functional = /^rgba?\(\s*([\d.]+)(%?)[\s,]+([\d.]+)(%?)[\s,]+([\d.]+)(%?)/.exec(input)
+
   if (functional) {
     const channel = (amount: string, percent: string) =>
       clampByte(percent ? (Number(amount) * 255) / 100 : Number(amount))
+
     return {
       r: channel(functional[1]!, functional[2]!),
       g: channel(functional[3]!, functional[4]!),
@@ -65,7 +71,9 @@ export function toHex({ r, g, b }: Rgb): string {
 export function relativeLuminance({ r, g, b }: Rgb): number {
   const linear = (channel: number) => {
     const c = channel / 255
+
     return c <= 0.039_28 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
   }
+
   return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
 }

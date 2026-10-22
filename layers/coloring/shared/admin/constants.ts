@@ -17,5 +17,13 @@ export const PLAYER_SEARCH_LIMIT = 20
 /** Countries and players one art may be assigned to. */
 export const MAX_ASSIGNMENTS = 100
 
+/** The colours of the panel: always this many, so the panel keeps its shape. */
+export const PALETTE_SIZE = 32
+/** Longest name of a colour (read out to screen readers; the panel shows no captions). */
+export const PALETTE_NAME_MAX_LENGTH = 30
+
+/** The key of the palette in `app_settings`. */
+export const SETTING_PALETTE = 'palette'
+
 /** The key of the tolerance in `app_settings`. */
 export const SETTING_PAINTED_TOLERANCE = 'paintedTolerance'

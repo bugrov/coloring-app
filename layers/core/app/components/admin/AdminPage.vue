@@ -15,21 +15,7 @@ defineProps<{
         aria-label="В начало админки"
         title="В начало админки"
       >
-        <svg
-          viewBox="0 0 24 24"
-          width="24"
-          height="24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M3 11 12 3l9 8" />
-          <path d="M5 10v10h14V10" />
-          <path d="M10 20v-5h4v5" />
-        </svg>
+        <IconHome />
       </NuxtLink>
       <h1 class="admin-page__title">
         {{ title }}

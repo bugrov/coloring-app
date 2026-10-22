@@ -40,8 +40,10 @@ const emit = defineEmits<{ undo: [], redo: [] }>()
 // The plate sits in the bottom edge of the frame, as in the design.
 .history {
   display: flex;
-  gap: var(--space-6);
-  padding-inline: var(--space-6);
+  gap: var(--plate-pad);
+  align-items: center;
+  height: var(--plate-height);
+  padding-inline: var(--plate-pad);
   border-radius: var(--radius-l) var(--radius-l) 0 0;
   background: var(--color-card-frame);
 }
@@ -49,8 +51,8 @@ const emit = defineEmits<{ undo: [], redo: [] }>()
 .history__button {
   display: grid;
   place-items: center;
-  width: 56px;
-  height: 56px;
+  width: var(--plate-button);
+  height: var(--plate-button);
   transition: opacity var(--duration-fast);
 
   @include plain-button;

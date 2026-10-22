@@ -2,8 +2,8 @@ import { readApiError } from '#layers/core/shared/errors'
 
 /** The settings the administrator changes: for now the share of a region that counts as coloured. */
 export function useAdminSettings() {
-  const api = useRequestFetch()
-  const { data, error, refresh } = useFetch<{ paintedTolerance: number }>('/api/admin/coloring/settings', { key: 'admin-coloring-settings' })
+  const api = useApi()
+  const { data, error, refresh } = useFetch<{ paintedTolerance: number }>('/api/admin/coloring/settings', { timeout: API_TIMEOUT_MS, key: 'admin-coloring-settings' })
 
   const message = ref('')
   const saving = ref(false)
@@ -11,17 +11,18 @@ export function useAdminSettings() {
   async function saveTolerance(value: number): Promise<boolean> {
     saving.value = true
     message.value = ''
+
     try {
       await api('/api/admin/coloring/settings', { method: 'PUT', body: { paintedTolerance: value } })
       await refresh()
       message.value = 'Сохранено.'
+
       return true
-    }
-    catch (failure) {
+    } catch (failure) {
       message.value = readApiError(failure).message
+
       return false
-    }
-    finally {
+    } finally {
       saving.value = false
     }
   }

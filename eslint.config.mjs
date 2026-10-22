@@ -38,5 +38,20 @@ export default withNuxt(
   // No stray logging: nuxt-security's removeLoggers is off, so this rule keeps console calls out of the
   // build. The audit trail (layers/core/server/utils/audit.ts) is the one allowed exception.
   { rules: { 'no-console': 'error' } },
+  {
+    rules: {
+      // `} catch {` and `} else {` on the line of the closing brace.
+      '@stylistic/brace-style': ['error', '1tbs', { allowSingleLine: true }],
+      // A one-line `if (x) return` stays; a body that takes several lines gets braces.
+      'curly': ['error', 'multi-line'],
+      // Logical blocks are told apart by a blank line: around declarations, and before control flow and return.
+      '@stylistic/padding-line-between-statements': ['error',
+        { blankLine: 'always', prev: ['const', 'let', 'var'], next: '*' },
+        { blankLine: 'any', prev: ['const', 'let', 'var'], next: ['const', 'let', 'var'] },
+        { blankLine: 'always', prev: '*', next: ['return', 'if', 'try', 'for', 'while', 'switch', 'throw'] },
+        { blankLine: 'any', prev: ['if'], next: ['if'] },
+      ],
+    },
+  },
   ...layerBoundaries,
 )

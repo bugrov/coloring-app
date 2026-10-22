@@ -6,7 +6,9 @@ import { describe, expect, it } from 'vitest'
 function appSources(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const path = join(dir, entry.name)
+
     if (entry.isDirectory()) return appSources(path)
+
     return /\.(vue|ts)$/.test(entry.name) ? [path] : []
   })
 }
@@ -31,13 +33,16 @@ describe('route names', () => {
   // `auth` would open to every signed-in player (its API stays protected by requireAdmin).
   it('every page under admin/ declares who may open it', () => {
     const adminPages = FILES.filter(file => file.includes(join('pages', 'admin')) && file.endsWith('.vue'))
+
     expect(adminPages.length).toBeGreaterThan(0)
     const undeclared = adminPages.filter(file => !/definePageMeta\(\{[^}]*\bauth:/.test(readFileSync(file, 'utf8')))
+
     expect(undeclared).toEqual([])
   })
 
   it.each(STRING_PATH_PATTERNS)('no source uses %s', (_label, pattern) => {
     const offenders = FILES.filter(file => pattern.test(readFileSync(file, 'utf8')))
+
     expect(offenders).toEqual([])
   })
 })

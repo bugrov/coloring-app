@@ -12,6 +12,7 @@ const BUILTIN_ARTS = [
 
 // Run by `pnpm db:seed` (and in the Vercel build after the migrations). Idempotent.
 const url = process.env.DATABASE_URL_UNPOOLED
+
 if (!url) throw new Error('DATABASE_URL_UNPOOLED is not set')
 
 const sources: BuiltinArtSource[] = await Promise.all(BUILTIN_ARTS.map(async art => ({

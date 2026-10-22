@@ -6,12 +6,15 @@ export default defineEventHandler(async (event) => {
   const input = await parseBody(event, adminLoginSchema)
   // With the event, the config reflects the environment variables at runtime (Nuxt docs).
   const verdict = verifyAdminCredentials(input, adminCredentialsFrom(useRuntimeConfig(event)))
+
   if (verdict === 'disabled') {
     audit('admin_login_disabled', event)
+
     throw apiError(503, 'admin_disabled')
   }
   if (verdict === 'invalid') {
     audit('admin_login_failed', event)
+
     throw apiError(401, 'invalid_credentials')
   }
 
@@ -21,5 +24,6 @@ export default defineEventHandler(async (event) => {
     secure: { role: 'admin' },
   }, { maxAge: ADMIN_SESSION_MAX_AGE_SECONDS })
   audit('admin_login_succeeded', event)
+
   return { ok: true }
 })

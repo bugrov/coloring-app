@@ -18,10 +18,12 @@ export function useShareImage(stage: Readonly<Ref<ColoringStageHandle | null>>, 
     clearTimeout(exportTimer)
     preparedPng = null
     const current = ++generation
+
     exportTimer = setTimeout(() => {
       // A stroke in progress may still be taken back: wait until the picture is final.
       if (stage.value?.isDrawing()) {
         prepare()
+
         return
       }
       stage.value?.exportPng()
@@ -36,6 +38,7 @@ export function useShareImage(stage: Readonly<Ref<ColoringStageHandle | null>>, 
 
   async function share() {
     const png = preparedPng ?? await stage.value?.exportPng()
+
     if (png) await shareOrDownload(png, `${fileName()}-${new Date().toISOString().slice(0, 10)}.png`)
   }
 

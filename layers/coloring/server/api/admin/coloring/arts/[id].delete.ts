@@ -8,12 +8,14 @@ export default defineEventHandler(async (event) => {
   const artId = parseUuidParam(event, 'id')
   // The names are read first: the rows that hold them go with the art.
   const files = await thumbnailPathsOfArt(db, artId)
+
   if (!await deleteAdminArt(db, artId)) throw apiError(404, 'not_found')
+
   try {
     await useThumbnailStore().remove(files)
-  }
-  catch {
+  } catch {
     // Wasted space only; the art is gone and the request did what it was asked to.
   }
+
   return { ok: true }
 })

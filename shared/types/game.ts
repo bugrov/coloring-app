@@ -10,6 +10,10 @@ export interface GameDefinition {
   title: string
   /** Name of the route the game starts from (the game layer's `routes.ts`). */
   entry: string
+  /** One or two sentences under the title on the game's card. */
+  description?: string
+  /** Picture of the game's card: a URL of a file in the layer's `public` folder. */
+  cover?: string
   /** Position in the game list, ascending. */
   order: number
   /** Name of the route the game's administration starts from; the admin home links to it. */

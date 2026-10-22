@@ -7,7 +7,9 @@ export default defineEventHandler(async (event) => {
   const artId = parseUuidParam(event, 'id')
   const assignment = await parseBody(event, assignmentsSchema)
   const result = await setAssignments(useDb(), artId, assignment)
+
   if (result === 'not_found') throw apiError(404, 'not_found')
   if (result === 'unknown_player') throw domainError(422, 'player_not_found', ADMIN_ERROR_MESSAGES.player_not_found)
+
   return { ok: true }
 })

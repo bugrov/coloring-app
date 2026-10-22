@@ -3,12 +3,13 @@ import { ColoringRoutes } from '../../../../shared/routes'
 import { MAX_PAINTED_TOLERANCE, MIN_PAINTED_TOLERANCE } from '../../../../shared/admin'
 
 definePageMeta({ name: ColoringRoutes.ADMIN_SETTINGS, auth: 'admin' })
-useHead({ title: 'Настройки: администратор', meta: [{ name: 'robots', content: 'noindex' }] })
+useHead({ title: 'Настройки: администратор' })
 
 const { tolerance, loadError, message, saving, saveTolerance } = useAdminSettings()
 
 /** The field shows whole percent; the setting is a share. */
 const percent = ref<number | null>(null)
+
 watch(tolerance, (value) => {
   if (value !== undefined) percent.value = Math.round(value * 100)
 }, { immediate: true })
@@ -42,16 +43,17 @@ async function save() {
         Мелкие щели вдоль контура не мешают дойти до 100 %. По умолчанию 95. Новое значение получат игроки при следующем открытии рисунка.
       </p>
       <div class="settings__row">
-        <input
+        <FormInput
           id="tolerance"
           v-model.number="percent"
+          on-surface
           class="settings__input"
           type="number"
           inputmode="numeric"
           :min="MIN_PERCENT"
           :max="MAX_PERCENT"
           step="1"
-        >
+        />
         <span aria-hidden="true">%</span>
         <button
           class="button button--primary"
@@ -89,24 +91,13 @@ async function save() {
   color: var(--color-text-muted);
 }
 
+.settings__input {
+  width: 96px;
+}
+
 .settings__row {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-}
-
-.settings__input {
-  width: 96px;
-  min-height: 44px;
-  padding: 0 var(--space-3);
-  border: 2px solid transparent;
-  border-radius: var(--radius-m);
-  background: var(--color-surface);
-  font: inherit;
-}
-
-.settings__input:focus-visible {
-  border-color: var(--color-accent);
-  outline: none;
 }
 </style>

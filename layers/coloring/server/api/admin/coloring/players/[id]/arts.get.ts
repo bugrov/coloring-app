@@ -6,6 +6,8 @@ export default defineEventHandler(async (event) => {
   await requireAdmin(event)
   const db = useDb()
   const player = await getPlayer(db, parseUuidParam(event, 'id'))
+
   if (!player) throw domainError(404, 'player_not_found', ADMIN_ERROR_MESSAGES.player_not_found)
+
   return { player, arts: await listPlayerArts(db, player.id) }
 })

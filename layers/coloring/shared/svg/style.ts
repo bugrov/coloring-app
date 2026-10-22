@@ -61,13 +61,17 @@ const isStyleProperty = (name: string): name is StyleProperty =>
 
 export function parseDeclarations(text: string): StyleDeclarations {
   const result: StyleDeclarations = {}
+
   for (const declaration of text.split(';')) {
     const colon = declaration.indexOf(':')
+
     if (colon === -1) continue
     const name = declaration.slice(0, colon).trim().toLowerCase()
     const value = declaration.slice(colon + 1).replace(/!important/i, '').trim()
+
     if (value && isStyleProperty(name)) result[name] = value
   }
+
   return result
 }
 
@@ -82,27 +86,34 @@ export function parseClassRules(css: string): Map<string, StyleDeclarations> {
   const rules = new Map<string, StyleDeclarations>()
   const text = stripComments(css)
   let position = 0
+
   while (position < text.length) {
     const open = text.indexOf('{', position)
+
     if (open === -1) break
     const close = text.indexOf('}', open + 1)
+
     if (close === -1) break
 
     // Blocks with nested braces (@media and the like) are not class rules.
     const body = text.slice(open + 1, close)
+
     if (!body.includes('{')) {
       const declarations = parseDeclarations(body)
       // After a skipped nested block its outer `}` is still ahead of the next
       // selector; selectors start after the last brace. The backward scan stops
       // at `position - 1` at the latest, so the whole parse stays linear.
       const selectorStart = Math.max(position, text.lastIndexOf('}', open) + 1)
+
       for (const selector of text.slice(selectorStart, open).split(',')) {
         const match = /^\s*\.([\w-]+)\s*$/.exec(selector)
+
         if (match) rules.set(match[1]!, { ...rules.get(match[1]!), ...declarations })
       }
     }
     position = close + 1
   }
+
   return rules
 }
 
@@ -110,14 +121,18 @@ export function parseClassRules(css: string): Map<string, StyleDeclarations> {
 function stripComments(css: string): string {
   let result = ''
   let position = 0
+
   while (position < css.length) {
     const start = css.indexOf('/*', position)
+
     if (start === -1) return result + css.slice(position)
     result += css.slice(position, start)
     const end = css.indexOf('*/', start + 2)
+
     if (end === -1) return result
     position = end + 2
   }
+
   return result
 }
 
@@ -131,12 +146,14 @@ export function resolveStyle(
   classRules: Map<string, StyleDeclarations>,
 ): StyleDeclarations {
   const style: StyleDeclarations = {}
+
   for (const name of INHERITED) {
     if (parent[name] !== undefined) style[name] = parent[name]
   }
 
   for (const name of STYLE_PROPERTIES) {
     const value = element.getAttribute(name)?.trim()
+
     if (value) style[name] = value
   }
 
@@ -149,11 +166,13 @@ export function resolveStyle(
   for (const name of INHERITED) {
     if (style[name] === 'inherit') style[name] = parent[name]
   }
+
   return style
 }
 
 /** Attribute value, or empty when it is suspiciously long (it is re-read on every <use> visit). */
 function boundedAttribute(element: Element, name: string): string {
   const value = element.getAttribute(name) ?? ''
+
   return value.length <= MAX_STYLE_ATTRIBUTE_LENGTH ? value : ''
 }

@@ -2,7 +2,7 @@
 import { ColoringRoutes } from '../../../../../shared/routes'
 
 definePageMeta({ name: ColoringRoutes.ADMIN_PLAYERS, auth: 'admin' })
-useHead({ title: 'Игроки: администратор', meta: [{ name: 'robots', content: 'noindex' }] })
+useHead({ title: 'Игроки: администратор' })
 
 const { query, found, selected, arts, error, searched, search, select } = useAdminPlayers()
 const when = (iso: string) => new Date(iso).toLocaleString('ru')
@@ -23,14 +23,15 @@ const when = (iso: string) => new Date(iso).toLocaleString('ru')
           class="players__label"
           for="players-query"
         >Имя игрока</label>
-        <input
+        <FormInput
           id="players-query"
           v-model="query"
+          on-surface
           class="players__input"
           type="search"
           placeholder="Начало имени"
           autocomplete="off"
-        >
+        />
         <button
           class="button button--primary"
           type="submit"
@@ -90,7 +91,7 @@ const when = (iso: string) => new Date(iso).toLocaleString('ru')
         <article
           v-for="art in arts"
           :key="art.artId"
-          class="players__art"
+          class="admin-card players__art"
         >
           <h3 class="players__art-title">
             {{ art.title }}
@@ -129,22 +130,6 @@ const when = (iso: string) => new Date(iso).toLocaleString('ru')
 
 .players__label {
   font-weight: 600;
-}
-
-.players__input {
-  flex: 1;
-  min-width: 180px;
-  min-height: 44px;
-  padding: 0 var(--space-3);
-  border: 2px solid var(--color-bg);
-  border-radius: var(--radius-m);
-  background: var(--color-surface);
-  font: inherit;
-}
-
-.players__input:focus-visible {
-  border-color: var(--color-accent);
-  outline: none;
 }
 
 .players__error {
@@ -194,10 +179,10 @@ const when = (iso: string) => new Date(iso).toLocaleString('ru')
   font-size: var(--font-size-m);
 }
 
-.players__art {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-m);
-  background: var(--color-surface);
+.players__input {
+  flex: 1;
+  width: auto;
+  min-width: 180px;
 }
 
 .players__art-title {

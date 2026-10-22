@@ -13,6 +13,7 @@ export {
   HOLD_DURATION_MS,
   HOLD_TOLERANCE_PX,
   HOLD_VIBRATION_MS,
+  PAN_BUTTONS,
   PINCH_MIN_DISTANCE_PX,
   THICKNESS_SCALES,
   WHEEL_LINE_HEIGHT_PX,
@@ -60,6 +61,7 @@ export class ColoringEngine {
   locate(rx: number, ry: number): { point: [number, number], region: number | null } {
     const point = this.space.gridFromRatio(rx, ry)
     const [x, y] = this.space.gridToArt(...point)
+
     return { point, region: this.geometry.hitTest(x, y)?.id ?? null }
   }
 
@@ -69,8 +71,10 @@ export class ColoringEngine {
    */
   beginStroke(region: number, tool: Tool, color: string, opacity = DEFAULT_OPACITY, thickness = DEFAULT_THICKNESS): StrokeRecorder | null {
     const style: StrokeStyle = { tool, color: tool === 'eraser' ? null : color, width: gridLength(TOOL_WIDTH[tool] * thickness) }
+
     if (tool !== 'eraser' && opacity !== DEFAULT_OPACITY) style.opacity = opacity
     const stroke = this.painter.beginStroke(region, style, true)
+
     return stroke ? new StrokeRecorder(region, stroke, rect => this.track(rect), rect => this.painter.captureBackup(rect)) : null
   }
 
@@ -78,20 +82,25 @@ export class ColoringEngine {
   fill(region: number, color: string, opacity = DEFAULT_OPACITY): { op: FillOp, delta: PaintDelta | null } {
     const op: FillOp = opacity === DEFAULT_OPACITY ? { type: 'fill', region, color } : { type: 'fill', region, color, opacity }
     const delta = this.painter.captureRegions([region])
+
     this.track(this.painter.apply(op))
+
     return { op, delta }
   }
 
   clear(region: number): { op: ClearOp, delta: PaintDelta | null } {
     const op: ClearOp = { type: 'clear', region }
     const delta = this.painter.captureRegions([region])
+
     this.track(this.painter.apply(op))
+
     return { op, delta }
   }
 
   /** Rebuilds the paint from scratch; the basis for undo/redo and restoring a session. */
   replay(ops: readonly Op[]) {
     this.painter.clearAll()
+
     for (const op of ops) this.painter.apply(op)
     this.track(this.painter.fullRect)
   }
@@ -131,7 +140,9 @@ export class ColoringEngine {
   /** The picture as it is now, to come back to without replaying the steps that led to it. */
   snapshot(): PaintSnapshot {
     const canvas = this.painter.createSnapshotCanvas()
+
     this.painter.copyPaintTo(canvas)
+
     return { canvas, progress: this.tracker.saveState() }
   }
 
@@ -156,6 +167,7 @@ export class ColoringEngine {
   /** Releases the offscreen canvases right away; iOS limits total canvas memory. */
   dispose() {
     this.painter.dispose()
+    this.geometry.dispose()
   }
 
   private track(rect: Rect | null) {
@@ -181,14 +193,17 @@ export class StrokeRecorder {
   add(points: readonly number[]) {
     const limit = MAX_STROKE_POINTS * 2
     let offset = 0
+
     while (offset < points.length) {
       const room = limit - this.stroke.points.length
+
       if (room <= 0) {
         this.completed.push(this.toOp())
         this.stroke.restart()
         continue
       }
       const piece = points.slice(offset, offset + room)
+
       this.stroke.add(piece)
       offset += piece.length
     }
@@ -201,6 +216,7 @@ export class StrokeRecorder {
   finish(): { ops: StrokeOp[], delta: PaintDelta | null } {
     this.track(this.stroke.dirty)
     const delta = this.isSplit ? null : this.captureDelta(this.stroke.dirty)
+
     return { ops: [...this.completed, this.toOp()], delta }
   }
 
@@ -217,7 +233,9 @@ export class StrokeRecorder {
   private toOp(): StrokeOp {
     const { tool, color, width, opacity } = this.stroke.style
     const op: StrokeOp = { type: 'stroke', region: this.region, tool, color, width, points: [...this.stroke.points] }
+
     if (opacity !== undefined) op.opacity = opacity
+
     return op
   }
 }

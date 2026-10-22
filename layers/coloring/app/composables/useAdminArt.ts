@@ -11,9 +11,9 @@ interface ArtDrawing {
 
 /** One art for the administrator: its drawing, status, title and who may see it. */
 export function useAdminArt(artId: Readonly<Ref<string>>) {
-  const api = useRequestFetch()
-  const drawing = useFetch<ArtDrawing>(() => `/api/admin/coloring/arts/${artId.value}`, { key: () => `admin-coloring-art-${artId.value}` })
-  const list = useFetch<AdminArt[]>('/api/admin/coloring/arts', { key: 'admin-coloring-arts' })
+  const api = useApi()
+  const drawing = useFetch<ArtDrawing>(() => `/api/admin/coloring/arts/${artId.value}`, { timeout: API_TIMEOUT_MS, key: () => `admin-coloring-art-${artId.value}` })
+  const list = useFetch<AdminArt[]>('/api/admin/coloring/arts', { timeout: API_TIMEOUT_MS, key: 'admin-coloring-arts' })
 
   const details = computed(() => drawing.data.value)
   const summary = computed(() => list.data.value?.find(art => art.id === artId.value))
@@ -25,16 +25,18 @@ export function useAdminArt(artId: Readonly<Ref<string>>) {
   async function act(run: () => Promise<unknown>, reload = true): Promise<boolean> {
     busy.value = true
     notice.value = ''
+
     try {
       await run()
+
       if (reload) await Promise.all([drawing.refresh(), list.refresh()])
+
       return true
-    }
-    catch (failure) {
+    } catch (failure) {
       notice.value = readApiError(failure).message
+
       return false
-    }
-    finally {
+    } finally {
       busy.value = false
     }
   }

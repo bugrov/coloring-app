@@ -12,23 +12,26 @@ const REVOKE_DELAY_MS = 1000
  */
 export async function shareOrDownload(blob: Blob, fileName: string): Promise<ShareResult> {
   const file = new File([blob], fileName, { type: blob.type })
+
   if (navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({ files: [file] })
+
       return 'shared'
-    }
-    catch (error) {
+    } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return 'cancelled'
       // Not allowed (e.g. the gesture expired): fall back to a download.
     }
   }
   downloadBlob(blob, fileName)
+
   return 'downloaded'
 }
 
 export function downloadBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
+
   link.href = url
   link.download = fileName
   link.click()

@@ -25,6 +25,7 @@ const innerHeight = HEIGHT - MARGIN.top - MARGIN.bottom
 const top = computed(() => {
   const highest = Math.max(1, ...props.days.flatMap(day => SERIES.map(series => day[series.key])))
   const magnitude = 10 ** Math.floor(Math.log10(highest))
+
   return Math.ceil(highest / magnitude) * magnitude
 })
 
@@ -40,12 +41,14 @@ const paths = computed(() => SERIES.map(series => ({
 /** Whole numbers only: a count of two has ticks 0, 1, 2, never 0.5 rounded twice. */
 const ticks = computed(() => {
   const count = Math.min(MAX_TICKS, top.value)
+
   return Array.from({ length: count + 1 }, (_, i) => (top.value / count) * i)
 })
 
 /** First, middle and last day on the axis: enough to place the eye, not a label per day. */
 const axisDays = computed(() => {
   const last = props.days.length - 1
+
   return [...new Set([0, Math.floor(last / 2), last])]
     .filter(index => index >= 0)
     // The outer labels lean inwards so the first and the last day are not cut off at the edges.
@@ -54,6 +57,7 @@ const axisDays = computed(() => {
 
 function shortDay(day: string): string {
   const [, month, date] = day.split('-')
+
   return `${date}.${month}`
 }
 
@@ -63,9 +67,11 @@ const svg = useTemplateRef<SVGSVGElement>('svg')
 
 function onMove(event: PointerEvent) {
   const box = svg.value?.getBoundingClientRect()
+
   if (!box || props.days.length === 0) return
   const position = ((event.clientX - box.left) / box.width) * WIDTH
   const index = Math.round(((position - MARGIN.left) / innerWidth) * (props.days.length - 1))
+
   hovered.value = Math.min(props.days.length - 1, Math.max(0, index))
 }
 

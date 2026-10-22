@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 
 const ownSharedTypes = fileURLToPath(new URL('./shared/types', import.meta.url)).replaceAll('\\', '/')
+
 function isOwnSharedTypes(dir: string): boolean {
   return dir.replaceAll('\\', '/') === ownSharedTypes
 }
@@ -15,6 +16,10 @@ export default defineNuxtConfig({
     // Keeps thumbnails in the memory of the server process when there is no Blob store: for local development
     // and the e2e server only (NUXT_MEMORY_THUMBNAILS=true). Production without a store answers 503 instead.
     memoryThumbnails: false,
+    public: {
+      // The developer pages (SVG lab, engine sandbox) exist only in development and in the e2e run (NUXT_PUBLIC_DEV_PAGES=true).
+      devPages: false,
+    },
   },
 
   routeRules: {
@@ -40,6 +45,7 @@ export default defineNuxtConfig({
   hooks: {
     'imports:dirs'(dirs) {
       const index = dirs.findIndex(isOwnSharedTypes)
+
       if (index !== -1) dirs.splice(index, 1)
     },
     'nitro:config'(config) {

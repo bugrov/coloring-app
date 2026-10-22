@@ -42,7 +42,12 @@ export class ArtSpace {
   readonly gridHeight: number
 
   constructor(art: Pick<ColoringArt, 'viewBox'>) {
-    ;[this.x, this.y, this.width, this.height] = art.viewBox
+    const [x, y, width, height] = art.viewBox
+
+    this.x = x
+    this.y = y
+    this.width = width
+    this.height = height
     this.longSide = Math.max(this.width, this.height)
     this.paintScale = PAINT_LONG_SIDE / this.longSide
     this.paintWidth = Math.round(this.width * this.paintScale)
@@ -58,6 +63,7 @@ export class ArtSpace {
 
   gridToArt(gx: number, gy: number): [number, number] {
     const unit = this.longSide / OP_GRID
+
     return [this.x + gx * unit, this.y + gy * unit]
   }
 

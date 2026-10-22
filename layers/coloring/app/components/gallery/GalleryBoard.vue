@@ -5,23 +5,27 @@ import { useGalleryStore } from '../../stores/gallery'
 
 const gallery = useGalleryStore()
 
+/** The cards of the first row load their pictures at once; the rest wait until they are near the screen. */
+const PRIORITY_CARDS = 6
+
 /** Cards drawn as placeholders while the first page loads. */
 const SKELETON_COUNT = 7
 
 type Pending = { kind: 'restart' | 'remove', item: GalleryItem }
+
+const DIALOGS = {
+  remove: { title: 'Удалить рисунок?', text: 'Рисунок и вся раскраска пропадут насовсем.', confirmLabel: 'Удалить' },
+  restart: { title: 'Начать заново?', text: 'Закрашенное сбросится, и рисунок начнётся с чистого листа.', confirmLabel: 'Начать заново' },
+} as const
+
 const pending = ref<Pending | null>(null)
 const importing = ref(false)
 
-const dialog = computed(() => {
-  if (!pending.value) return { title: '', text: '', confirmLabel: '' }
-  return pending.value.kind === 'remove'
-    ? { title: 'Удалить рисунок?', text: 'Рисунок и вся раскраска пропадут насовсем.', confirmLabel: 'Удалить' }
-    : { title: 'Начать заново?', text: 'Закрашенное сбросится, и рисунок начнётся с чистого листа.', confirmLabel: 'Начать заново' }
-})
-
 async function confirm() {
   const current = pending.value
+
   pending.value = null
+
   if (!current) return
   if (current.kind === 'remove') await gallery.remove(current.item.id)
   else await gallery.restart(current.item.id)
@@ -29,10 +33,10 @@ async function confirm() {
 
 async function onPick(file: File) {
   importing.value = true
+
   try {
     await gallery.importSvg(file)
-  }
-  finally {
+  } finally {
     importing.value = false
   }
 }
@@ -51,6 +55,7 @@ onMounted(() => {
   watchEffect(() => {
     void gallery.items.length
     observer?.disconnect()
+
     if (sentinel.value) observer?.observe(sentinel.value)
   })
 })
@@ -107,11 +112,12 @@ onBeforeUnmount(() => observer?.disconnect())
       </li>
       <template v-if="gallery.status === 'ready'">
         <li
-          v-for="item in gallery.items"
+          v-for="(item, index) in gallery.items"
           :key="item.id"
         >
           <GalleryCard
             :item="item"
+            :priority="index < PRIORITY_CARDS"
             @restart="pending = { kind: 'restart', item }"
             @remove="pending = { kind: 'remove', item }"
           />
@@ -142,11 +148,11 @@ onBeforeUnmount(() => observer?.disconnect())
       <span v-if="gallery.loadingMore">Загрузка…</span>
     </div>
 
-    <ConfirmDialog
-      :open="pending !== null"
-      :title="dialog.title"
-      :text="dialog.text"
-      :confirm-label="dialog.confirmLabel"
+    <!-- Fetched when the first confirmation is asked for, not with the page. -->
+    <LazyConfirmDialog
+      v-if="pending !== null"
+      open
+      v-bind="DIALOGS[pending.kind]"
       :danger="pending?.kind === 'remove'"
       @confirm="confirm"
       @cancel="pending = null"
@@ -156,14 +162,27 @@ onBeforeUnmount(() => observer?.disconnect())
 
 <style scoped lang="scss">
 .gallery-board {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   height: 100%;
   overflow-y: auto;
   color: var(--color-text);
 }
 
+// A row above the grid on small screens; in the corner of the page where there is room for it (the design has no button).
 .gallery-board__nav {
+  width: 100%;
   max-width: 1100px;
   margin: 0 auto var(--space-2);
+
+  @media (min-width: 1000px) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: auto;
+    margin: 0;
+  }
 }
 
 .gallery-board__back {
@@ -178,13 +197,15 @@ onBeforeUnmount(() => observer?.disconnect())
   text-decoration: none;
 }
 
-// Figma: 4 columns, 24px gaps, tiles 200px tall, the block at most 1100px wide and centred.
+// Figma: 4 columns, 24px gaps, tiles 200px tall, the block at most 1100px wide and centred both ways
+// (auto margins: a list taller than the screen starts at the top and scrolls).
 .gallery-board__grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-gallery);
+  width: 100%;
   max-width: 1100px;
-  margin: 0 auto;
+  margin: auto;
   padding: 0;
   list-style: none;
 
