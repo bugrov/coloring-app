@@ -151,6 +151,7 @@ async function onPick(event: Event) {
 }
 
 .arts__title {
+  color: var(--color-text);
   font-weight: 600;
 }
 

@@ -16,7 +16,7 @@ const SERIES = [
 const WIDTH = 640
 const HEIGHT = 240
 const MARGIN = { top: 12, right: 12, bottom: 28, left: 36 }
-const TICKS = 4
+const MAX_TICKS = 4
 
 const innerWidth = WIDTH - MARGIN.left - MARGIN.right
 const innerHeight = HEIGHT - MARGIN.top - MARGIN.bottom
@@ -37,12 +37,19 @@ const paths = computed(() => SERIES.map(series => ({
   last: props.days.at(-1)?.[series.key] ?? 0,
 })))
 
-const ticks = computed(() => Array.from({ length: TICKS + 1 }, (_, i) => (top.value / TICKS) * i))
+/** Whole numbers only: a count of two has ticks 0, 1, 2, never 0.5 rounded twice. */
+const ticks = computed(() => {
+  const count = Math.min(MAX_TICKS, top.value)
+  return Array.from({ length: count + 1 }, (_, i) => (top.value / count) * i)
+})
 
 /** First, middle and last day on the axis: enough to place the eye, not a label per day. */
 const axisDays = computed(() => {
   const last = props.days.length - 1
-  return [...new Set([0, Math.floor(last / 2), last])].filter(index => index >= 0).map(index => ({ index, label: shortDay(props.days[index]!.day) }))
+  return [...new Set([0, Math.floor(last / 2), last])]
+    .filter(index => index >= 0)
+    // The outer labels lean inwards so the first and the last day are not cut off at the edges.
+    .map(index => ({ index, label: shortDay(props.days[index]!.day), anchor: index === 0 ? 'start' : index === last ? 'end' : 'middle' }))
 })
 
 function shortDay(day: string): string {
@@ -120,7 +127,7 @@ const tooltipStyle = computed(() => (hovered.value === null ? {} : { left: `${(x
             :key="day.index"
             :x="x(day.index)"
             :y="HEIGHT - 8"
-            text-anchor="middle"
+            :text-anchor="day.anchor"
           >{{ day.label }}</text>
         </g>
         <path
@@ -251,6 +258,7 @@ const tooltipStyle = computed(() => (hovered.value === null ? {} : { left: `${(x
 .line__svg {
   display: block;
   width: 100%;
+  max-width: 760px;
   height: auto;
   touch-action: pan-y;
 }
@@ -270,6 +278,11 @@ const tooltipStyle = computed(() => (hovered.value === null ? {} : { left: `${(x
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2;
+}
+
+// Where two lines run on top of each other (starts equal completes) the third stays visible as a dashed one.
+.line__path:nth-of-type(3) {
+  stroke-dasharray: 6 4;
 }
 
 .line__cross {

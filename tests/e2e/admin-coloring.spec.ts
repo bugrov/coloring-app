@@ -149,6 +149,7 @@ test.describe('administration with the database', () => {
     const view = await (await page.request.get(`/api/admin/coloring/players/${mine.id}/arts/${id}?attempt=1`)).json()
     expect(view.history.steps).toHaveLength(2)
     expect((await page.request.get(`/api/admin/coloring/players/${mine.id}/arts/${NIL}`)).status()).toBe(404)
+    await page.request.delete(`/api/admin/coloring/arts/${id}`)
     await playerContext.close()
   })
 

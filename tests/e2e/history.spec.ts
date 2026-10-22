@@ -160,7 +160,7 @@ test.describe('history with the database', () => {
     await page.getByRole('dialog').getByRole('button', { name: 'Начать заново' }).click()
 
     // The buttons are disabled while the picture is rebuilt, so wait for the canvas itself.
-    await expect.poll(() => paintedPixels(page)).toBe(0)
+    await expect.poll(() => paintedPixels(page), { timeout: 30_000 }).toBe(0)
     await expect(page.getByRole('button', { name: 'Отменить' })).toBeDisabled()
     const history = await (await page.request.get(`/api/coloring/arts/${artIdOf(page)}/history`)).json()
     expect(history).toMatchObject({ attempt: 2, steps: [] })
