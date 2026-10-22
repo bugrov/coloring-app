@@ -86,9 +86,14 @@ export async function artIsVisible(db: Database, userId: string, artId: string):
   return row !== undefined
 }
 
-/** Arts do not change once stored (an art is replaced by a new id), so the ids of their regions are kept per server instance. */
+/**
+ * The ids of the regions of an art are kept per server instance, for a while. An art is replaced by a new
+ * id when it changes, except the built-in ones, which a re-seed rewrites under the same id: the time limit
+ * keeps a warm instance from checking steps against regions that are gone.
+ */
 const REGION_IDS_CACHE_SIZE = 100
-const regionIds = new Map<string, ReadonlySet<number>>()
+const REGION_IDS_TTL_MS = 5 * 60_000
+const regionIds = new Map<string, { ids: ReadonlySet<number>, at: number }>()
 
 /**
  * The ids of the paintable regions of an art, or null when there is no such art. Saving the history
@@ -98,14 +103,21 @@ const regionIds = new Map<string, ReadonlySet<number>>()
 export async function getRegionIds(db: Database, artId: string): Promise<ReadonlySet<number> | null> {
   const cached = regionIds.get(artId)
 
-  if (cached) return cached
+  if (cached && Date.now() - cached.at < REGION_IDS_TTL_MS) {
+    // Used again: it goes to the back of the line, so the one that is not used for longest is dropped first.
+    regionIds.delete(artId)
+    regionIds.set(artId, cached)
+
+    return cached.ids
+  }
+  regionIds.delete(artId)
   const [row] = await db.select({ data: arts.data }).from(arts).where(eq(arts.id, artId)).limit(1)
 
   if (!row) return null
   const ids = new Set(row.data.items.flatMap(item => (item.type === 'region' ? [item.id] : [])))
 
   if (regionIds.size >= REGION_IDS_CACHE_SIZE) regionIds.delete(regionIds.keys().next().value!)
-  regionIds.set(artId, ids)
+  regionIds.set(artId, { ids, at: Date.now() })
 
   return ids
 }

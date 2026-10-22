@@ -59,7 +59,8 @@ export function useEditorHistory(
   const outboxKey = (id: string) => `${user.value?.id ?? ''}:${id}`
   const historyUrl = (id: string) => `/api/coloring/arts/${id}/history`
 
-  function syncApi(id: string): SyncApi {
+  /** `current` tells whether the editor still shows this art: a late answer for one the player has left must not move them. */
+  function syncApi(id: string, current: () => boolean): SyncApi {
     return {
       async save(request) {
         try {
@@ -70,7 +71,7 @@ export function useEditorHistory(
           if (status === 409 && readApiError(failure).code === 'history_conflict') throw new SyncConflict()
 
           // The session is gone: the work stays in the outbox, and after signing in it goes out on the next visit.
-          if (status === 401) void navigateTo({ name: CoreRoutes.LOGIN })
+          if (status === 401 && current()) void navigateTo({ name: CoreRoutes.LOGIN })
           if (status !== undefined && REFUSED_STATUSES.has(status)) throw new SyncRejected()
 
           throw failure
@@ -185,7 +186,7 @@ export function useEditorHistory(
     timeline = opened
     sync = new HistorySync({
       timeline: opened,
-      api: syncApi(id),
+      api: syncApi(id, () => isCurrent(mine)),
       outbox,
       key: outboxKey(id),
       percent: () => editor.progress.percent,
@@ -246,15 +247,22 @@ export function useEditorHistory(
    */
   async function startOver(restart: () => Promise<void>): Promise<boolean> {
     const id = artId.value
+    const opened = timeline
+    const saving = sync
 
-    if (!timeline || !sync) return false
+    if (!opened || !saving) return false
+    const mine = generation
+
     // Nothing may be drawn or undone from here until the new attempt is on the canvas.
     editor.restarting = true
 
     try {
-      await sync.flush()
+      await saving.flush()
 
-      if (timeline.log.dirty) {
+      // The player may have left while the unsent work was going out: nothing is started over then.
+      if (!isCurrent(mine)) return false
+
+      if (opened.log.dirty) {
         hooks.notify(HISTORY_ERROR_MESSAGES.history_unsaved)
 
         return false
@@ -262,11 +270,12 @@ export function useEditorHistory(
       await restart()
       const fresh = await api<HistoryState>(historyUrl(id))
 
-      if (artId.value !== id || !timeline) return false
+      if (!isCurrent(mine) || artId.value !== id) return false
       await outbox.remove(outboxKey(id))
-      await timeline.load(fresh)
+      await opened.load(fresh)
     } finally {
-      editor.restarting = false
+      // Another art's editor (opened meanwhile) has its own flag.
+      if (isCurrent(mine)) editor.restarting = false
     }
     publish()
 

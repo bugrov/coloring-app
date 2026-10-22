@@ -366,3 +366,24 @@ describe('Timeline: a rebuild that is no longer wanted', () => {
     expect(host.discarded).toBe(1)
   })
 })
+
+describe('Timeline: a save that arrived whose answer was lost', () => {
+  it('keeps the picture as it is when the server holds only steps the editor has too', async () => {
+    const host = fakeHost()
+    const timeline = new Timeline<number[], FakeDelta>(host)
+
+    await timeline.load(history(2))
+    timeline.record(step(3))
+    timeline.record(step(4))
+    const appliedBefore = host.applied
+
+    const result = await timeline.reconcile(history(3, 3, 5))
+
+    expect(result).toEqual({ rebuild: false, merged: false })
+    expect(host.applied).toBe(appliedBefore)
+    // The fake host does not draw the recorded steps itself: what counts is that nothing was cleared or replayed.
+    expect(host.picture).toEqual([1, 2])
+    expect(timeline.log.length).toBe(4)
+    expect(timeline.log.rev).toBe(5)
+  })
+})

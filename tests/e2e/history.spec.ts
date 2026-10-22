@@ -209,6 +209,11 @@ test.describe('history with the database', () => {
     expect(imported.status()).toBe(200)
     const foreignArt = `/api/coloring/arts/${(await imported.json()).id}`
     const foreign = `${foreignArt}/history`
+    // The owner saves first, which puts the regions of that art into the server's memory: the other player
+    // must be refused all the same (the check of who may see the art comes before it).
+    const regions = (await (await otherPage.request.get(foreignArt)).json()).art.items.filter((item: { type: string }) => item.type === 'region')
+
+    expect((await otherPage.request.put(foreign, { data: { attempt: 0, rev: 0, keep: 0, steps: [[{ type: 'fill', region: regions[0].id, color: '#e53935' }]], cursor: 1, percent: 0 } })).status()).toBe(200)
 
     expect((await page.request.get(foreign)).status()).toBe(404)
     expect((await page.request.put(foreign, { data: { attempt: 0, rev: 0, keep: 0, steps: [step], cursor: 1, percent: 0 } })).status()).toBe(404)

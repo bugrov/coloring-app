@@ -2,7 +2,7 @@ import { PGlite } from '@electric-sql/pglite'
 import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/pglite'
 import { migrate } from 'drizzle-orm/pglite/migrator'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { users } from '../../../../layers/core/server/db/schema'
 import { arts, progress } from '../../../../layers/coloring/server/db/schema'
 import { deleteImport, findVisibleArt, getRegionIds, importArt, listGallery } from '../../../../layers/coloring/server/services/arts'
@@ -79,6 +79,38 @@ describe('gallery services', () => {
 
     expect([...(await getRegionIds(db, result.id))!].sort()).toEqual([...expected].sort())
     expect(await getRegionIds(db, '00000000-0000-4000-8000-000000000000')).toBeNull()
+  })
+
+  describe('the cache of region ids', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('forgets an art after a while, so a rewritten art is read again', async () => {
+      vi.useFakeTimers()
+      const [row] = await db.insert(arts).values({ source: 'user', ownerId: anna, title: 'Кеш', data: ART }).returning()
+
+      expect(await getRegionIds(db, row!.id)).not.toBeNull()
+      await db.delete(arts).where(eq(arts.id, row!.id))
+
+      expect(await getRegionIds(db, row!.id)).not.toBeNull()
+      vi.advanceTimersByTime(5 * 60_000 + 1)
+
+      expect(await getRegionIds(db, row!.id)).toBeNull()
+    })
+
+    it('drops the art that was not used for the longest time when it is full', async () => {
+      const rows = await db.insert(arts).values(Array.from({ length: 101 }, (_, index) => ({ source: 'user' as const, ownerId: anna, title: `Кеш ${index}`, data: ART }))).returning()
+
+      for (const row of rows.slice(0, 100)) await getRegionIds(db, row.id)
+      // The first one is used again, so it is the second that is dropped to make room for the last.
+      await getRegionIds(db, rows[0]!.id)
+      await getRegionIds(db, rows[100]!.id)
+      await db.delete(arts).where(eq(arts.ownerId, anna))
+
+      expect(await getRegionIds(db, rows[0]!.id)).not.toBeNull()
+      expect(await getRegionIds(db, rows[1]!.id)).toBeNull()
+    })
   })
 
   it('pages through everything exactly once by keyset', async () => {
