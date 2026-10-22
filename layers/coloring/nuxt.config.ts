@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 
 const ownSharedTypes = fileURLToPath(new URL('./shared/types', import.meta.url)).replaceAll('\\', '/')
+
 function isOwnSharedTypes(dir: string): boolean {
   return dir.replaceAll('\\', '/') === ownSharedTypes
 }

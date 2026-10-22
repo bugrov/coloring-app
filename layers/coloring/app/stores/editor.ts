@@ -46,6 +46,7 @@ export const useEditorStore = defineStore('coloring-editor', () => {
   const locked = computed(() => !historyReady.value || rebuilding.value || historyFull.value)
   /** Starting over makes sense once something was drawn (or undone) in this picture. */
   const canRestart = computed(() => historyLength.value > 0 || progress.value.percent > 0)
+
   function selectColor(hex: string) {
     recentColors.value = [...recentColors.value.filter(entry => entry !== hex), hex].slice(-RECENT_COLOR_COUNT)
   }
