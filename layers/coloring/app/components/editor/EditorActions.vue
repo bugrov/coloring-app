@@ -112,19 +112,18 @@ const thicknessLook = computed(() => THICKNESS_LOOKS[THICKNESS_SCALES.findIndex(
   height: 60px;
 }
 
-// The camera sits on a white disc in the design, tilted.
+// The picture brings its own white blob (not a circle) and the tilt of the camera, as in the design,
+// and the design lifts it a little above the bottom of the rail (the margins come from measuring the frames).
 .actions__camera {
-  width: 79px;
-  height: 79px;
-  border-radius: 50%;
-  background: var(--color-surface);
+  width: 65px;
+  height: 64px;
+  margin: 0 0 7px 2px;
 }
 
 .actions__camera img {
   display: block;
-  width: 64px;
-  height: 65px;
-  transform: rotate(-15deg);
+  width: 100%;
+  height: 100%;
 }
 
 .actions__settings {
