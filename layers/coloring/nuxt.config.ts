@@ -16,6 +16,10 @@ export default defineNuxtConfig({
     // Keeps thumbnails in the memory of the server process when there is no Blob store: for local development
     // and the e2e server only (NUXT_MEMORY_THUMBNAILS=true). Production without a store answers 503 instead.
     memoryThumbnails: false,
+    public: {
+      // The developer pages (SVG lab, engine sandbox) exist only in development and in the e2e run (NUXT_PUBLIC_DEV_PAGES=true).
+      devPages: false,
+    },
   },
 
   routeRules: {

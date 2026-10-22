@@ -6,6 +6,7 @@ import { ColoringRoutes } from '../../../shared/routes'
 // It becomes the admin "preview before publishing" in a later step.
 // It needs no server data, so it stays open without signing in.
 definePageMeta({ name: ColoringRoutes.LAB, auth: 'public' })
+useDevPage()
 useHead({ title: 'SVG-лаборатория' })
 
 const { samples, result, fileName, durationMs, stats, convert, convertFile } = useSvgLab()

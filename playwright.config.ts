@@ -45,6 +45,7 @@ export default defineConfig({
     env: {
       PORT: String(PORT),
       NUXT_MEMORY_THUMBNAILS: 'true',
+      NUXT_PUBLIC_DEV_PAGES: 'true',
       NUXT_ADMIN_LOGIN: E2E_ADMIN.login,
       NUXT_ADMIN_PASSWORD: E2E_ADMIN.password,
       NUXT_SESSION_PASSWORD: 'e2e-session-password-at-least-32-characters-long',
