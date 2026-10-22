@@ -12,4 +12,6 @@ export interface GameDefinition {
   entry: string
   /** Position in the game list, ascending. */
   order: number
+  /** Name of the route the game's administration starts from; the admin home links to it. */
+  adminEntry?: string
 }

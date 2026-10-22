@@ -1,3 +1,6 @@
+/** What players see of a built-in or admin art: `draft` and `hidden` are visible to the administrator only. */
+export const ART_STATUSES = ['draft', 'published', 'hidden'] as const
+
 /** Share of a region that must be coloured for it to count as done, until the administrator changes it. */
 export const DEFAULT_PAINTED_TOLERANCE = 0.95
 /** What the administrator may set: below half a region "done" would mean nothing, above 1 it is unreachable. */

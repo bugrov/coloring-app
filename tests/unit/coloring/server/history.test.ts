@@ -166,7 +166,7 @@ describe('history services', () => {
 
     const restarted = await restartArt(db, anna, artId)
 
-    expect(restarted).toEqual({ ok: true, attempt: 2 })
+    expect(restarted).toEqual({ ok: true, attempt: 2, created: true })
     expect(await loadHistory(db, anna, artId)).toEqual({ attempt: 2, rev: 0, cursor: 0, steps: [] })
     // The first attempt keeps its steps for analytics and the admin.
     expect(await storedSteps()).toEqual([{ seq: 1, attempt: 1 }])

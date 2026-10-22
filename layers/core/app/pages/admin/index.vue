@@ -5,6 +5,7 @@ definePageMeta({ name: CoreRoutes.ADMIN, auth: 'admin' })
 
 const { user } = useUserSession()
 const signOut = useSignOut(CoreRoutes.ADMIN_LOGIN)
+const games = useGames()
 </script>
 
 <template>
@@ -13,8 +14,25 @@ const signOut = useSignOut(CoreRoutes.ADMIN_LOGIN)
       Администратор
     </h1>
     <p class="admin__note">
-      {{ user?.username }}: управление артами, пользователями и статистикой появится на шаге 8.
+      {{ user?.username }}
     </p>
+    <nav
+      class="admin__games"
+      aria-label="Игры"
+    >
+      <template
+        v-for="game in games"
+        :key="game.id"
+      >
+        <NuxtLink
+          v-if="game.adminEntry"
+          class="button button--primary admin__game"
+          :to="{ name: game.adminEntry }"
+        >
+          {{ game.title }}: управление
+        </NuxtLink>
+      </template>
+    </nav>
     <button
       class="button button--ghost admin__sign-out"
       type="button"
@@ -34,6 +52,12 @@ const signOut = useSignOut(CoreRoutes.ADMIN_LOGIN)
 .admin__note {
   margin: 0;
   color: var(--color-text-muted);
+}
+
+.admin__games {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
 }
 
 .admin__sign-out {

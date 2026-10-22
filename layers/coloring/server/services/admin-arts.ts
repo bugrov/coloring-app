@@ -1,8 +1,8 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { Database } from '../../../core/server/utils/db'
-import type { AdminArt, ColoringArt } from '../../shared'
+import type { AdminArt, ArtStatus, ColoringArt } from '../../shared'
 import { users } from '../../../core/server/db/schema'
-import { artAssignments, arts, artEvents, type ArtStatus } from '../db/schema'
+import { artAssignments, arts, artEvents } from '../db/schema'
 
 const ADMIN_SOURCES = ['builtin', 'admin'] as const
 

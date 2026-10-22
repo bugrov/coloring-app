@@ -1,15 +1,11 @@
 import { sql } from 'drizzle-orm'
 import { bigint, boolean, char, check, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 import { users } from '../../../core/server/db/schema'
-import type { ColoringArt, HistoryStep } from '../../shared'
+import type { ArtStatus, ColoringArt, HistoryStep } from '../../shared'
 
 /** `builtin`: seeded with the app; `user`: a player's import; `admin`: uploaded by the administrator. */
 export const ART_SOURCES = ['builtin', 'user', 'admin'] as const
 export type ArtSource = typeof ART_SOURCES[number]
-
-/** What players see of a built-in or admin art: `draft` and `hidden` are visible to the administrator only. */
-export const ART_STATUSES = ['draft', 'published', 'hidden'] as const
-export type ArtStatus = typeof ART_STATUSES[number]
 
 /** Events of the analytics; `start` and `complete` count once per attempt. */
 export const ART_EVENT_TYPES = ['open', 'start', 'complete', 'restart'] as const

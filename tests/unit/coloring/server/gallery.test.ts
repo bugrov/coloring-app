@@ -100,7 +100,7 @@ describe('gallery services', () => {
 
     expect((await listGallery(db, player)).items[0]).toMatchObject({ percent: 60, attempt: 1 })
 
-    expect(await restartArt(db, player, imported.id)).toEqual({ ok: true, attempt: 2 })
+    expect(await restartArt(db, player, imported.id)).toEqual({ ok: true, attempt: 2, created: true })
     expect((await listGallery(db, player)).items[0]).toMatchObject({ percent: 0, attempt: 2 })
     const attempts = await db.select().from(progress).where(eq(progress.artId, imported.id))
     expect(attempts.map(row => row.attempt).sort()).toEqual([1, 2])
@@ -112,8 +112,8 @@ describe('gallery services', () => {
     if (!imported.ok) throw new Error('import failed')
     await db.insert(progress).values({ userId: player, artId: imported.id, attempt: 1, percent: 30 })
 
-    expect(await restartArt(db, player, imported.id)).toEqual({ ok: true, attempt: 2 })
-    expect(await restartArt(db, player, imported.id)).toEqual({ ok: true, attempt: 2 })
+    expect(await restartArt(db, player, imported.id)).toEqual({ ok: true, attempt: 2, created: true })
+    expect(await restartArt(db, player, imported.id)).toEqual({ ok: true, attempt: 2, created: false })
     expect(await db.select().from(progress).where(eq(progress.artId, imported.id))).toHaveLength(2)
   })
 

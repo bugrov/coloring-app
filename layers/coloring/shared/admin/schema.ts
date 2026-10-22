@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { COUNTRY_CODES } from '../../../core/shared/countries'
 import { ART_TITLE_MAX_LENGTH } from '../gallery/constants'
 import {
+  ART_STATUSES,
   DEFAULT_STATS_DAYS,
   MAX_ASSIGNMENTS,
   MAX_PAINTED_TOLERANCE,
@@ -11,7 +12,7 @@ import {
 
 const country = z.enum(COUNTRY_CODES as unknown as [string, ...string[]])
 
-export const artStatusSchema = z.enum(['draft', 'published', 'hidden'])
+export const artStatusSchema = z.enum(ART_STATUSES)
 
 /** Name of an uploaded file, reduced to a title by the server. */
 export const adminUploadQuerySchema = z.object({

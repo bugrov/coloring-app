@@ -7,6 +7,7 @@ export default defineAppConfig({
       title: 'Раскраска',
       entry: ColoringRoutes.GALLERY,
       order: 0,
+      adminEntry: ColoringRoutes.ADMIN_ARTS,
     },
   },
 })
