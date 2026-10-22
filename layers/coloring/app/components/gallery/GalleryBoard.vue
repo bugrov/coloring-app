@@ -146,8 +146,10 @@ onBeforeUnmount(() => observer?.disconnect())
       <span v-if="gallery.loadingMore">Загрузка…</span>
     </div>
 
-    <ConfirmDialog
-      :open="pending !== null"
+    <!-- Fetched when the first confirmation is asked for, not with the page. -->
+    <LazyConfirmDialog
+      v-if="pending !== null"
+      open
       :title="dialog.title"
       :text="dialog.text"
       :confirm-label="dialog.confirmLabel"

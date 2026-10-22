@@ -104,8 +104,9 @@ async function onRestartConfirmed() {
       {{ notice }}
     </p>
 
-    <ConfirmDialog
-      :open="confirmRestart"
+    <LazyConfirmDialog
+      v-if="confirmRestart"
+      open
       title="Начать заново?"
       text="Рисунок очистится. Прежняя попытка сохранится в истории."
       confirm-label="Начать заново"
