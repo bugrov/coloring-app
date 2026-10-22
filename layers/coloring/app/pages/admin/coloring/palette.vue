@@ -41,20 +41,21 @@ const { colors, loadError, message, saving, dirty, save, resetToStandard } = use
           :key="index"
           class="palette__row"
         >
-          <input
+          <FormInput
             v-model="color.hex"
             class="palette__color"
             type="color"
             :aria-label="`Цвет ${index + 1}`"
-          >
-          <input
+          />
+          <FormInput
             v-model="color.name"
-            class="form-input form-input--on-surface palette__name"
+            on-surface
+            class="palette__name"
             type="text"
             :maxlength="PALETTE_NAME_MAX_LENGTH"
             :aria-label="`Название цвета ${index + 1}`"
             required
-          >
+          />
         </li>
       </ol>
 

@@ -25,17 +25,16 @@ const { values, pending, fieldErrors, formError, submit } = useCredentialsForm({
         label="Логин"
         :error="fieldErrors.login"
       >
-        <input
+        <FormInput
           :id="field.id"
           v-model="values.login"
-          class="form-input"
           name="login"
           autocomplete="username"
           autocapitalize="off"
           spellcheck="false"
           :aria-describedby="field.describedBy"
           :aria-invalid="field.invalid"
-        >
+        />
       </FormField>
 
       <FormField
@@ -43,16 +42,15 @@ const { values, pending, fieldErrors, formError, submit } = useCredentialsForm({
         label="Пароль"
         :error="fieldErrors.password"
       >
-        <input
+        <FormInput
           :id="field.id"
           v-model="values.password"
-          class="form-input"
           name="password"
           type="password"
           autocomplete="current-password"
           :aria-describedby="field.describedBy"
           :aria-invalid="field.invalid"
-        >
+        />
       </FormField>
     </AuthForm>
   </AuthCard>

@@ -16,6 +16,7 @@ watch(details, (value) => {
 }, { immediate: true })
 
 const confirmDelete = ref(false)
+
 async function onDelete() {
   confirmDelete.value = false
   if (await remove()) await navigateTo({ name: ColoringRoutes.ADMIN_ARTS })
@@ -63,13 +64,13 @@ async function onDelete() {
             class="art__label"
             for="art-title"
           >Название</label>
-          <input
+          <FormInput
             id="art-title"
             v-model="title"
-            class="form-input form-input--on-surface"
+            on-surface
             maxlength="60"
             required
-          >
+          />
           <button
             class="button button--ghost"
             type="submit"
@@ -159,8 +160,9 @@ async function onDelete() {
       </div>
     </div>
 
-    <ConfirmDialog
-      :open="confirmDelete"
+    <LazyConfirmDialog
+      v-if="confirmDelete"
+      open
       title="Удалить рисунок?"
       text="Рисунок, попытки игроков и статистика по нему пропадут насовсем."
       confirm-label="Удалить"

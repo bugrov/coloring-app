@@ -42,16 +42,17 @@ async function save() {
         Мелкие щели вдоль контура не мешают дойти до 100 %. По умолчанию 95. Новое значение получат игроки при следующем открытии рисунка.
       </p>
       <div class="settings__row">
-        <input
+        <FormInput
           id="tolerance"
           v-model.number="percent"
-          class="form-input form-input--on-surface settings__input"
+          on-surface
+          class="settings__input"
           type="number"
           inputmode="numeric"
           :min="MIN_PERCENT"
           :max="MAX_PERCENT"
           step="1"
-        >
+        />
         <span aria-hidden="true">%</span>
         <button
           class="button button--primary"

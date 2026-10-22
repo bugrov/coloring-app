@@ -23,14 +23,15 @@ const when = (iso: string) => new Date(iso).toLocaleString('ru')
           class="players__label"
           for="players-query"
         >Имя игрока</label>
-        <input
+        <FormInput
           id="players-query"
           v-model="query"
-          class="form-input form-input--on-surface players__input"
+          on-surface
+          class="players__input"
           type="search"
           placeholder="Начало имени"
           autocomplete="off"
-        >
+        />
         <button
           class="button button--primary"
           type="submit"

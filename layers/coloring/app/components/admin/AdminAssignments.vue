@@ -17,6 +17,7 @@ watch(() => props.countries, value => (chosenCountries.value = [...value]))
 watch(() => props.players, value => (chosenPlayers.value = [...value]))
 
 const pickedCountry = ref('')
+
 function addCountry() {
   if (pickedCountry.value && !chosenCountries.value.includes(pickedCountry.value)) chosenCountries.value.push(pickedCountry.value)
   pickedCountry.value = ''
@@ -51,23 +52,24 @@ const everyone = computed(() => chosenCountries.value.length === 0 && chosenPlay
         class="assign__label"
         for="assign-country"
       >Страна</label>
-      <select
+      <FormSelect
         id="assign-country"
         v-model="pickedCountry"
-        class="form-input form-input--on-surface assign__input"
+        on-surface
+        class="assign__input"
         @change="addCountry"
       >
-        <option value="">
+        <FormOption value="">
           Добавить страну…
-        </option>
-        <option
+        </FormOption>
+        <FormOption
           v-for="option in options"
           :key="option.code"
           :value="option.code"
         >
           {{ option.name }}
-        </option>
-      </select>
+        </FormOption>
+      </FormSelect>
     </div>
     <ul
       class="assign__chips"
@@ -98,14 +100,15 @@ const everyone = computed(() => chosenCountries.value.length === 0 && chosenPlay
         class="assign__label"
         for="assign-player"
       >Игрок</label>
-      <input
+      <FormInput
         id="assign-player"
         v-model="query"
-        class="form-input form-input--on-surface assign__input"
+        on-surface
+        class="assign__input"
         type="search"
         placeholder="Начало имени"
         autocomplete="off"
-      >
+      />
       <button
         class="button button--ghost"
         type="submit"

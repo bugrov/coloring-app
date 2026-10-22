@@ -33,10 +33,9 @@ const { values, pending, fieldErrors, formError, submit } = useCredentialsForm({
         label="Имя"
         :error="fieldErrors.username"
       >
-        <input
+        <FormInput
           :id="field.id"
           v-model="values.username"
-          class="form-input"
           name="username"
           autocomplete="username"
           autocapitalize="off"
@@ -44,7 +43,7 @@ const { values, pending, fieldErrors, formError, submit } = useCredentialsForm({
           :maxlength="USERNAME_MAX_LENGTH"
           :aria-describedby="field.describedBy"
           :aria-invalid="field.invalid"
-        >
+        />
       </FormField>
 
       <FormField
@@ -52,28 +51,27 @@ const { values, pending, fieldErrors, formError, submit } = useCredentialsForm({
         label="Страна"
         :error="fieldErrors.country"
       >
-        <select
+        <FormSelect
           :id="field.id"
           v-model="values.country"
-          class="form-input"
           name="country"
           :aria-describedby="field.describedBy"
           :aria-invalid="field.invalid"
         >
-          <option
+          <FormOption
             value=""
             disabled
           >
             Выберите страну
-          </option>
-          <option
+          </FormOption>
+          <FormOption
             v-for="country in countries"
             :key="country.code"
             :value="country.code"
           >
             {{ country.name }}
-          </option>
-        </select>
+          </FormOption>
+        </FormSelect>
       </FormField>
     </AuthForm>
 
