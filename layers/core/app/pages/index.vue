@@ -3,9 +3,18 @@ import { CoreRoutes } from '../../shared/routes'
 
 definePageMeta({ name: CoreRoutes.HOME })
 
+/** The pictures of the first games are fetched at once (and announced in the head); the rest wait until they are near the screen. */
+const PRIORITY_GAMES = 2
+
 const games = useGames()
 const { user } = useUserSession()
 const signOut = useSignOut()
+
+useHead({
+  link: games.value
+    .slice(0, PRIORITY_GAMES)
+    .flatMap(game => (game.cover ? [{ rel: 'preload', as: 'image', href: game.cover, fetchpriority: 'high' as const }] : [])),
+})
 </script>
 
 <template>
@@ -27,10 +36,13 @@ const signOut = useSignOut()
     </header>
     <ul class="hub__list">
       <li
-        v-for="game in games"
+        v-for="(game, index) in games"
         :key="game.id"
       >
-        <GameCard :game="game" />
+        <GameCard
+          :game="game"
+          :priority="index < PRIORITY_GAMES"
+        />
       </li>
     </ul>
   </SafeAreaPage>

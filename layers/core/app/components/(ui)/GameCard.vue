@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import type { GameDefinition } from '../../../../../shared/types/game'
 
-defineProps<{ game: GameDefinition }>()
+defineProps<{
+  game: GameDefinition
+  /** A card in the first row of the list: its picture is fetched at once, before anything else. */
+  priority?: boolean
+}>()
 </script>
 
 <template>
@@ -15,6 +19,11 @@ defineProps<{ game: GameDefinition }>()
         class="game-card__image"
         :src="game.cover"
         alt=""
+        width="400"
+        height="240"
+        :loading="priority ? 'eager' : 'lazy'"
+        :fetchpriority="priority ? 'high' : 'auto'"
+        decoding="async"
         draggable="false"
       >
     </div>
@@ -30,7 +39,6 @@ defineProps<{ game: GameDefinition }>()
       </p>
       <span class="game-card__play">
         Играть
-        <IconArrowRight />
       </span>
     </div>
   </NuxtLink>
@@ -56,9 +64,10 @@ defineProps<{ game: GameDefinition }>()
     @include focus-ring;
   }
 
+  // The picture comes a little closer under the pointer; the card itself stays where it is.
   @media (hover: hover) {
-    &:hover {
-      transform: translateY(-2px);
+    &:hover .game-card__image {
+      transform: scale(1.06);
     }
   }
 
@@ -68,6 +77,7 @@ defineProps<{ game: GameDefinition }>()
 }
 
 .game-card__cover {
+  overflow: hidden;
   background: var(--color-card-frame);
 }
 
@@ -78,6 +88,11 @@ defineProps<{ game: GameDefinition }>()
   min-height: 140px;
   object-fit: cover;
   object-position: 20% center;
+  transition: transform var(--duration-base) var(--ease-out);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
 }
 
 .game-card__body {
@@ -102,7 +117,6 @@ defineProps<{ game: GameDefinition }>()
 .game-card__play {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
   margin-top: auto;
   padding: var(--space-2) var(--space-4);
   border-radius: 999px;
