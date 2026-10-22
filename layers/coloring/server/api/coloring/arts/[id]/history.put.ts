@@ -1,5 +1,5 @@
 import { HISTORY_ERROR_MESSAGES, saveHistorySchema } from '../../../../../shared'
-import { findVisibleArt } from '../../../../services/arts'
+import { artIsVisible, getRegionIds } from '../../../../services/arts'
 import { recordEvent } from '../../../../services/events'
 import { saveHistory } from '../../../../services/history'
 
@@ -13,13 +13,13 @@ export default defineEventHandler(async (event) => {
   const artId = parseUuidParam(event, 'id')
   const save = await parseBody(event, saveHistorySchema)
   const db = useDb()
-  const art = await findVisibleArt(db, user.id, artId)
 
-  if (!art) throw apiError(404, 'not_found')
+  if (!await artIsVisible(db, user.id, artId)) throw apiError(404, 'not_found')
 
   // Replay skips a step on a region that does not exist; storing one would only be garbage.
-  const regions = new Set(art.data.items.flatMap(item => (item.type === 'region' ? [item.id] : [])))
+  const regions = await getRegionIds(db, artId)
 
+  if (!regions) throw apiError(404, 'not_found')
   if (save.steps.some(step => step.some(op => !regions.has(op.region)))) throw domainError(422, 'history_region', HISTORY_ERROR_MESSAGES.history_region)
 
   const result = await saveHistory(db, user.id, artId, save)

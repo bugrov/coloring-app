@@ -1,22 +1,12 @@
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import { rowsOf, type Database } from '../../../core/server/utils/db'
 import type { HistoryState, SaveHistoryRequest } from '../../shared'
 import { progress } from '../db/schema'
+import { latestAttempt } from './attempts'
 
 export type SaveHistoryOutcome = { ok: true, attempt: number, rev: number } | { ok: false, reason: 'conflict' }
 
 const EMPTY_HISTORY: HistoryState = { attempt: 0, rev: 0, cursor: 0, steps: [] }
-
-async function latestAttempt(db: Database, userId: string, artId: string) {
-  const [row] = await db
-    .select({ id: progress.id, attempt: progress.attempt, rev: progress.rev })
-    .from(progress)
-    .where(and(eq(progress.userId, userId), eq(progress.artId, artId)))
-    .orderBy(desc(progress.attempt))
-    .limit(1)
-
-  return row
-}
 
 /**
  * The player's latest attempt at the art with all its steps, read in one statement so the steps

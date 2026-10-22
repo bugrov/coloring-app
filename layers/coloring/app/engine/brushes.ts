@@ -1,6 +1,6 @@
 import { parseColor } from '../../shared'
 import type { Rgb } from '../../shared'
-import { context2d, createCanvas, type AnyCanvas, type AnyContext } from './canvas'
+import { context2d, createCanvas, releaseCanvas, type AnyCanvas, type AnyContext } from './canvas'
 import { BRUSH_HARDNESS, PENCIL_GRAIN_LIGHTEN, PENCIL_GRAIN_TILE } from './constants'
 
 /** Fixed seed: the grain must look the same after a reload and on replay. */
@@ -55,6 +55,13 @@ export class BrushCache {
     }
 
     return pattern
+  }
+
+  /** Gives the stamp canvases back (they are memory the browser counts, on iOS dearly). */
+  dispose() {
+    for (const stamp of this.stamps.values()) releaseCanvas(stamp)
+    this.stamps.clear()
+    this.patterns.clear()
   }
 
   brushStamp(color: string, diameter: number): AnyCanvas {

@@ -1,20 +1,9 @@
-import { and, desc, eq } from 'drizzle-orm'
 import type { Database } from '../../../core/server/utils/db'
 import { progress } from '../db/schema'
+import { latestAttempt } from './attempts'
 
 /** `created`: a new attempt was started (false when the current one was clean already). */
 export type RestartResult = { ok: true, attempt: number, created: boolean } | { ok: false, reason: 'not_started' }
-
-async function latestAttempt(db: Database, userId: string, artId: string) {
-  const [row] = await db
-    .select({ attempt: progress.attempt, percent: progress.percent, stepCount: progress.stepCount })
-    .from(progress)
-    .where(and(eq(progress.userId, userId), eq(progress.artId, artId)))
-    .orderBy(desc(progress.attempt))
-    .limit(1)
-
-  return row
-}
 
 /**
  * "Start over": a new attempt with clean progress. The old attempt stays (analytics, admin).

@@ -1,5 +1,5 @@
 import type { ArtInk, ArtRegion, Bounds, ColoringArt } from '../../shared'
-import { context2d, createCanvas, type AnyContext, type Rect } from './canvas'
+import { context2d, createCanvas, releaseCanvas, type AnyCanvas, type AnyContext, type Rect } from './canvas'
 import type { ArtSpace } from './space'
 
 export interface RegionShape extends Omit<ArtRegion, 'd' | 'fillRule' | 'bounds'> {
@@ -25,6 +25,7 @@ export class ArtGeometry {
   readonly regions: RegionShape[]
   private readonly byId = new Map<number, RegionShape>()
   private readonly above = new Map<number, RegionShape[]>()
+  private readonly hitCanvas: AnyCanvas
   private readonly hitContext: AnyContext
 
   constructor(art: ColoringArt, private readonly space: ArtSpace) {
@@ -51,7 +52,13 @@ export class ArtGeometry {
       this.above.set(region.id, this.regions.slice(index + 1).filter(other => overlaps(region.bounds, other.bounds)))
     })
 
-    this.hitContext = context2d(createCanvas(1, 1))
+    this.hitCanvas = createCanvas(1, 1)
+    this.hitContext = context2d(this.hitCanvas)
+  }
+
+  /** Gives the one-pixel canvas of the hit tests back. */
+  dispose() {
+    releaseCanvas(this.hitCanvas)
   }
 
   region(id: number): RegionShape | undefined {

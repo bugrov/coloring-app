@@ -1,4 +1,5 @@
 import { THUMBNAIL_MAX_BYTES } from '../../../../../shared/gallery'
+import { IMAGE_MESSAGES } from '../../../../../shared/history'
 import { artIsVisible } from '../../../../services/arts'
 import { saveThumbnail } from '../../../../services/thumbnails'
 
@@ -16,7 +17,7 @@ export default defineEventHandler(async (event) => {
   const body = await readRawBody(event, false)
 
   if (!body || body.length === 0) throw apiError(400, 'validation')
-  if (body.length > THUMBNAIL_MAX_BYTES) throw domainError(413, 'thumbnail_too_large', 'Картинка слишком большая.')
+  if (body.length > THUMBNAIL_MAX_BYTES) throw domainError(413, 'thumbnail_too_large', IMAGE_MESSAGES.thumbnail_too_large)
 
   const result = await saveThumbnail(db, useThumbnailStore(), user.id, artId, body)
 

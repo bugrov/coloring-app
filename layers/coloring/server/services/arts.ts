@@ -86,6 +86,30 @@ export async function artIsVisible(db: Database, userId: string, artId: string):
   return row !== undefined
 }
 
+/** Arts do not change once stored (an art is replaced by a new id), so the ids of their regions are kept per server instance. */
+const REGION_IDS_CACHE_SIZE = 100
+const regionIds = new Map<string, ReadonlySet<number>>()
+
+/**
+ * The ids of the paintable regions of an art, or null when there is no such art. Saving the history
+ * checks every step against them, every few seconds while someone draws: the art itself (up to 2 MB)
+ * is read once, not each time. Whether the player may see the art is a separate question (`artIsVisible`).
+ */
+export async function getRegionIds(db: Database, artId: string): Promise<ReadonlySet<number> | null> {
+  const cached = regionIds.get(artId)
+
+  if (cached) return cached
+  const [row] = await db.select({ data: arts.data }).from(arts).where(eq(arts.id, artId)).limit(1)
+
+  if (!row) return null
+  const ids = new Set(row.data.items.flatMap(item => (item.type === 'region' ? [item.id] : [])))
+
+  if (regionIds.size >= REGION_IDS_CACHE_SIZE) regionIds.delete(regionIds.keys().next().value!)
+  regionIds.set(artId, ids)
+
+  return ids
+}
+
 /** True when the player keeps `IMPORT_LIMIT` imports already. Cheap: checked before the costly SVG conversion. */
 export async function importLimitReached(db: Database, userId: string): Promise<boolean> {
   const [{ total } = { total: 0 }] = await db

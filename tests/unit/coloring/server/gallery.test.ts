@@ -5,7 +5,7 @@ import { migrate } from 'drizzle-orm/pglite/migrator'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { users } from '../../../../layers/core/server/db/schema'
 import { arts, progress } from '../../../../layers/coloring/server/db/schema'
-import { deleteImport, findVisibleArt, importArt, listGallery } from '../../../../layers/coloring/server/services/arts'
+import { deleteImport, findVisibleArt, getRegionIds, importArt, listGallery } from '../../../../layers/coloring/server/services/arts'
 import { restartArt } from '../../../../layers/coloring/server/services/progress'
 import { GALLERY_PAGE_SIZE, IMPORT_LIMIT } from '../../../../layers/coloring/shared/gallery'
 import { convertSvg } from '../../../../layers/coloring/shared/svg'
@@ -65,6 +65,20 @@ describe('gallery services', () => {
     expect((await listGallery(db, boris)).items.map(item => item.title)).not.toContain('Тайный')
     expect(await findVisibleArt(db, boris, result.id)).toBeNull()
     expect(await findVisibleArt(db, anna, result.id)).not.toBeNull()
+  })
+
+  it('knows the ids of the regions of an art, and of none that does not exist', async () => {
+    const result = await importArt(db, anna, 'Области', ART)
+
+    if (!result.ok) throw new Error('import failed')
+    const expected = ART.items.flatMap(item => (item.type === 'region' ? [item.id] : []))
+
+    expect([...(await getRegionIds(db, result.id))!].sort()).toEqual([...expected].sort())
+    // Asked again it answers from memory: still the same ids, even though the art is gone from the table.
+    await deleteImport(db, anna, result.id)
+
+    expect([...(await getRegionIds(db, result.id))!].sort()).toEqual([...expected].sort())
+    expect(await getRegionIds(db, '00000000-0000-4000-8000-000000000000')).toBeNull()
   })
 
   it('pages through everything exactly once by keyset', async () => {

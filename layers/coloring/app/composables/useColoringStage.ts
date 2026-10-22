@@ -148,6 +148,8 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
   /** Where the current press began, relative to the stage, and the colour it would fill with. */
   let holdAt: Pick<HoldFeedback, 'x' | 'y' | 'color'> = { x: 0, y: 0, color: null }
   let frame = 0
+  /** Where the canvas is on the screen, kept while a stroke is drawn: reading it forces a layout, and the view only moves by gestures, the wheel or a resize. */
+  let canvasRect: DOMRect | null = null
   let contentSize = { width: 0, height: 0 }
 
   watch([options.art, canvas], ([art, element]) => {
@@ -304,6 +306,7 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     const zoomed = zoomAt(view.value, factor, next.x - box.left, next.y - box.top, box.width, box.height)
 
     view.value = panBy(zoomed, next.x - gesture.x, next.y - gesture.y, box.width, box.height)
+    canvasRect = null
     gesture = next
   }
 
@@ -338,7 +341,8 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
 
     // Zoom and pan stay possible while locked; drawing does not.
     if (options.locked?.value) return
-    const ratio = ratioOf(event, canvas.value!.getBoundingClientRect())
+    canvasRect = canvas.value!.getBoundingClientRect()
+    const ratio = ratioOf(event, canvasRect)
 
     if (!isOnArt(ratio)) return
     const { point, region } = engine.value.locate(...ratio)
@@ -371,6 +375,7 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     const box = contentBox()
 
     view.value = panBy(view.value, event.clientX - drag.x, event.clientY - drag.y, box.width, box.height)
+    canvasRect = null
     drag.x = event.clientX
     drag.y = event.clientY
   }
@@ -399,7 +404,7 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     }
     if (!stroke || stroke.pointerId !== event.pointerId || !engine.value) return
 
-    const rect = canvas.value!.getBoundingClientRect()
+    const rect = canvasRect ??= canvas.value!.getBoundingClientRect()
     const coalesced = event.getCoalescedEvents?.()
     const { space } = engine.value
 
@@ -449,6 +454,8 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
   function onWheel(event: WheelEvent) {
     const box = contentBox()
 
+    canvasRect = null
+
     if (event.ctrlKey) {
       // Ctrl+wheel and trackpad pinch: zoom the art, not the page.
       event.preventDefault()
@@ -481,6 +488,7 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     const sy = contentSize.height ? height / contentSize.height : 1
 
     contentSize = { width, height }
+    canvasRect = null
     view.value = clampView({ ...view.value, x: view.value.x * sx, y: view.value.y * sy }, width, height)
   }
 

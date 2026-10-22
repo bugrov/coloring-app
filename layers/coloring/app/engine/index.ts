@@ -167,6 +167,7 @@ export class ColoringEngine {
   /** Releases the offscreen canvases right away; iOS limits total canvas memory. */
   dispose() {
     this.painter.dispose()
+    this.geometry.dispose()
   }
 
   private track(rect: Rect | null) {

@@ -1,7 +1,8 @@
-import { and, desc, eq, isNotNull } from 'drizzle-orm'
+import { and, eq, isNotNull } from 'drizzle-orm'
 import type { Database } from '../../../core/server/utils/db'
 import { THUMBNAIL_MAX_BYTES } from '../../shared/gallery'
 import { progress } from '../db/schema'
+import { latestAttempt } from './attempts'
 
 /** Where the thumbnail files live: Vercel Blob in the app, memory in tests and in development without a store. */
 export interface ThumbnailStore {
@@ -27,17 +28,6 @@ export function detectThumbnailType(bytes: Uint8Array): ThumbnailType | null {
   if (bytes[0] === 0x89 && matches(bytes, 1, 'PNG')) return 'image/png'
 
   return null
-}
-
-async function latestAttempt(db: Database, userId: string, artId: string) {
-  const [row] = await db
-    .select({ id: progress.id, thumbnailAt: progress.thumbnailAt })
-    .from(progress)
-    .where(and(eq(progress.userId, userId), eq(progress.artId, artId)))
-    .orderBy(desc(progress.attempt))
-    .limit(1)
-
-  return row
 }
 
 /** Stores the thumbnail of the latest attempt of the player; there is none before the first save of the history. */
