@@ -207,10 +207,15 @@ test.describe('history with the database', () => {
     const imported = await otherPage.request.post('/api/coloring/imports?name=mine.svg', { data: svg, headers: { 'content-type': 'image/svg+xml' } })
 
     expect(imported.status()).toBe(200)
-    const foreign = `/api/coloring/arts/${(await imported.json()).id}/history`
+    const foreignArt = `/api/coloring/arts/${(await imported.json()).id}`
+    const foreign = `${foreignArt}/history`
 
     expect((await page.request.get(foreign)).status()).toBe(404)
     expect((await page.request.put(foreign, { data: { attempt: 0, rev: 0, keep: 0, steps: [step], cursor: 1, percent: 0 } })).status()).toBe(404)
+    // The other writing routes are closed to this player as well.
+    expect((await page.request.put(`${foreignArt}/thumbnail`, { data: Buffer.from('RIFF'), headers: { 'content-type': 'image/webp' } })).status()).toBe(404)
+    expect((await page.request.post(`${foreignArt}/restart`)).status()).toBe(404)
+    expect((await page.request.delete(foreignArt)).status()).toBe(404)
     await other.close()
   })
 
