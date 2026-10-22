@@ -57,13 +57,21 @@ export function usePlayerArtView(
     if (mine === generation) handle.publishProgress()
   }
 
+  /** The slider moved because a history was loaded, not because the administrator dragged it: no extra rebuild. */
+  let followingState = false
   watch(state, (value) => {
-    if (value) step.value = value.history.cursor
+    if (!value || step.value === value.history.cursor) return
+    followingState = true
+    step.value = value.history.cursor
   }, { immediate: true })
 
   // A new art or attempt makes a new engine on the stage; the picture is rebuilt when it reports ready.
   watch([state, stageReady], () => void show())
   watch(step, () => {
+    if (followingState) {
+      followingState = false
+      return
+    }
     clearTimeout(pending)
     pending = setTimeout(() => void show(), SLIDER_DELAY_MS)
   })

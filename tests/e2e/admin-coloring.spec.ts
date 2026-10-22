@@ -127,7 +127,9 @@ test.describe('administration with the database', () => {
     const playerContext = await browser.newContext()
     const player = await playerContext.newPage()
     const username = await signInPlayer(player, 'RU')
-    await player.request.get(`/api/coloring/arts/${id}/history`)
+    // Only a read that says it is the editor opening counts as an open; a plain read after "start over" does not.
+    await player.request.get(`/api/coloring/arts/${id}/history?track=open`)
+    await player.request.get(`/api/coloring/arts/${id}/history?track=open`)
     await player.request.get(`/api/coloring/arts/${id}/history`)
     const step = [{ type: 'fill', region, color: '#e53935' }]
     const first = await player.request.put(`/api/coloring/arts/${id}/history`, { data: { attempt: 0, rev: 0, keep: 0, steps: [step], cursor: 1, percent: 100 } })
@@ -135,8 +137,11 @@ test.describe('administration with the database', () => {
     // Saving the same finished picture again must not count a second start or completion.
     await player.request.put(`/api/coloring/arts/${id}/history`, { data: { attempt: 1, rev: 1, keep: 1, steps: [step], cursor: 2, percent: 100 } })
 
-    const listed = await (await page.request.get('/api/admin/coloring/arts')).json()
-    expect(listed.find((entry: { id: string }) => entry.id === id)).toMatchObject({ opens: 2, starts: 1, completes: 1 })
+    // Events are written after the responses; give them a moment.
+    await expect.poll(async () => {
+      const listed = await (await page.request.get('/api/admin/coloring/arts')).json()
+      return listed.find((entry: { id: string }) => entry.id === id)
+    }).toMatchObject({ opens: 2, starts: 1, completes: 1 })
     const stats = await (await page.request.get('/api/admin/coloring/stats?days=7')).json()
     expect(stats.arts.find((entry: { id: string }) => entry.id === id)).toMatchObject({ opens: 2, starts: 1, completes: 1 })
     expect(stats.daily).toHaveLength(7)

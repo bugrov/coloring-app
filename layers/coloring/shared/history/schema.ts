@@ -7,6 +7,11 @@ export const stepSchema = z.array(opSchema).min(1).max(MAX_OPS_PER_STEP)
 
 const count = z.number().int().min(0).max(MAX_HISTORY_STEPS)
 
+/** `track=open`: this read is the editor being opened, which the analytics count. */
+export const historyReadQuerySchema = z.object({
+  track: z.literal('open').optional(),
+})
+
 /** What the editor stores for an attempt: every step and where the player stands among them. */
 export const historyStateSchema = z.object({
   /** 0 while the player has not started the art. */

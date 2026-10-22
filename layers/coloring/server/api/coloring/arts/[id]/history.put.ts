@@ -25,7 +25,8 @@ export default defineEventHandler(async (event) => {
 
   // The first accepted save of an attempt with steps is its start; 100 % is its completion. Both count once.
   const base = { userId: user.id, artId, attempt: result.attempt, country: user.country ?? '' }
-  if (result.rev === 1 && save.steps.length > 0) await recordEvent(db, { ...base, type: 'start' })
-  if (save.percent === 100) await recordEvent(db, { ...base, type: 'complete' })
+  // Written after the response: analytics must not make a save slower.
+  if (result.rev === 1 && save.steps.length > 0) event.waitUntil(recordEvent(db, { ...base, type: 'start' }))
+  if (save.percent === 100) event.waitUntil(recordEvent(db, { ...base, type: 'complete' }))
   return { attempt: result.attempt, rev: result.rev }
 })

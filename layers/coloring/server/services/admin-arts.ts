@@ -75,14 +75,14 @@ export async function createAdminArt(db: Database, title: string, data: Coloring
   return row.id
 }
 
-/** Changes the title and/or status of a built-in or admin art; false when there is no such art. */
-export async function updateAdminArt(db: Database, artId: string, patch: { title?: string, status?: ArtStatus }): Promise<boolean> {
-  const updated = await db
-    .update(arts)
-    .set(patch)
-    .where(and(eq(arts.id, artId), inArray(arts.source, ADMIN_SOURCES)))
-    .returning({ id: arts.id })
-  return updated.length > 0
+/** Changes the title and/or status of a built-in or admin art; the title of a built-in art stays as the seed has it. */
+export async function updateAdminArt(db: Database, artId: string, patch: { title?: string, status?: ArtStatus }): Promise<'ok' | 'not_found' | 'title_locked'> {
+  // The seed refreshes the title of a built-in art at every deploy, so a rename would silently revert.
+  const current = await getAdminArt(db, artId)
+  if (!current) return 'not_found'
+  if (patch.title !== undefined && current.source === 'builtin') return 'title_locked'
+  await db.update(arts).set(patch).where(eq(arts.id, artId))
+  return 'ok'
 }
 
 /** Deletes an admin art with its attempts and events. Built-in arts are hidden instead (the seed would bring them back). */
@@ -94,11 +94,15 @@ export async function deleteAdminArt(db: Database, artId: string): Promise<boole
 /**
  * Makes the art's assignments exactly these countries and players: new ones are added, the ones not
  * listed are removed. One statement (the Neon HTTP driver has no transactions), and the two parts touch
- * different rows, so the art is never briefly open to everyone in between. A player id that does not
- * exist is skipped. Returns false when there is no such art.
+ * different rows, so the art is never briefly open to everyone in between. Refused when there is no
+ * such art or a listed player does not exist.
  */
-export async function setAssignments(db: Database, artId: string, assignment: { countries: string[], players: string[] }): Promise<boolean> {
-  if (!await getAdminArt(db, artId)) return false
+export async function setAssignments(db: Database, artId: string, assignment: { countries: string[], players: string[] }): Promise<'ok' | 'not_found' | 'unknown_player'> {
+  if (!await getAdminArt(db, artId)) return 'not_found'
+  // An art with no assignments is open to everyone: a list that names players who do not exist
+  // must not quietly turn into "nobody listed" and publish a restricted art.
+  const known = assignment.players.length === 0 ? 0 : await db.select({ id: users.id }).from(users).where(inArray(users.id, assignment.players)).then(rows => rows.length)
+  if (known !== new Set(assignment.players).size) return 'unknown_player'
   // The lists go in as JSON: a JS array in a sql template is spread into separate parameters, not an array.
   const countries = JSON.stringify(assignment.countries)
   const players = JSON.stringify(assignment.players)
@@ -120,5 +124,5 @@ export async function setAssignments(db: Database, artId: string, assignment: { 
         OR COALESCE(user_id::text IN (SELECT jsonb_array_elements_text(${players}::jsonb)), false)
       )
   `)
-  return true
+  return 'ok'
 }

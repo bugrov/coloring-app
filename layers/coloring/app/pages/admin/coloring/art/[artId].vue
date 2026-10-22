@@ -55,6 +55,7 @@ async function onDelete() {
 
       <div class="art__side">
         <form
+          v-if="details.source === 'admin'"
           class="art__card"
           @submit.prevent="rename(title)"
         >

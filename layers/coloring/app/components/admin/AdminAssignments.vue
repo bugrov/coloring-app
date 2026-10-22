@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { readApiError } from '#layers/core/shared/errors'
 import type { AdminPlayer } from '../../../shared'
 
 const props = defineProps<{
@@ -10,9 +9,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ save: [countries: string[], players: string[]] }>()
 
-const api = useRequestFetch()
 const options = countryOptions()
-const names = new Intl.DisplayNames('ru', { type: 'region' })
 
 const chosenCountries = ref<string[]>([...props.countries])
 const chosenPlayers = ref<AdminPlayer[]>([...props.players])
@@ -25,20 +22,7 @@ function addCountry() {
   pickedCountry.value = ''
 }
 
-const query = ref('')
-const found = ref<AdminPlayer[]>([])
-const searchError = ref('')
-
-async function search() {
-  searchError.value = ''
-  if (!query.value.trim()) return
-  try {
-    found.value = await api<AdminPlayer[]>('/api/admin/coloring/players', { query: { query: query.value.trim() } })
-  }
-  catch (failure) {
-    searchError.value = readApiError(failure).message
-  }
-}
+const { query, found, error: searchError, search } = usePlayerSearch()
 
 function addPlayer(player: AdminPlayer) {
   if (!chosenPlayers.value.some(entry => entry.id === player.id)) chosenPlayers.value.push(player)
@@ -94,11 +78,11 @@ const everyone = computed(() => chosenCountries.value.length === 0 && chosenPlay
         :key="code"
         class="assign__chip"
       >
-        {{ names.of(code) ?? code }}
+        {{ countryName(code) }}
         <button
           class="assign__remove"
           type="button"
-          :aria-label="`Убрать страну ${names.of(code) ?? code}`"
+          :aria-label="`Убрать страну ${countryName(code)}`"
           @click="chosenCountries = chosenCountries.filter(entry => entry !== code)"
         >
           ×
@@ -150,7 +134,7 @@ const everyone = computed(() => chosenCountries.value.length === 0 && chosenPlay
           type="button"
           @click="addPlayer(player)"
         >
-          {{ player.username }} ({{ names.of(player.country) ?? player.country }})
+          {{ player.username }} ({{ countryName(player.country) }})
         </button>
       </li>
     </ul>

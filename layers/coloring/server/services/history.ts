@@ -1,16 +1,11 @@
 import { and, desc, eq, sql } from 'drizzle-orm'
-import type { Database } from '../../../core/server/utils/db'
+import { rowsOf, type Database } from '../../../core/server/utils/db'
 import type { HistoryState, SaveHistoryRequest } from '../../shared'
 import { progress } from '../db/schema'
 
 export type SaveHistoryOutcome = { ok: true, attempt: number, rev: number } | { ok: false, reason: 'conflict' }
 
 const EMPTY_HISTORY: HistoryState = { attempt: 0, rev: 0, cursor: 0, steps: [] }
-
-/** Rows of a raw query; the Neon HTTP driver and PGlite both answer with them. */
-function rowsOf<T>(result: unknown): T[] {
-  return (result as { rows: T[] }).rows
-}
 
 async function latestAttempt(db: Database, userId: string, artId: string) {
   const [row] = await db

@@ -1,14 +1,13 @@
 <script setup lang="ts">
+import { DEFAULT_STATS_DAYS } from '../../../../shared/admin'
 import { ColoringRoutes } from '../../../../shared/routes'
 
 definePageMeta({ name: ColoringRoutes.ADMIN_STATS, auth: 'admin' })
 useHead({ title: 'Статистика: администратор', meta: [{ name: 'robots', content: 'noindex' }] })
 
 const PERIODS = [7, 30, 90] as const
-const days = ref<number>(30)
+const days = ref<number>(DEFAULT_STATS_DAYS)
 const { stats, pending, loadError } = useAdminStats(days)
-
-const names = new Intl.DisplayNames('ru', { type: 'region' })
 
 const funnel = computed(() => [
   { label: 'Открыли', value: stats.value?.totals.opens ?? 0 },
@@ -17,7 +16,7 @@ const funnel = computed(() => [
   { label: 'Начали заново', value: stats.value?.totals.restarts ?? 0 },
 ])
 const popular = computed(() => (stats.value?.arts ?? []).map(art => ({ label: art.title, value: art.opens })))
-const byCountry = computed(() => (stats.value?.countries ?? []).map(entry => ({ label: names.of(entry.country) ?? entry.country, value: entry.opens })))
+const byCountry = computed(() => (stats.value?.countries ?? []).map(entry => ({ label: countryName(entry.country), value: entry.opens })))
 </script>
 
 <template>

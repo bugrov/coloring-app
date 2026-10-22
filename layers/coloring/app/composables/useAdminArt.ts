@@ -21,13 +21,13 @@ export function useAdminArt(artId: Readonly<Ref<string>>) {
   const notice = ref('')
   const busy = ref(false)
 
-  /** Runs a change; on failure shows its message. */
-  async function act(run: () => Promise<unknown>): Promise<boolean> {
+  /** Runs a change and reloads what the page shows (not after a delete: that art is gone); on failure shows its message. */
+  async function act(run: () => Promise<unknown>, reload = true): Promise<boolean> {
     busy.value = true
     notice.value = ''
     try {
       await run()
-      await Promise.all([drawing.refresh(), list.refresh()])
+      if (reload) await Promise.all([drawing.refresh(), list.refresh()])
       return true
     }
     catch (failure) {
@@ -50,6 +50,6 @@ export function useAdminArt(artId: Readonly<Ref<string>>) {
     rename: (title: string) => act(() => api(url(), { method: 'PATCH', body: { title } })),
     setStatus: (status: ArtStatus) => act(() => api(url(), { method: 'PATCH', body: { status } })),
     assign: (countries: string[], players: string[]) => act(() => api(`${url()}/assignments`, { method: 'PUT', body: { countries, players } })),
-    remove: () => act(() => api(url(), { method: 'DELETE' })),
+    remove: () => act(() => api(url(), { method: 'DELETE' }), false),
   }
 }

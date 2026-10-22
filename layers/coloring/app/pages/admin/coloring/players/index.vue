@@ -5,7 +5,6 @@ definePageMeta({ name: ColoringRoutes.ADMIN_PLAYERS, auth: 'admin' })
 useHead({ title: 'Игроки: администратор', meta: [{ name: 'robots', content: 'noindex' }] })
 
 const { query, found, selected, arts, error, searched, search, select } = useAdminPlayers()
-const names = new Intl.DisplayNames('ru', { type: 'region' })
 const when = (iso: string) => new Date(iso).toLocaleString('ru')
 </script>
 
@@ -69,7 +68,7 @@ const when = (iso: string) => new Date(iso).toLocaleString('ru')
             type="button"
             @click="select(player)"
           >
-            {{ player.username }} ({{ names.of(player.country) ?? player.country }})
+            {{ player.username }} ({{ countryName(player.country) }})
           </button>
         </li>
       </ul>

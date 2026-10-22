@@ -11,6 +11,11 @@ import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
  */
 export type Database = PgDatabase<PgQueryResultHKT>
 
+/** Rows of a raw `db.execute` result; the Neon HTTP driver and PGlite both answer with them. */
+export function rowsOf<T>(result: unknown): T[] {
+  return (result as { rows: T[] }).rows
+}
+
 let database: Database | undefined
 
 /**

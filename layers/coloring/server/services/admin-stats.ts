@@ -1,10 +1,6 @@
 import { sql } from 'drizzle-orm'
-import type { Database } from '../../../core/server/utils/db'
+import { rowsOf, type Database } from '../../../core/server/utils/db'
 import type { AdminStats } from '../../shared'
-
-function rowsOf<T>(result: unknown): T[] {
-  return (result as { rows: T[] }).rows
-}
 
 interface Totals { opens: number, starts: number, completes: number, restarts: number, players: number }
 

@@ -1,3 +1,4 @@
+import { historyReadQuerySchema } from '../../../../../shared/history'
 import { artIsVisible } from '../../../../services/arts'
 import { recordEvent } from '../../../../services/events'
 import { loadHistory } from '../../../../services/history'
@@ -11,8 +12,11 @@ export default defineEventHandler(async (event) => {
 
   // Another tab or device may have saved a moment ago: never serve a stored copy.
   setHeader(event, 'Cache-Control', 'no-store')
+  const { track } = parseQuery(event, historyReadQuerySchema)
   const history = await loadHistory(db, user.id, artId)
-  // Opening the editor is what "open" means; the history is read once per open.
-  await recordEvent(db, { type: 'open', userId: user.id, artId, attempt: history.attempt, country: user.country ?? '' })
+  // Opening the editor is what "open" means. The editor says so with `track=open`; the read after
+  // "start over" or any other reload of the same screen is not a new visit and counts nothing.
+  // Written after the response: analytics must not make opening an art slower.
+  if (track === 'open') event.waitUntil(recordEvent(db, { type: 'open', userId: user.id, artId, attempt: history.attempt, country: user.country ?? '' }))
   return history
 })

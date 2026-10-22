@@ -108,17 +108,29 @@ describe('admin and analytics services', () => {
   })
 
   describe('assignments', () => {
-    it('replaces the list, keeps what stays and skips a player that does not exist', async () => {
+    it('replaces the list and keeps what stays', async () => {
       const player = await newUser()
       const id = await newArt()
 
-      await setAssignments(db, id, { countries: ['DE', 'FR'], players: [player, '00000000-0000-4000-8000-000000000000'] })
+      await setAssignments(db, id, { countries: ['DE', 'FR'], players: [player] })
       await setAssignments(db, id, { countries: ['FR', 'IT'], players: [] })
 
       const art = (await listAdminArts(db)).find(entry => entry.id === id)!
       expect([...art.assignedCountries].sort()).toEqual(['FR', 'IT'])
       expect(art.assignedPlayers).toEqual([])
       expect(await db.select().from(artAssignments).where(eq(artAssignments.artId, id))).toHaveLength(2)
+    })
+
+    it('refuses a list with a player that does not exist and changes nothing: a restricted art must not become public', async () => {
+      const player = await newUser('FR')
+      const id = await newArt()
+      await setAssignments(db, id, { countries: ['DE'], players: [] })
+
+      const result = await setAssignments(db, id, { countries: [], players: ['00000000-0000-4000-8000-000000000000'] })
+
+      expect(result).toBe('unknown_player')
+      expect((await listAdminArts(db)).find(entry => entry.id === id)!.assignedCountries).toEqual(['DE'])
+      expect(await artIsVisible(db, player, id)).toBe(false)
     })
 
     it('lists the assigned players with their names', async () => {
@@ -135,13 +147,24 @@ describe('admin and analytics services', () => {
       const owner = await newUser()
       const [mine] = await db.insert(arts).values({ source: 'user', ownerId: owner, title: 'Мой', data: ART }).returning()
 
-      expect(await setAssignments(db, mine!.id, { countries: ['DE'], players: [] })).toBe(false)
-      expect(await updateAdminArt(db, mine!.id, { status: 'hidden' })).toBe(false)
+      expect(await setAssignments(db, mine!.id, { countries: ['DE'], players: [] })).toBe('not_found')
+      expect(await updateAdminArt(db, mine!.id, { status: 'hidden' })).toBe('not_found')
       expect(await getAdminArt(db, mine!.id)).toBeNull()
     })
   })
 
   describe('admin arts', () => {
+    it('renames an admin art but not a built-in one: the seed owns that title', async () => {
+      const mine = await createAdminArt(db, 'Старое', ART)
+      const [builtin] = await db.insert(arts).values({ source: 'builtin', builtinKey: `t${++counter}`, title: 'Встроенный', data: ART }).returning()
+
+      expect(await updateAdminArt(db, mine, { title: 'Новое' })).toBe('ok')
+      expect((await getAdminArt(db, mine))?.title).toBe('Новое')
+      expect(await updateAdminArt(db, builtin!.id, { title: 'Другое' })).toBe('title_locked')
+      expect(await updateAdminArt(db, builtin!.id, { status: 'hidden' })).toBe('ok')
+      expect((await getAdminArt(db, builtin!.id))?.title).toBe('Встроенный')
+    })
+
     it('stores an upload as a draft, and only admin arts can be deleted', async () => {
       const id = await createAdminArt(db, 'Загруженный', ART)
       const [builtin] = await db.insert(arts).values({ source: 'builtin', builtinKey: `d${++counter}`, title: 'Встроенный', data: ART }).returning()
