@@ -2,17 +2,46 @@
 import { ColoringRoutes } from '../../../shared/routes'
 import type { GalleryItem } from '../../../shared'
 
-const props = defineProps<{ item: GalleryItem }>()
+const props = defineProps<{
+  item: GalleryItem
+  /** A card in the first row: its picture is fetched at once, the others wait until they are near the screen. */
+  priority?: boolean
+}>()
 const emit = defineEmits<{ restart: [], remove: [] }>()
 
 // Same values as the card border and corner in the design tokens (--border-card, --radius-card).
 const BAND = 16
 const RADIUS = 64
 
-/** The painted picture once there is one (its stored time versions the URL), the empty art before. */
-const picture = computed(() => (props.item.thumbnail === null
-  ? `/api/coloring/arts/${props.item.id}/preview.svg`
-  : `/api/coloring/arts/${props.item.id}/thumbnail?v=${props.item.thumbnail}`))
+/**
+ * What the card shows, best first: the painted picture once there is one (its stored time versions
+ * the URL), then the empty art, then a plain placeholder when neither could be loaded.
+ */
+type Picture = 'thumbnail' | 'preview' | 'none'
+
+const picture = ref<Picture>(props.item.thumbnail === null ? 'preview' : 'thumbnail')
+const loaded = ref(false)
+const image = useTemplateRef<HTMLImageElement>('image')
+
+const pictureUrl = computed(() => (picture.value === 'thumbnail'
+  ? `/api/coloring/arts/${props.item.id}/thumbnail?v=${props.item.thumbnail}`
+  : `/api/coloring/arts/${props.item.id}/preview.svg`))
+
+// A new painted picture (the player drew, or started over) is a new image to wait for.
+watch(() => props.item.thumbnail, (value) => {
+  picture.value = value === null ? 'preview' : 'thumbnail'
+  loaded.value = false
+})
+
+function onError() {
+  loaded.value = false
+  picture.value = picture.value === 'thumbnail' ? 'preview' : 'none'
+}
+
+// The server-rendered image may be in the cache and loaded before the page woke up: no `load` event then.
+onMounted(() => {
+  if (image.value?.complete && image.value.naturalWidth > 0) loaded.value = true
+})
 
 const canRestart = computed(() => props.item.attempt > 0)
 const canRemove = computed(() => props.item.source === 'user')
@@ -54,12 +83,46 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
       :aria-label="label"
     >
       <img
+        v-if="picture !== 'none'"
+        :key="picture"
+        ref="image"
         class="gallery-card__art"
-        :src="picture"
+        :class="{ 'gallery-card__art--loaded': loaded }"
+        :src="pictureUrl"
         alt=""
-        loading="lazy"
+        :loading="priority ? 'eager' : 'lazy'"
+        :fetchpriority="priority ? 'high' : 'auto'"
         decoding="async"
+        @load="loaded = true"
+        @error="onError"
       >
+      <svg
+        v-else
+        class="gallery-card__missing"
+        viewBox="0 0 24 24"
+        width="48"
+        height="48"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <rect
+          x="3"
+          y="4"
+          width="18"
+          height="16"
+          rx="3"
+        />
+        <circle
+          cx="9"
+          cy="10"
+          r="1.5"
+        />
+        <path d="m4 18 5-5 4 4 3-3 4 4" />
+      </svg>
     </NuxtLink>
     <GalleryProgressFrame
       :percent="item.percent"
@@ -129,6 +192,20 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
   width: 100%;
   height: 100%;
   object-fit: contain;
+
+  // The tile is a calm pale colour until the picture is there, then the picture fades in: cards that
+  // arrive one by one do not pop in.
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+
+.gallery-card__art--loaded {
+  opacity: 1;
+}
+
+.gallery-card__missing {
+  color: var(--color-text-muted);
+  opacity: 0.5;
 }
 
 .gallery-card__more {

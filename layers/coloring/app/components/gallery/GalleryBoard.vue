@@ -5,6 +5,9 @@ import { useGalleryStore } from '../../stores/gallery'
 
 const gallery = useGalleryStore()
 
+/** The cards of the first row load their pictures at once; the rest wait until they are near the screen. */
+const PRIORITY_CARDS = 6
+
 /** Cards drawn as placeholders while the first page loads. */
 const SKELETON_COUNT = 7
 
@@ -107,11 +110,12 @@ onBeforeUnmount(() => observer?.disconnect())
       </li>
       <template v-if="gallery.status === 'ready'">
         <li
-          v-for="item in gallery.items"
+          v-for="(item, index) in gallery.items"
           :key="item.id"
         >
           <GalleryCard
             :item="item"
+            :priority="index < PRIORITY_CARDS"
             @restart="pending = { kind: 'restart', item }"
             @remove="pending = { kind: 'remove', item }"
           />
