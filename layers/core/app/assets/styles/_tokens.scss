@@ -23,12 +23,31 @@ $theme-bg: #fff !default;
 
   // Editor (Figma: Coloring — Art): the page is paler than the gallery's sky, the frame is the card blue.
   --color-editor-bg: #e8f0f6;
-  --rail-width: 90px;
-  --pencil-height: 44px;
-  --pencil-gap: 2px;
+
+  // The editor is drawn for a screen 345px high or more. A phone held sideways with its address bar and
+  // system bars shows a page that is much lower (about 280px), where the rails of the design do not fit
+  // and cannot be scrolled: every size of them is multiplied by this number, which steps down with the
+  // height of the window (mobile-first: the smallest is the base, taller windows raise it).
+  --ui-scale: 0.66;
+
+  @media (min-height: 250px) {
+    --ui-scale: 0.74;
+  }
+
+  @media (min-height: 300px) {
+    --ui-scale: 0.86;
+  }
+
+  @media (min-height: 345px) {
+    --ui-scale: 1;
+  }
+
+  --rail-width: calc(90px * var(--ui-scale));
+  --pencil-height: calc(44px * var(--ui-scale));
+  --pencil-gap: calc(2px * var(--ui-scale));
 
   // How far an idle crayon slides out of sight: only its tip stays, the chosen one shows more.
-  --pencil-hidden: 30px;
+  --pencil-hidden: calc(30px * var(--ui-scale));
 
   // Type
   --font-family: system-ui, -apple-system, "Segoe UI", roboto, sans-serif;
@@ -63,14 +82,14 @@ $theme-bg: #fff !default;
   --safe-left: env(safe-area-inset-left, 0px);
 
   // The undo/redo plate of the editor (Figma: 184×56 on a phone, 221×75 from 1000px).
-  --plate-button: 56px;
-  --plate-pad: 24px;
-  --plate-height: 56px;
+  --plate-button: calc(56px * var(--ui-scale));
+  --plate-pad: calc(24px * var(--ui-scale));
+  --plate-height: calc(56px * var(--ui-scale));
 
   @media (min-width: 1000px) {
-    --plate-button: 67px;
-    --plate-pad: 29px;
-    --plate-height: 75px;
+    --plate-button: calc(67px * var(--ui-scale));
+    --plate-pad: calc(29px * var(--ui-scale));
+    --plate-height: calc(75px * var(--ui-scale));
   }
 
   // Layers

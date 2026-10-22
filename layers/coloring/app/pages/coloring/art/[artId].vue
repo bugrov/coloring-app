@@ -139,9 +139,9 @@ async function onRestartConfirmed() {
   grid-template-columns: var(--rail-width) minmax(0, 1fr) var(--rail-width);
   height: 100%;
   padding:
-    calc(var(--safe-top) + var(--space-4))
+    calc(var(--safe-top) + var(--space-4) * var(--ui-scale))
     var(--safe-right)
-    calc(var(--safe-bottom) + var(--space-4))
+    calc(var(--safe-bottom) + var(--space-4) * var(--ui-scale))
     var(--safe-left);
   background: var(--color-editor-bg);
 

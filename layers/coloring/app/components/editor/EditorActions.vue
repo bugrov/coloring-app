@@ -95,7 +95,7 @@ const thicknessLook = computed(() => THICKNESS_LOOKS[THICKNESS_SCALES.findIndex(
   align-items: center;
   justify-content: space-between;
   height: 100%;
-  padding-block: var(--space-4);
+  padding-block: calc(var(--space-4) * var(--ui-scale));
 }
 
 .actions__home,
@@ -108,16 +108,16 @@ const thicknessLook = computed(() => THICKNESS_LOOKS[THICKNESS_SCALES.findIndex(
 
 .actions__home img {
   display: block;
-  width: 64px;
-  height: 60px;
+  width: calc(64px * var(--ui-scale));
+  height: calc(60px * var(--ui-scale));
 }
 
 // The picture brings its own white blob (not a circle) and the tilt of the camera, as in the design,
 // and the design lifts it a little above the bottom of the rail (the margins come from measuring the frames).
 .actions__camera {
-  width: 65px;
-  height: 64px;
-  margin: 0 0 7px 2px;
+  width: calc(65px * var(--ui-scale));
+  height: calc(64px * var(--ui-scale));
+  margin: 0 0 calc(7px * var(--ui-scale)) calc(2px * var(--ui-scale));
 }
 
 .actions__camera img {
@@ -129,18 +129,18 @@ const thicknessLook = computed(() => THICKNESS_LOOKS[THICKNESS_SCALES.findIndex(
 .actions__settings {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: calc(var(--space-2) * var(--ui-scale));
 }
 
 .actions__round {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: calc(44px * var(--ui-scale));
+  height: calc(44px * var(--ui-scale));
   border-radius: 50%;
   color: var(--color-text);
   font: inherit;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--ui-scale));
   font-weight: 700;
 
   @include plain-button;
@@ -161,8 +161,8 @@ const thicknessLook = computed(() => THICKNESS_LOOKS[THICKNESS_SCALES.findIndex(
 
 // A drop of the paint colour at the current opacity, so the setting reads without the number.
 .actions__drop {
-  width: 14px;
-  height: 14px;
+  width: calc(14px * var(--ui-scale));
+  height: calc(14px * var(--ui-scale));
   border-radius: 50%;
   background: var(--color-progress);
   opacity: var(--opacity);

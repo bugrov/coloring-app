@@ -61,8 +61,11 @@ defineProps<{ color: string }>()
 </template>
 
 <style scoped lang="scss">
+// Fills its button, which is as big as the rail makes it (see `--ui-scale`).
 .editor-pencil {
   display: block;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
 }
 </style>
