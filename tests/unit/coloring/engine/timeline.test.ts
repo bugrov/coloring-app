@@ -328,3 +328,41 @@ describe('Timeline: a conflict', () => {
     expect(host.applied).toBe(before)
   })
 })
+
+describe('Timeline: a rebuild that is no longer wanted', () => {
+  it('stops applying steps once the timeline is disposed, and holds nothing', async () => {
+    const host = fakeHost()
+    const timeline = new Timeline<number[], FakeDelta>(host)
+    const loading = timeline.load(history(200))
+
+    timeline.dispose()
+    await loading
+
+    // Only the chunk that was already running was applied.
+    expect(host.applied).toBeLessThanOrEqual(CHECKPOINT_EVERY)
+    expect(timeline.checkpointCount).toBe(0)
+    expect(timeline.deltaCount).toBe(0)
+  })
+
+  it('does not touch the picture again when a later rebuild has taken over', async () => {
+    const host = fakeHost()
+    const timeline = new Timeline<number[], FakeDelta>(host)
+    const first = timeline.load(history(200))
+    const second = timeline.load(history(50))
+
+    await Promise.all([first, second])
+
+    expect(host.picture).toEqual(upTo(50))
+  })
+
+  it('takes a new step into no account after it is disposed, and gives its pixels back', () => {
+    const host = fakeHost()
+    const timeline = new Timeline<number[], FakeDelta>(host)
+
+    timeline.dispose()
+    timeline.record(step(1), { saved: [], pixels: 10 })
+
+    expect(timeline.log.length).toBe(0)
+    expect(host.discarded).toBe(1)
+  })
+})

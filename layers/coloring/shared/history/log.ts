@@ -209,6 +209,19 @@ export class HistoryLog {
     // server keeps. (Attempt 0 is "not started yet": another device creating attempt 1 is a normal conflict.)
     if (this.attempt !== 0 && server.attempt !== this.attempt) return this.takeServer(server)
     const shared = commonPrefix(this.steps, server.steps)
+
+    // Everything the server has is ours too: an earlier save arrived but its answer was lost (a timeout on a
+    // slow network), and the player drew on since. The picture is right as it is; only the bookkeeping moves on.
+    if (shared === server.steps.length && this.steps.length > shared) {
+      this.attempt = server.attempt
+      this.rev = server.rev
+      this.confirmed = shared
+      this.serverCursor = server.cursor
+      this.sending = null
+      this.cutDuringSend = Infinity
+
+      return { rebuild: false, merged: false }
+    }
     const unsent = this.steps.slice(shared, this.position)
 
     if (unsent.length === 0) {

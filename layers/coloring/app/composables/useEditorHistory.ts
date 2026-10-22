@@ -246,7 +246,7 @@ export function useEditorHistory(
 
     if (!timeline || !sync) return false
     // Nothing may be drawn or undone from here until the new attempt is on the canvas.
-    editor.rebuilding = true
+    editor.restarting = true
 
     try {
       await sync.flush()
@@ -263,7 +263,7 @@ export function useEditorHistory(
       await outbox.remove(outboxKey(id))
       await timeline.load(fresh)
     } finally {
-      editor.rebuilding = false
+      editor.restarting = false
     }
     publish()
 

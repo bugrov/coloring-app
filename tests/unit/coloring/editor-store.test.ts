@@ -107,6 +107,21 @@ describe('editor store', () => {
     expect(editor.locked).toBe(true)
   })
 
+  it('stays locked while the attempt is started over, whatever a settled conflict does to the rebuilding flag', () => {
+    const editor = useEditorStore()
+
+    editor.historyReady = true
+    editor.restarting = true
+    editor.rebuilding = true
+    editor.rebuilding = false
+
+    expect(editor.locked).toBe(true)
+
+    editor.restarting = false
+
+    expect(editor.locked).toBe(false)
+  })
+
   it('opening an art drops the history and closes the palette but keeps the choices', () => {
     const editor = useEditorStore()
     const log = new HistoryLog()

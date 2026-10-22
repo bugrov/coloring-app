@@ -233,6 +233,22 @@ describe('HistoryLog: a conflict', () => {
     expect(log.rev).toBe(2)
   })
 
+  it('after a lost answer, with steps drawn since: keeps the picture, rebuilds nothing, and sends only the new steps', () => {
+    const log = new HistoryLog(state([1]))
+
+    log.push(step(2))
+    log.nextSave(0)
+    log.failed()
+    log.push(step(3))
+
+    const result = log.reconcile(state([1, 2], 2, 2))
+
+    expect(result).toEqual({ rebuild: false, merged: false })
+    expect(log.cursor).toBe(3)
+    expect(log.rev).toBe(2)
+    expect(log.nextSave(0)).toMatchObject({ rev: 2, keep: 2, steps: [step(3)], cursor: 3 })
+  })
+
   it('keeps the local cursor for a resent save and sends it on', () => {
     const log = new HistoryLog(state([1]))
 

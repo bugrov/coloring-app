@@ -37,13 +37,15 @@ export const useEditorStore = defineStore('coloring-editor', () => {
   const historyReady = ref(false)
   /** The picture is being rebuilt (a conflict was settled): drawing waits. */
   const rebuilding = ref(false)
+  /** The attempt is being started over: drawing waits until the new one is on the canvas. Its own flag, so that a conflict settled meanwhile cannot lift it. */
+  const restarting = ref(false)
   /** The attempt holds as many steps as it may; nothing more can be drawn until it is started over. */
   const historyFull = ref(false)
   const saveStatus = ref<SyncStatus>('saved')
 
   const color = computed(() => recentColors.value.at(-1)!)
   /** Drawing is possible only on a loaded picture that is not being rebuilt. */
-  const locked = computed(() => !historyReady.value || rebuilding.value || historyFull.value)
+  const locked = computed(() => !historyReady.value || rebuilding.value || restarting.value || historyFull.value)
   /** Starting over makes sense once something was drawn (or undone) in this picture. */
   const canRestart = computed(() => historyLength.value > 0 || progress.value.percent > 0)
 
@@ -104,6 +106,7 @@ export const useEditorStore = defineStore('coloring-editor', () => {
     resetPicture()
     historyReady.value = false
     rebuilding.value = false
+    restarting.value = false
     saveStatus.value = 'saved'
     paletteOpen.value = false
   }
@@ -124,6 +127,7 @@ export const useEditorStore = defineStore('coloring-editor', () => {
     historyReady,
     historyFull,
     rebuilding,
+    restarting,
     saveStatus,
     locked,
     selectColor,

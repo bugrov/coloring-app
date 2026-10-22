@@ -64,7 +64,7 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
   watch(() => editor.progress.complete, (complete, was) => {
     clearTimeout(congratsTimer)
 
-    if (!editor.historyReady || editor.rebuilding) {
+    if (!editor.historyReady || editor.rebuilding || editor.restarting) {
       congratulating.value = false
 
       return

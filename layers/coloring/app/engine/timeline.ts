@@ -48,6 +48,9 @@ export class Timeline<Snapshot, Delta = never> {
   /** Saved pixels of single steps by the step's index (0 is the first step). */
   private readonly deltas = new Map<number, Delta>()
   private deltaPixels = 0
+  /** Counts the rebuilds (and the disposal): a rebuild that finds the count moved on stops, so it never touches the picture of a later owner. */
+  private epoch = 0
+  private disposed = false
 
   constructor(private readonly host: PaintHost<Snapshot, Delta>) {}
 
@@ -77,6 +80,11 @@ export class Timeline<Snapshot, Delta = never> {
 
   /** A step the player just drew: the picture already shows it. `delta` is what it covered before. */
   record(step: HistoryStep, delta?: Delta | null) {
+    if (this.disposed) {
+      if (delta) this.host.discard(delta)
+
+      return
+    }
     const before = this.log.cursor
 
     this.log.push(step)
@@ -105,6 +113,8 @@ export class Timeline<Snapshot, Delta = never> {
   }
 
   dispose() {
+    this.disposed = true
+    this.epoch++
     this.releaseAll()
   }
 
@@ -166,6 +176,10 @@ export class Timeline<Snapshot, Delta = never> {
 
   /** Replays the whole history from a blank picture, in chunks, keeping the snapshots on the way. */
   private async rebuild() {
+    // The picture belongs to whoever owns the timeline now: a disposed one leaves it alone.
+    if (this.disposed) return
+    const mine = ++this.epoch
+
     this.releaseAll()
     this.host.clear()
     this.applied = 0
@@ -179,6 +193,9 @@ export class Timeline<Snapshot, Delta = never> {
       // Reading the canvas back for the progress is the costly part: once at the end, not after every chunk.
       this.replay(this.applied, next, saveFrom, next === target)
       await pause()
+
+      // Disposed, or a newer rebuild started meanwhile: this one must not go on applying old steps.
+      if (mine !== this.epoch) return
     }
   }
 
