@@ -23,6 +23,8 @@ export default defineNuxtConfig({
         // indicator; safe-area insets keep controls out of those zones.
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
         { name: 'theme-color', content: THEME_BG },
+        // A demo project: neither indexed nor followed (public/robots.txt says the same).
+        { name: 'robots', content: 'noindex, nofollow' },
         { name: 'format-detection', content: 'telephone=no' },
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
