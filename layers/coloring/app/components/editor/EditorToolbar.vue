@@ -5,10 +5,10 @@ import eraserImage from '../../assets/editor/eraser.svg'
 import pencilImage from '../../assets/editor/pencil.svg'
 
 // Top to bottom, as in the design.
-const TOOLS: { name: Tool, label: string, image: string, flipped: boolean }[] = [
-  { name: 'brush', label: 'Кисть', image: brushImage, flipped: false },
-  { name: 'pencil', label: 'Карандаш', image: pencilImage, flipped: true },
-  { name: 'eraser', label: 'Резинка', image: eraserImage, flipped: true },
+const TOOLS: { name: Tool, label: string, image: string }[] = [
+  { name: 'brush', label: 'Кисть', image: brushImage },
+  { name: 'pencil', label: 'Карандаш', image: pencilImage },
+  { name: 'eraser', label: 'Резинка', image: eraserImage },
 ]
 /** At most this many crayons animate one after another when the palette opens (about 250 ms in all). */
 const STAGGER_COUNT = 8
@@ -101,7 +101,6 @@ watch(() => editor.paletteOpen, async (open) => {
       >
         <img
           class="toolbar__tool"
-          :class="{ 'toolbar__tool--flipped': tool.flipped }"
           :src="tool.image"
           alt=""
           draggable="false"
@@ -161,13 +160,15 @@ watch(() => editor.paletteOpen, async (open) => {
 </template>
 
 <style scoped lang="scss">
+// `clip`, not `hidden`: a hidden box can still be scrolled, and focusing a crayon that waits behind the
+// screen edge scrolled the whole rail sideways (the brush lost its tip).
 .toolbar {
   position: relative;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   height: 100%;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .toolbar__tools,
@@ -234,17 +235,15 @@ watch(() => editor.paletteOpen, async (open) => {
   pointer-events: none;
 }
 
-.toolbar__tool--flipped {
-  transform: scaleY(-1);
-}
-
 .toolbar__item--arriving {
   animation: toolbar-arrive var(--duration-fast) var(--ease-out) both;
   animation-delay: calc(var(--i) * 12ms);
 }
 
 // Crayons swap places when a colour is picked; the one dropping out leaves at once.
+// A flex box, so that the line box of a bare button does not add a few pixels under every crayon.
 .toolbar__slot {
+  display: flex;
   flex: none;
 }
 

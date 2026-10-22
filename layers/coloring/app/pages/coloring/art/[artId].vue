@@ -146,7 +146,7 @@ async function onRestartConfirmed() {
   background: var(--color-editor-bg);
 
   @media (min-width: 1000px) and (min-height: 800px) {
-    overflow: hidden;
+    overflow: clip;
     border-radius: var(--radius-card);
   }
 }
