@@ -181,6 +181,7 @@ async function onDelete() {
   display: block;
   width: 100%;
   max-height: 60dvh;
+
   // The page colour behind the drawing: its white areas stand out from the white card.
   background: var(--color-bg);
 }
