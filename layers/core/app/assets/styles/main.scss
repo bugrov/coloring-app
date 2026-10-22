@@ -63,6 +63,24 @@ button {
   color: inherit;
 }
 
+// Links read as part of the interface, not as web-page hyperlinks: no browser blue and no underline,
+// not even on hover.
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+// Everything that can be pressed says so.
+a,
+button:not(:disabled),
+summary,
+select,
+label[for],
+input[type="range"],
+input[type="file"] {
+  cursor: pointer;
+}
+
 // Text fields stay selectable so users can edit and paste their username.
 input,
 textarea {
@@ -100,6 +118,9 @@ textarea {
 }
 
 .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 44px;
   padding: 0 var(--space-6);
   border: 0;
@@ -125,4 +146,10 @@ textarea {
 
 .button--ghost {
   background: var(--color-bg);
+}
+
+// An action that cannot be undone or leaves: red, so it does not blend into the page.
+.button--danger {
+  background: var(--color-danger);
+  color: var(--color-on-overlay);
 }

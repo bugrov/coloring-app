@@ -1,11 +1,29 @@
-import { and, desc, eq, lt, max, or, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, lt, max, or, sql } from 'drizzle-orm'
 import { GALLERY_PAGE_SIZE, IMPORT_LIMIT, PERCENT_MAX } from '../../shared/gallery'
 import type { ColoringArt, GalleryItem, GalleryPage } from '../../shared'
 import type { Database } from '../../../core/server/utils/db'
 import { arts, progress, type ArtRow } from '../db/schema'
 
-/** Built-in arts are visible to everyone; an import only to its owner. */
-const visibleTo = (userId: string) => or(eq(arts.source, 'builtin'), eq(arts.ownerId, userId))
+/**
+ * An import is visible to its owner only. A built-in or admin art is visible once it is published,
+ * and then to everyone, unless the administrator assigned it: with assignments only to the players
+ * of the countries and the players listed.
+ */
+const visibleTo = (userId: string) => or(
+  and(eq(arts.source, 'user'), eq(arts.ownerId, userId)),
+  and(
+    inArray(arts.source, ['builtin', 'admin']),
+    eq(arts.status, 'published'),
+    sql`(
+      NOT EXISTS (SELECT 1 FROM art_assignments a WHERE a.art_id = ${arts.id})
+      OR EXISTS (
+        SELECT 1 FROM art_assignments a
+        WHERE a.art_id = ${arts.id}
+          AND (a.user_id = ${userId} OR a.country = (SELECT u.country FROM users u WHERE u.id = ${userId}))
+      )
+    )`,
+  ),
+)
 
 /**
  * One gallery page, newest first, by keyset on `arts.seq` (no OFFSET: the cost does not grow with
@@ -42,7 +60,8 @@ export async function listGallery(db: Database, userId: string, cursor?: number)
   const items: GalleryItem[] = page.map(row => ({
     id: row.id,
     title: row.title,
-    source: row.source,
+    // Admin arts are the app's own for a player, like the built-in ones: not theirs to delete.
+    source: row.source === 'user' ? 'user' : 'builtin',
     percent: Math.min(row.percent ?? 0, PERCENT_MAX),
     attempt: row.attempt ?? 0,
     completed: row.completed ?? false,

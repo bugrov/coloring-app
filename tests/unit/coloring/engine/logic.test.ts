@@ -49,6 +49,11 @@ describe('computeProgress', () => {
     expect(computeProgress([100, 100], [96, 95])).toEqual({ percent: 100, complete: true })
   })
 
+  it('takes the tolerance of the administrator instead of the default', () => {
+    expect(computeProgress([100, 100], [80, 80], 0.8)).toEqual({ percent: 100, complete: true })
+    expect(computeProgress([100, 100], [80, 80])).toEqual({ percent: 80, complete: false })
+  })
+
   it('never shows 100% before every region is complete', () => {
     expect(computeProgress([1000, 10], [1000, 0]).percent).toBe(99)
   })

@@ -140,7 +140,7 @@ export function useEditorHistory(
 
     let server: HistoryState
     try {
-      server = await api<HistoryState>(historyUrl(id))
+      server = await api<HistoryState>(historyUrl(id), { query: { track: 'open' } })
     }
     catch (failure) {
       if (mine === generation) loadError.value = readApiError(failure).message

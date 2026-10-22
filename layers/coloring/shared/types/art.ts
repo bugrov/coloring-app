@@ -19,4 +19,6 @@ export interface ArtDetails {
   id: string
   title: string
   art: ColoringArt
+  /** Share of a region that counts it as coloured, as the administrator set it. */
+  tolerance: number
 }

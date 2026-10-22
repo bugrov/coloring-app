@@ -1,4 +1,5 @@
 // Code shared by the client and the server of the coloring game.
+export * from './admin'
 export * from './art'
 export * from './gallery'
 export * from './history'
