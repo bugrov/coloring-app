@@ -56,7 +56,7 @@ const RADIUS = 64
 .frame__inner {
   position: relative;
   height: 100%;
-  padding-bottom: var(--plate-reserve, 56px);
+  padding-bottom: var(--plate-height);
   overflow: hidden;
   border-radius: calc(var(--radius-card) - var(--border-card));
   background: var(--color-surface);
