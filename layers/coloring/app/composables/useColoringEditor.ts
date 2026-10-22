@@ -1,7 +1,7 @@
 import { readApiError } from '#layers/core/shared/errors'
 import type { ArtDetails, Op } from '../../shared'
 import type { PaintDelta, Progress } from '../engine'
-import { HISTORY_ERROR_MESSAGES } from '../../shared'
+import { HISTORY_ERROR_MESSAGES, IMAGE_MESSAGES } from '../../shared'
 import { useEditorStore } from '../stores/editor'
 import { useEditorHistory } from './useEditorHistory'
 import type { ColoringStageHandle } from './useColoringStage'
@@ -121,7 +121,7 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
     try {
       await share()
     } catch {
-      showNotice('Не получилось сохранить картинку. Попробуйте ещё раз.')
+      showNotice(IMAGE_MESSAGES.share_failed)
     }
   }
 

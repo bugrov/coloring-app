@@ -47,13 +47,18 @@ export function computeProgress(totals: ArrayLike<number>, painted: ArrayLike<nu
   return { percent: complete ? 100 : Math.min(99, Math.floor((covered / area) * 100)), complete }
 }
 
+/** An odd number (the golden ratio of 2^24, rounded): a multiplier that spreads codes well and stays reversible. */
+const REGION_CODE_MULTIPLIER = 0x9E_37_79
+/** The 24 bits of an RGB colour. */
+const RGB_MASK = 0xFF_FF_FF
+
 /**
  * Spreads region indices over 24-bit colours so that anti-aliased edges
  * (blends of two codes) practically never decode to a third valid code.
  * Multiplying by an odd constant is a bijection modulo 2^24; 0 stays "none".
  */
 export function regionCode(index: number): number {
-  return (Math.imul(index + 1, 0x9E_37_79) >>> 0) & 0xFF_FF_FF
+  return (Math.imul(index + 1, REGION_CODE_MULTIPLIER) >>> 0) & RGB_MASK
 }
 
 const NO_REGION = -1

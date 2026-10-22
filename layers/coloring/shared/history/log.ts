@@ -111,11 +111,6 @@ export class HistoryLog {
     return this.steps[index]!
   }
 
-  /** Steps `from` (included) to `to` (excluded), flattened into ops. */
-  opsBetween(from: number, to: number) {
-    return this.steps.slice(from, to).flat()
-  }
-
   push(step: HistoryStep) {
     this.cutDuringSend = Math.min(this.cutDuringSend, this.position)
     this.confirmed = Math.min(this.confirmed, this.position)

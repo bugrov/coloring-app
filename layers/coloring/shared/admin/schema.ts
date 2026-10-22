@@ -12,7 +12,9 @@ import {
   PALETTE_SIZE,
 } from './constants'
 
-const country = z.enum(COUNTRY_CODES as unknown as [string, ...string[]])
+/** A country in a request: one of the ISO codes. In responses it is plain text, as the database stores it. */
+const country = z.enum(COUNTRY_CODES)
+const storedCountry = z.string()
 
 export const artStatusSchema = z.enum(ART_STATUSES)
 
@@ -63,7 +65,7 @@ const count = z.number().int().min(0)
 export const adminPlayerSchema = z.object({
   id: z.uuid(),
   username: z.string(),
-  country,
+  country: storedCountry,
 })
 
 export const adminArtSchema = z.object({
@@ -74,7 +76,7 @@ export const adminArtSchema = z.object({
   opens: count,
   starts: count,
   completes: count,
-  assignedCountries: z.array(country),
+  assignedCountries: z.array(storedCountry),
   assignedPlayers: z.array(adminPlayerSchema),
 })
 
@@ -83,7 +85,7 @@ export const adminStatsSchema = z.object({
   arts: z.array(z.object({ id: z.uuid(), title: z.string(), opens: count, starts: count, completes: count, restarts: count })),
   /** One entry per day of the period, oldest first, days without events included. */
   daily: z.array(z.object({ day: z.string(), opens: count, starts: count, completes: count, restarts: count })),
-  countries: z.array(z.object({ country, opens: count, players: count })),
+  countries: z.array(z.object({ country: storedCountry, opens: count, players: count })),
 })
 
 export const playerAttemptSchema = z.object({

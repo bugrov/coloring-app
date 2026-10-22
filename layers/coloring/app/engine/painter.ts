@@ -225,6 +225,7 @@ export class Painter {
 
     if (this.masked) releaseCanvas(this.masked)
     this.masks.dispose()
+    this.brushes.dispose()
   }
 
   /** The region's mask (built or cached), or null for an unknown region. */
@@ -397,7 +398,6 @@ export function tracePolylineNear(ctx: AnyContext, line: readonly number[], rect
   }
 }
 
-/** A stroke in progress. Points are in grid units, as stored in ops. */
 /** A piece of the paint kept to undo (and redo) one step without replaying anything: see `Painter.swapRect`. */
 export interface PaintDelta {
   readonly canvas: AnyCanvas
@@ -423,6 +423,7 @@ function crop(source: AnyCanvas, rect: Rect): AnyCanvas {
   return canvas
 }
 
+/** A stroke in progress. Points are in grid units, as stored in ops. */
 export class PaintStroke {
   private readonly gridPoints: number[] = []
   private readonly paintPath: number[] = []

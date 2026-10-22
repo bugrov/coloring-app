@@ -1,8 +1,9 @@
 import { readApiError } from '#layers/core/shared/errors'
+import { CoreRoutes } from '#layers/core/shared/routes'
 import type { HistoryState, HistoryStep } from '../../shared'
 import type { Reconciliation } from '../../shared/history'
 import { THUMBNAIL_LONG_SIDE } from '../../shared/gallery'
-import { HISTORY_ERROR_MESSAGES } from '../../shared'
+import { HISTORY_ERROR_MESSAGES, HISTORY_NOTICES } from '../../shared'
 import { Timeline, type PaintDelta, type PaintSnapshot } from '../engine'
 import { useEditorStore } from '../stores/editor'
 import { HistorySync, IndexedDbOutbox, SyncConflict, SyncRejected, type SyncApi } from '../sync'
@@ -20,9 +21,6 @@ const LEAVE_WAIT_MS = 1000
 
 /** A request that has not answered in this long is a failed one: the save is retried, the player is not kept waiting. */
 const REQUEST_TIMEOUT_MS = 15_000
-
-const MERGED_MESSAGE = 'Рисунок изменили на другом устройстве. Мы загрузили свежую версию и дописали ваши последние действия.'
-const REPLACED_MESSAGE = 'Рисунок изменили на другом устройстве. Загрузили свежую версию.'
 
 export interface EditorHistoryHooks {
   /** The picture or the history changed by itself (loaded, undone, settled after a conflict). */
@@ -55,6 +53,8 @@ export function useEditorHistory(
   let thumbnailSentAt = 0
   /** Counts the opens, so that a slow one for an art the player has left is dropped. */
   let generation = 0
+  /** Whether the open that got the number `mine` is still the latest: false once the player left or opened another art. */
+  const isCurrent = (mine: number) => mine === generation
 
   const outboxKey = (id: string) => `${user.value?.id ?? ''}:${id}`
   const historyUrl = (id: string) => `/api/coloring/arts/${id}/history`
@@ -68,6 +68,9 @@ export function useEditorHistory(
           const status = (failure as { statusCode?: number }).statusCode
 
           if (status === 409 && readApiError(failure).code === 'history_conflict') throw new SyncConflict()
+
+          // The session is gone: the work stays in the outbox, and after signing in it goes out on the next visit.
+          if (status === 401) void navigateTo({ name: CoreRoutes.LOGIN })
           if (status !== undefined && REFUSED_STATUSES.has(status)) throw new SyncRejected()
 
           throw failure
@@ -153,13 +156,13 @@ export function useEditorHistory(
     try {
       server = await api<HistoryState>(historyUrl(id), { query: { track: 'open' } })
     } catch (failure) {
-      if (mine === generation) loadError.value = readApiError(failure).message
+      if (isCurrent(mine)) loadError.value = readApiError(failure).message
 
       return
     }
     const unsent = await outbox.read(outboxKey(id))
 
-    if (mine !== generation) return
+    if (!isCurrent(mine)) return
 
     const opened = new Timeline(handle.paint)
     let result: Reconciliation
@@ -169,12 +172,12 @@ export function useEditorHistory(
     } catch {
       opened.dispose()
 
-      if (mine === generation) loadError.value = HISTORY_ERROR_MESSAGES.history_open
+      if (isCurrent(mine)) loadError.value = HISTORY_ERROR_MESSAGES.history_open
 
       return
     }
 
-    if (mine !== generation) {
+    if (!isCurrent(mine)) {
       opened.dispose()
 
       return
@@ -188,19 +191,19 @@ export function useEditorHistory(
       percent: () => editor.progress.percent,
       // A sync that was closed (the player left or opened another art) must not touch what is on screen now.
       onStatus: (status) => {
-        if (mine !== generation) return
+        if (!isCurrent(mine)) return
         editor.saveStatus = status
 
         if (status === 'saved') scheduleThumbnail()
       },
       onReconciled: (reconciliation) => {
-        if (mine !== generation) return
-        if (reconciliation.merged) hooks.notify(MERGED_MESSAGE)
-        else if (reconciliation.rebuild) hooks.notify(REPLACED_MESSAGE)
+        if (!isCurrent(mine)) return
+        if (reconciliation.merged) hooks.notify(HISTORY_NOTICES.merged)
+        else if (reconciliation.rebuild) hooks.notify(HISTORY_NOTICES.replaced)
         publish()
       },
       onRebuilding: (rebuilding) => {
-        if (mine === generation) editor.rebuilding = rebuilding
+        if (isCurrent(mine)) editor.rebuilding = rebuilding
       },
     })
     // The progress of what was loaded is reported while the editor still counts as "not ready", so a

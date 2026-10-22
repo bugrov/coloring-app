@@ -3,6 +3,9 @@ import { HistoryLog, MAX_BATCH_STEPS, UNDO_LIMIT } from '../../../layers/colorin
 import type { HistoryState, HistoryStep } from '../../../layers/coloring/shared'
 
 const step = (region: number): HistoryStep => [{ type: 'fill', region, color: '#e53935' }]
+
+/** The ops of the first `to` steps of a log, in order. */
+const opsOf = (log: HistoryLog, to: number) => Array.from({ length: to }, (_, index) => log.stepAt(index)).flat()
 const state = (regions: number[], cursor = regions.length, rev = 1): HistoryState => ({ attempt: 1, rev, cursor, steps: regions.map(step) })
 
 describe('HistoryLog: undo and redo', () => {
@@ -32,7 +35,7 @@ describe('HistoryLog: undo and redo', () => {
 
     expect(log.length).toBe(2)
     expect(log.canRedo).toBe(false)
-    expect(log.opsBetween(0, 2)).toEqual([...step(1), ...step(3)])
+    expect(opsOf(log, 2)).toEqual([...step(1), ...step(3)])
   })
 
   it('allows only UNDO_LIMIT steps back', () => {
@@ -172,7 +175,7 @@ describe('HistoryLog: a conflict', () => {
     const result = log.reconcile(state([1, 2, 7, 8], 4, 2))
 
     expect(result).toEqual({ rebuild: true, merged: true })
-    expect(log.opsBetween(0, log.cursor)).toEqual([...step(1), ...step(2), ...step(7), ...step(8), ...step(3)])
+    expect(opsOf(log, log.cursor)).toEqual([...step(1), ...step(2), ...step(7), ...step(8), ...step(3)])
     expect(log.rev).toBe(2)
     const save = log.nextSave(0)
 
@@ -186,7 +189,7 @@ describe('HistoryLog: a conflict', () => {
 
     log.reconcile(state([1, 5, 6], 2, 3))
 
-    expect(log.opsBetween(0, log.cursor)).toEqual([...step(1), ...step(5), ...step(2)])
+    expect(opsOf(log, log.cursor)).toEqual([...step(1), ...step(5), ...step(2)])
     expect(log.canRedo).toBe(false)
   })
 
@@ -216,7 +219,7 @@ describe('HistoryLog: a conflict', () => {
     const result = fresh.reconcile(state([7], 1, 1))
 
     expect(result.merged).toBe(true)
-    expect(fresh.opsBetween(0, fresh.cursor)).toEqual([...step(7), ...step(5)])
+    expect(opsOf(fresh, fresh.cursor)).toEqual([...step(7), ...step(5)])
   })
 
   it('recognises a resent save that had arrived: nothing to rebuild, nothing lost', () => {
@@ -300,7 +303,7 @@ describe('HistoryLog: coming back to unsent work', () => {
     const result = log.restore(state([1, 8, 9], 3, 2), unsentOf(before))
 
     expect(result.merged).toBe(true)
-    expect(log.opsBetween(0, log.cursor)).toEqual([...step(1), ...step(8), ...step(9), ...step(2)])
+    expect(opsOf(log, log.cursor)).toEqual([...step(1), ...step(8), ...step(9), ...step(2)])
     expect(log.nextSave(0)).toMatchObject({ keep: 3, rev: 2, cursor: 4 })
   })
 
@@ -382,7 +385,7 @@ describe('HistoryLog: jsonb returns keys in its own order', () => {
     const result = log.restore({ attempt: 1, rev: 1, cursor: 1, steps: [step(7)] }, before.unsent)
 
     expect(result.merged).toBe(true)
-    expect(log.opsBetween(0, log.cursor)).toEqual([...step(7), ...step(5)])
+    expect(opsOf(log, log.cursor)).toEqual([...step(7), ...step(5)])
   })
 
   it('keeps unsent work when the server history became shorter than the work was built on', () => {
@@ -394,6 +397,6 @@ describe('HistoryLog: jsonb returns keys in its own order', () => {
     const result = log.restore(state([1], 1, 5), before.unsent)
 
     expect(result.merged).toBe(true)
-    expect(log.opsBetween(0, log.cursor)).toEqual([...step(1), ...step(4)])
+    expect(opsOf(log, log.cursor)).toEqual([...step(1), ...step(4)])
   })
 })
