@@ -49,7 +49,7 @@ async function onDelete() {
           :art="details.art"
         />
         <p class="art__hint">
-          Так игрок увидит рисунок. Серые области это то, что можно закрашивать.
+          Так игрок увидит рисунок.
         </p>
       </section>
 

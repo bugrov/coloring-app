@@ -251,14 +251,15 @@ const tooltipStyle = computed(() => (hovered.value === null ? {} : { left: `${(x
   border-radius: 2px;
 }
 
+// The tooltip is placed by a share of this box, so the box must be as wide as the drawing.
 .line__plot {
   position: relative;
+  max-width: 760px;
 }
 
 .line__svg {
   display: block;
   width: 100%;
-  max-width: 760px;
   height: auto;
   touch-action: pan-y;
 }
@@ -313,6 +314,20 @@ const tooltipStyle = computed(() => (hovered.value === null ? {} : { left: `${(x
 .line__table {
   margin-top: var(--space-2);
   font-size: var(--font-size-s);
+}
+
+.line__table summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-m);
+  background: var(--color-bg);
+  font-weight: 600;
+}
+
+.line__table summary:focus-visible {
+  @include focus-ring;
 }
 
 .line__table table {

@@ -96,7 +96,7 @@ async function save() {
 }
 
 .settings__input {
-  width: 6ch;
+  width: 96px;
   min-height: 44px;
   padding: 0 var(--space-3);
   border: 2px solid transparent;
