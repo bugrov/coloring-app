@@ -18,8 +18,7 @@ export interface ArtEvent {
 export async function recordEvent(db: Database, event: ArtEvent): Promise<void> {
   try {
     await db.insert(artEvents).values(event).onConflictDoNothing()
-  }
-  catch {
+  } catch {
     // Lost event, not a failed request.
   }
 }

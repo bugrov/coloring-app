@@ -58,6 +58,7 @@ function close() {
 
 function choose(action: 'restart' | 'remove') {
   close()
+
   if (action === 'restart') emit('restart')
   else emit('remove')
 }

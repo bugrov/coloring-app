@@ -11,9 +11,12 @@ const STATUS_LABELS = { draft: 'Черновик', published: 'Опублико�
 async function onPick(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
+
   input.value = ''
+
   if (!file) return
   const id = await upload(file)
+
   if (id) await navigateTo({ name: ColoringRoutes.ADMIN_ART, params: { artId: id } })
 }
 </script>

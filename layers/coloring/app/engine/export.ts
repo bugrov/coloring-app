@@ -16,22 +16,25 @@ async function renderPicture(space: ArtSpace, geometry: ArtGeometry, paint: AnyC
   const height = Math.max(1, Math.round(space.paintHeight * scale))
   const art = createCanvas(width, height)
   const output = createCanvas(width, height)
+
   try {
     const artContext = context2d(art)
     const [a, b, c, d, e, f] = space.artToPaintTransform
+
     artContext.setTransform(a * scale, b * scale, c * scale, d * scale, e * scale, f * scale)
     drawArt(artContext, geometry, () => '#fff')
 
     const ctx = context2d(output)
+
     ctx.fillStyle = '#fff'
     ctx.fillRect(0, 0, width, height)
     ctx.imageSmoothingQuality = 'high'
     ctx.drawImage(paint, 0, 0, width, height)
     ctx.globalCompositeOperation = 'multiply'
     ctx.drawImage(art, 0, 0)
+
     return await encode(output)
-  }
-  finally {
+  } finally {
     releaseCanvas(art)
     releaseCanvas(output)
   }
@@ -48,5 +51,6 @@ export function exportPng(space: ArtSpace, geometry: ArtGeometry, paint: AnyCanv
  */
 export function exportThumbnail(space: ArtSpace, geometry: ArtGeometry, paint: AnyCanvas, longSide: number): Promise<Blob> {
   const scale = longSide / Math.max(space.paintWidth, space.paintHeight)
+
   return renderPicture(space, geometry, paint, scale, canvas => canvasToBlob(canvas, 'image/webp', THUMBNAIL_QUALITY))
 }

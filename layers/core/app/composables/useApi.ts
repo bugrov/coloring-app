@@ -7,5 +7,6 @@ export const API_TIMEOUT_MS = 30_000
  */
 export function useApi() {
   const request = useRequestFetch()
+
   return ((url: string, options?: object) => request(url, { timeout: API_TIMEOUT_MS, ...options })) as typeof request
 }

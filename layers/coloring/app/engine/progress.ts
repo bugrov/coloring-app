@@ -29,16 +29,21 @@ export function computeProgress(totals: ArrayLike<number>, painted: ArrayLike<nu
   let area = 0
   let covered = 0
   let complete = true
+
   for (let i = 0; i < totals.length; i++) {
     const total = totals[i]!
+
     if (total === 0) continue
     const ratio = painted[i]! / total
     const done = ratio >= tolerance
+
     complete &&= done
     area += total
     covered += done ? total : painted[i]!
   }
+
   if (area === 0) return { ...EMPTY_PROGRESS }
+
   return { percent: complete ? 100 : Math.min(99, Math.floor((covered / area) * 100)), complete }
 }
 
@@ -69,11 +74,13 @@ export class ProgressTracker {
 
   constructor(space: ArtSpace, geometry: ArtGeometry, private readonly tolerance = REGION_COMPLETE_RATIO) {
     const scale = PROGRESS_GRID_LONG_SIDE / space.longSide
+
     this.gridWidth = Math.max(1, Math.round(space.width * scale))
     this.gridHeight = Math.max(1, Math.round(space.height * scale))
 
     const counted = geometry.regions.filter(region => region.kind === 'area')
     const indexById = new Map(counted.map((region, index) => [region.id, index]))
+
     this.totals = new Uint32Array(counted.length)
     this.paintedCounts = new Uint32Array(counted.length)
     this.painted = new Uint8Array(this.gridWidth * this.gridHeight)
@@ -85,30 +92,40 @@ export class ProgressTracker {
   private renderLabels(space: ArtSpace, geometry: ArtGeometry, indexById: Map<number, number>, scale: number): Int32Array {
     const canvas = createCanvas(this.gridWidth, this.gridHeight)
     const ctx = context2d(canvas, { willReadFrequently: true })
+
     ctx.setTransform(...space.artTransform(scale))
     ctx.fillStyle = '#000'
     ctx.fillRect(space.x, space.y, space.width, space.height)
 
     const codes = new Map<number, number>()
+
     // Ink hides whatever is below it: drawn as code 0, those cells are not colourable.
     drawArt(ctx, geometry, (region) => {
       const index = indexById.get(region.id)
+
       if (index === undefined) return '#000'
       const code = regionCode(index)
+
       codes.set(code, index)
+
       return `#${code.toString(16).padStart(6, '0')}`
     }, '#000')
     ctx.setTransform(1, 0, 0, 1, 0, 0)
 
     const { data } = ctx.getImageData(0, 0, this.gridWidth, this.gridHeight)
+
     releaseCanvas(canvas)
     const labels = new Int32Array(this.gridWidth * this.gridHeight)
+
     for (let cell = 0; cell < labels.length; cell++) {
       const code = (data[cell * 4]! << 16) | (data[cell * 4 + 1]! << 8) | data[cell * 4 + 2]!
       const index = codes.get(code) ?? NO_REGION
+
       labels[cell] = index
+
       if (index !== NO_REGION) this.totals[index]!++
     }
+
     return labels
   }
 
@@ -128,13 +145,16 @@ export class ProgressTracker {
     // Grid and paint sizes are rounded separately: the last cells may reach past the paint edge.
     const pixelRight = Math.min(paint.width, right * cell)
     const pixelBottom = Math.min(paint.height, bottom * cell)
+
     if (pixelRight <= left * cell || pixelBottom <= top * cell) return
 
     const width = pixelRight - left * cell
     const { data } = context2d(paint).getImageData(left * cell, top * cell, width, pixelBottom - top * cell)
+
     for (let row = top; row < bottom; row++) {
       for (let column = left; column < right; column++) {
         const index = this.labels[row * this.gridWidth + column]!
+
         if (index === NO_REGION) continue
         this.setPainted(row * this.gridWidth + column, index, this.isBlockPainted(data, width, (column - left) * cell, (row - top) * cell, pixelRight - column * cell, pixelBottom - row * cell))
       }
@@ -144,22 +164,27 @@ export class ProgressTracker {
   private isBlockPainted(data: Uint8ClampedArray, stride: number, x0: number, y0: number, maxWidth: number, maxHeight: number): boolean {
     const blockWidth = Math.min(CELL_PAINT_PX, maxWidth)
     const blockHeight = Math.min(CELL_PAINT_PX, maxHeight)
+
     if (blockWidth <= 0 || blockHeight <= 0) return false
     // A fixed sub-grid of pixels: deterministic, and 4× cheaper than every pixel
     // (this runs over the whole canvas on replay).
     let painted = 0
     let samples = 0
+
     for (let y = y0; y < y0 + blockHeight; y += PROGRESS_SAMPLE_STEP) {
       for (let x = x0; x < x0 + blockWidth; x += PROGRESS_SAMPLE_STEP) {
         samples++
+
         if (data[(y * stride + x) * 4 + 3]! >= PAINTED_ALPHA_MIN) painted++
       }
     }
+
     return painted * 2 >= samples
   }
 
   private setPainted(cell: number, index: number, isPainted: boolean) {
     const value = isPainted ? 1 : 0
+
     if (value === this.painted[cell]) return
     this.painted[cell] = value
     this.paintedCounts[index]! += isPainted ? 1 : -1

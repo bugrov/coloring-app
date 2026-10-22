@@ -25,16 +25,18 @@ export function useAdminArt(artId: Readonly<Ref<string>>) {
   async function act(run: () => Promise<unknown>, reload = true): Promise<boolean> {
     busy.value = true
     notice.value = ''
+
     try {
       await run()
+
       if (reload) await Promise.all([drawing.refresh(), list.refresh()])
+
       return true
-    }
-    catch (failure) {
+    } catch (failure) {
       notice.value = readApiError(failure).message
+
       return false
-    }
-    finally {
+    } finally {
       busy.value = false
     }
   }

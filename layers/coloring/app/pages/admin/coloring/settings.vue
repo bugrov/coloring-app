@@ -9,6 +9,7 @@ const { tolerance, loadError, message, saving, saveTolerance } = useAdminSetting
 
 /** The field shows whole percent; the setting is a share. */
 const percent = ref<number | null>(null)
+
 watch(tolerance, (value) => {
   if (value !== undefined) percent.value = Math.round(value * 100)
 }, { immediate: true })

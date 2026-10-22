@@ -41,6 +41,7 @@ export function useCredentialsForm<T extends Record<string, unknown>>({ endpoint
     const { message, fields } = readApiError(error)
     // Only messages for inputs that exist can be shown next to them; the rest belongs to the form.
     const known = Object.entries(fields ?? {}).filter(([name]) => name in values)
+
     fieldErrors.value = Object.fromEntries(known)
     formError.value = known.length > 0 ? '' : (fields ? API_ERROR_MESSAGES.validation : message)
   }
@@ -51,18 +52,21 @@ export function useCredentialsForm<T extends Record<string, unknown>>({ endpoint
     formError.value = ''
 
     const parsed = schema.safeParse({ ...values })
+
     if (!parsed.success) {
       for (const issue of parsed.error.issues) fieldErrors.value[String(issue.path[0])] ??= issue.message
+
       return
     }
 
     pending.value = true
+
     try {
       await api(endpoint, { method: 'POST', body: parsed.data })
-    }
-    catch (error) {
+    } catch (error) {
       showServerError(error)
       pending.value = false
+
       return
     }
 
@@ -72,8 +76,7 @@ export function useCredentialsForm<T extends Record<string, unknown>>({ endpoint
     try {
       await refreshSession()
       await navigateTo({ name: redirectTo })
-    }
-    catch {
+    } catch {
       await navigateTo({ name: redirectTo }, { external: true })
     }
   }

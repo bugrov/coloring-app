@@ -7,10 +7,12 @@ export function useResizeObserver(
 
   onMounted(() => {
     const element = target.value
+
     if (!element) return
 
     observer = new ResizeObserver(([entry]) => {
       const box = entry?.borderBoxSize?.[0]
+
       if (box) onResize({ width: box.inlineSize, height: box.blockSize })
       else if (entry) onResize({ width: entry.contentRect.width, height: entry.contentRect.height })
     })

@@ -14,6 +14,7 @@ async function latestAttempt(db: Database, userId: string, artId: string) {
     .where(and(eq(progress.userId, userId), eq(progress.artId, artId)))
     .orderBy(desc(progress.attempt))
     .limit(1)
+
   return row
 }
 
@@ -34,6 +35,7 @@ export async function loadHistory(db: Database, userId: string, artId: string, a
     ORDER BY p.attempt DESC
     LIMIT 1
   `)
+
   return rowsOf<HistoryState>(result)[0] ?? { ...EMPTY_HISTORY }
 }
 
@@ -49,13 +51,14 @@ export async function loadHistory(db: Database, userId: string, artId: string, a
  */
 export async function saveHistory(db: Database, userId: string, artId: string, save: SaveHistoryRequest): Promise<SaveHistoryOutcome> {
   let current = await latestAttempt(db, userId, artId)
+
   if (!current) {
     if (save.attempt !== 0) return { ok: false, reason: 'conflict' }
     await db.insert(progress).values({ userId, artId, attempt: 1 }).onConflictDoNothing({ target: [progress.userId, progress.artId, progress.attempt] })
     current = await latestAttempt(db, userId, artId)
+
     if (!current) return { ok: false, reason: 'conflict' }
-  }
-  else if (save.attempt !== current.attempt) {
+  } else if (save.attempt !== current.attempt) {
     return { ok: false, reason: 'conflict' }
   }
 
@@ -81,5 +84,6 @@ export async function saveHistory(db: Database, userId: string, artId: string, s
     SELECT attempt, rev FROM saved
   `)
   const [row] = rowsOf<{ attempt: number, rev: number }>(result)
+
   return row ? { ok: true, attempt: row.attempt, rev: row.rev } : { ok: false, reason: 'conflict' }
 }

@@ -12,6 +12,7 @@ function recordingStroke() {
   const stroke = new PaintStroke(STYLE, {
     draw: (from, points) => {
       calls.push({ from, points })
+
       return { x: 0, y: 0, width: 1, height: 1 }
     },
     rebase: () => {},
@@ -19,6 +20,7 @@ function recordingStroke() {
       restored++
     },
   })
+
   return { stroke, calls, restoredCount: () => restored }
 }
 
@@ -28,6 +30,7 @@ describe('StrokeRecorder', () => {
   it('turns a short stroke into one op with all its points', () => {
     const { stroke } = recordingStroke()
     const recorder = new StrokeRecorder(7, stroke, () => {}, () => null)
+
     recorder.add([10, 20])
     recorder.add([30, 40, 50, 60])
 
@@ -39,13 +42,16 @@ describe('StrokeRecorder', () => {
   it('splits very long strokes while drawing, each op continuing from the previous one', () => {
     const { stroke, calls } = recordingStroke()
     const recorder = new StrokeRecorder(1, stroke, () => {}, () => null)
+
     recorder.add(line(MAX_STROKE_POINTS * 2 + 10))
     const { ops } = recorder.finish()
 
     expect(ops).toHaveLength(3)
     expect(ops.every(op => op.points.length <= MAX_STROKE_POINTS * 2)).toBe(true)
+
     for (let i = 1; i < ops.length; i++) {
       const previous = ops[i - 1]!.points
+
       expect(ops[i]!.points.slice(0, 2)).toEqual(previous.slice(-2))
     }
     // Each continuation starts like a fresh op on replay: drawn from no previous point.
@@ -56,6 +62,7 @@ describe('StrokeRecorder', () => {
     const { stroke } = recordingStroke()
     const tracked: unknown[] = []
     const recorder = new StrokeRecorder(1, stroke, rect => tracked.push(rect), () => null)
+
     recorder.add([1, 1, 2, 2])
 
     expect(tracked).toHaveLength(0)
@@ -67,11 +74,13 @@ describe('StrokeRecorder', () => {
     const covered = { id: 'before' }
     const short = recordingStroke()
     const recorder = new StrokeRecorder(1, short.stroke, () => {}, () => covered as never)
+
     recorder.add([1, 1, 2, 2])
     expect(recorder.finish().delta).toBe(covered)
 
     const long = recordingStroke()
     const split = new StrokeRecorder(1, long.stroke, () => {}, () => covered as never)
+
     split.add(line(MAX_STROKE_POINTS + 10))
     expect(split.finish().delta).toBeNull()
   })
@@ -79,6 +88,7 @@ describe('StrokeRecorder', () => {
   it('takes the stroke back on cancel', () => {
     const { stroke, restoredCount } = recordingStroke()
     const recorder = new StrokeRecorder(1, stroke, () => {}, () => null)
+
     recorder.add([1, 1])
     recorder.cancel()
 
@@ -89,6 +99,7 @@ describe('StrokeRecorder', () => {
   it('reports when a stroke was split and can no longer be taken back', () => {
     const { stroke } = recordingStroke()
     const recorder = new StrokeRecorder(1, stroke, () => {}, () => null)
+
     recorder.add(line(MAX_STROKE_POINTS + 10))
 
     expect(recorder.isSplit).toBe(true)
@@ -102,7 +113,9 @@ describe('tracePolylineNear', () => {
       moveTo: (x: number, y: number) => calls.push(`M${x},${y}`),
       lineTo: (x: number, y: number) => calls.push(`L${x},${y}`),
     }
+
     tracePolylineNear(ctx as unknown as CanvasRenderingContext2D, line, rect, reach)
+
     return calls.join(' ')
   }
 

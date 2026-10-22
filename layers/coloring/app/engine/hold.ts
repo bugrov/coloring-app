@@ -21,6 +21,7 @@ export class HoldDetector {
     if (this.active && Math.hypot(x - this.originX, y - this.originY) > this.tolerance) {
       this.active = false
     }
+
     return this.active
   }
 

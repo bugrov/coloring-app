@@ -39,5 +39,6 @@ export function verifyAdminCredentials(input: AdminCredentials, expected: Partia
   if (!expected.login || !expected.password) return 'disabled'
   const loginMatches = sameString(input.login, expected.login)
   const passwordMatches = sameString(input.password, expected.password)
+
   return loginMatches && passwordMatches ? 'ok' : 'invalid'
 }

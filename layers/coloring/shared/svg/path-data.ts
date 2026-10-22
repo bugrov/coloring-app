@@ -36,10 +36,13 @@ export function explicitPathData(d: string): { data: string, truncated: boolean 
   const readParams = (): string[] | null => {
     const params: string[] = []
     const isArc = command === 'a' || command === 'A'
+
     for (let index = 0; index < COMMAND_ARITY.get(command.toLowerCase())!; index++) {
       skipSeparators()
+
       if (isArc && ARC_FLAGS.has(index)) {
         const flag = d[position]
+
         if (flag !== '0' && flag !== '1') return null
         params.push(flag)
         position++
@@ -47,35 +50,37 @@ export function explicitPathData(d: string): { data: string, truncated: boolean 
       }
       NUMBER.lastIndex = position
       const match = NUMBER.exec(d)
+
       if (!match) return null
       params.push(match[0])
       position = NUMBER.lastIndex
     }
+
     return params
   }
 
   while (true) {
     skipSeparators()
+
     if (position >= d.length) break
 
     const char = d[position]!
+
     if (COMMAND_ARITY.has(char.toLowerCase())) {
       command = char
       position++
-    }
-    else if (!command || command === 'z' || command === 'Z') {
+    } else if (!command || command === 'z' || command === 'Z') {
       // Numbers must follow a command; nothing may follow Z without a new command.
       truncated = true
       break
-    }
-    else if (command === 'M') {
+    } else if (command === 'M') {
       command = 'L'
-    }
-    else if (command === 'm') {
+    } else if (command === 'm') {
       command = 'l'
     }
 
     const params = readParams()
+
     if (!params) {
       truncated = true
       break
@@ -84,5 +89,6 @@ export function explicitPathData(d: string): { data: string, truncated: boolean 
   }
 
   const startsWithMove = out.length > 0 && (out[0]![0] === 'M' || out[0]![0] === 'm')
+
   return startsWithMove ? { data: out.join(''), truncated } : null
 }

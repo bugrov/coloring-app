@@ -23,18 +23,22 @@ export interface ProcessedPath {
  */
 export function processPath(raw: string, matrix: Matrix, precision: number): ProcessedPath | null {
   const explicit = explicitPathData(raw)
+
   if (explicit === null) return null
 
   const path = svgpath(explicit.data)
+
   if (!isIdentity(matrix)) path.matrix(matrix)
   path.abs().round(precision)
 
   const commands: string[] = []
+
   path.iterate((segment) => {
     commands.push(segment[0] + segment.slice(1).join(' '))
   })
 
   const shape = measure(path.unarc().unshort())
+
   return { d: commands.join(''), ...shape, truncated: explicit.truncated }
 }
 
@@ -66,6 +70,7 @@ function measure(path: ReturnType<typeof svgpath>): Pick<ProcessedPath, 'bounds'
 
   path.iterate((segment, _index, x, y) => {
     const args = segment.slice(1) as number[]
+
     switch (segment[0]) {
       case 'M':
         finishSubpath()

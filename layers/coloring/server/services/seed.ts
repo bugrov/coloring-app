@@ -17,6 +17,7 @@ export interface BuiltinArtSource {
 export async function seedBuiltinArts(db: Database, sources: BuiltinArtSource[]): Promise<void> {
   for (const { key, title, svg } of [...sources].reverse()) {
     const converted = convertSvg(svg)
+
     if (!converted.ok) throw new Error(`Built-in art "${key}" does not convert: ${SVG_ERROR_MESSAGES[converted.error]}`)
 
     await db

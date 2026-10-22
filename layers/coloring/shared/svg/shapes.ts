@@ -4,8 +4,10 @@ import { roundTo } from './number'
 /** Numeric attribute; lengths with `px` are accepted, other units are not. */
 export function numberAttr(element: Element, name: string, fallback = 0): number {
   const raw = element.getAttribute(name)?.trim()
+
   if (!raw) return fallback
   const value = Number.parseFloat(raw.endsWith('px') ? raw.slice(0, -2) : raw)
+
   return Number.isFinite(value) ? value : fallback
 }
 
@@ -18,11 +20,14 @@ function tidy(value: number): number {
 
 function pointsToPath(points: string, close: boolean): string | null {
   const numbers = points.trim().split(/[\s,]+/).map(Number)
+
   if (numbers.length < 4 || numbers.some(n => !Number.isFinite(n))) return null
   const pairs: string[] = []
+
   for (let i = 0; i + 1 < numbers.length; i += 2) {
     pairs.push(`${numbers[i]} ${numbers[i + 1]}`)
   }
+
   return `M${pairs.join('L')}${close ? 'Z' : ''}`
 }
 
@@ -31,6 +36,7 @@ function rectToPath(element: Element): string | null {
   const y = numberAttr(element, 'y')
   const width = numberAttr(element, 'width')
   const height = numberAttr(element, 'height')
+
   if (width <= 0 || height <= 0) return null
 
   // Per SVG, a missing rx/ry takes the other's value; both are clamped to half the side.
@@ -42,6 +48,7 @@ function rectToPath(element: Element): string | null {
   if (rx === 0 || ry === 0) {
     return `M${x} ${y}H${tidy(x + width)}V${tidy(y + height)}H${x}Z`
   }
+
   return [
     `M${tidy(x + rx)} ${y}`,
     `H${tidy(x + width - rx)}`,
@@ -58,6 +65,7 @@ function rectToPath(element: Element): string | null {
 
 function ellipseToPath(cx: number, cy: number, rx: number, ry: number): string | null {
   if (rx <= 0 || ry <= 0) return null
+
   return `M${tidy(cx - rx)} ${cy}A${rx} ${ry} 0 1 0 ${tidy(cx + rx)} ${cy}A${rx} ${ry} 0 1 0 ${tidy(cx - rx)} ${cy}Z`
 }
 
@@ -73,6 +81,7 @@ export function shapeToPath(element: Element): string | null {
       return rectToPath(element)
     case 'circle': {
       const r = numberAttr(element, 'r')
+
       return ellipseToPath(numberAttr(element, 'cx'), numberAttr(element, 'cy'), r, r)
     }
     case 'ellipse':

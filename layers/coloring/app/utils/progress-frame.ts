@@ -37,5 +37,6 @@ export function progressFramePath(width: number, height: number, inset: number, 
 /** `stroke-dashoffset` for a path of `pathLength="1"` and `stroke-dasharray="1"`: draws the first `percent` %. */
 export function progressDashOffset(percent: number): number {
   const share = Math.min(Math.max(percent, 0), 100) / 100
+
   return 1 - share
 }

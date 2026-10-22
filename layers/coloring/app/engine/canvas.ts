@@ -13,14 +13,18 @@ export interface Rect {
 export function createCanvas(width: number, height: number): AnyCanvas {
   if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(width, height)
   const canvas = document.createElement('canvas')
+
   canvas.width = width
   canvas.height = height
+
   return canvas
 }
 
 export function context2d(canvas: AnyCanvas, options?: CanvasRenderingContext2DSettings): AnyContext {
   const ctx = canvas.getContext('2d', options) as AnyContext | null
+
   if (!ctx) throw new Error('Canvas 2D is not available')
+
   return ctx
 }
 
@@ -37,6 +41,7 @@ export function copyRect(target: AnyContext, source: AnyCanvas, { x, y, width, h
 
 export function canvasToBlob(canvas: AnyCanvas, type: string, quality?: number): Promise<Blob> {
   if ('convertToBlob' in canvas) return canvas.convertToBlob({ type, quality })
+
   return new Promise((resolve, reject) => {
     canvas.toBlob(blob => (blob ? resolve(blob) : reject(new Error('Image encoding failed'))), type, quality)
   })
@@ -52,6 +57,7 @@ export function unionRect(a: Rect | null, b: Rect | null): Rect | null {
   if (!b) return a
   const x = Math.min(a.x, b.x)
   const y = Math.min(a.y, b.y)
+
   return { x, y, width: Math.max(a.x + a.width, b.x + b.width) - x, height: Math.max(a.y + a.height, b.y + b.height) - y }
 }
 
@@ -61,5 +67,6 @@ export function intersectRect(a: Rect, b: Rect): Rect | null {
   const y = Math.max(Math.floor(a.y), Math.floor(b.y))
   const right = Math.min(Math.ceil(a.x + a.width), Math.ceil(b.x + b.width))
   const bottom = Math.min(Math.ceil(a.y + a.height), Math.ceil(b.y + b.height))
+
   return right > x && bottom > y ? { x, y, width: right - x, height: bottom - y } : null
 }

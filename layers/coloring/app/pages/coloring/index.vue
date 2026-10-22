@@ -7,8 +7,10 @@ useHead({ title: 'Раскраска' })
 
 // The first page is fetched on the server (SSR) and handed to the client; a client-side visit fetches it again.
 const gallery = useGalleryStore()
+
 await useAsyncData('coloring-gallery', async () => {
   await gallery.loadFirst()
+
   return gallery.status
 })
 </script>

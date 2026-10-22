@@ -58,6 +58,7 @@ export class ArtSpace {
 
   gridToArt(gx: number, gy: number): [number, number] {
     const unit = this.longSide / OP_GRID
+
     return [this.x + gx * unit, this.y + gy * unit]
   }
 

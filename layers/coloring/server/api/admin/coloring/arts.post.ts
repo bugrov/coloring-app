@@ -13,20 +13,23 @@ export default defineEventHandler(async (event) => {
   const { name } = parseQuery(event, adminUploadQuerySchema)
 
   const body = await readRawBody(event, false)
+
   if (!body || body.length === 0) throw apiError(400, 'validation')
   if (body.length > DEFAULT_SVG_LIMITS.maxBytes) throw domainError(413, 'svg_rejected', SVG_ERROR_MESSAGES['too-large'])
 
   let source: string
+
   try {
     source = new TextDecoder('utf-8', { fatal: true }).decode(body)
-  }
-  catch {
+  } catch {
     throw domainError(422, 'svg_not_utf8', GALLERY_ERROR_MESSAGES.svg_not_utf8)
   }
 
   const converted = convertSvg(source)
+
   if (!converted.ok) throw domainError(422, 'svg_rejected', SVG_ERROR_MESSAGES[converted.error])
 
   const id = await createAdminArt(useDb(), titleFromFileName(name), converted.art)
+
   return { id, warnings: converted.warnings.map(warning => warning.code) }
 })

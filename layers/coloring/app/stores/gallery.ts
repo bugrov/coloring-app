@@ -31,17 +31,19 @@ export const useGalleryStore = defineStore('coloring-gallery', () => {
   async function loadFirst(): Promise<void> {
     generation += 1
     const mine = generation
+
     // A refresh of a shown list keeps the cards on screen instead of flashing placeholders.
     if (status.value !== 'ready') status.value = 'loading'
     error.value = ''
+
     try {
       const page = await fetchPage()
+
       if (mine !== generation) return
       items.value = page.items
       nextCursor.value = page.nextCursor
       status.value = 'ready'
-    }
-    catch (failure) {
+    } catch (failure) {
       if (mine !== generation) return
       error.value = readApiError(failure).message
       status.value = 'error'
@@ -51,20 +53,22 @@ export const useGalleryStore = defineStore('coloring-gallery', () => {
   async function loadMore(): Promise<void> {
     if (!nextCursor.value || loadingMore.value || status.value !== 'ready') return
     const mine = generation
+
     loadingMore.value = true
+
     try {
       const page = await fetchPage(nextCursor.value)
+
       // The list was reloaded meanwhile: this page belongs to the old one.
       if (mine !== generation) return
       // A card removed or added meanwhile cannot repeat: keep the first occurrence of an id.
       const known = new Set(items.value.map(item => item.id))
+
       items.value.push(...page.items.filter(item => !known.has(item.id)))
       nextCursor.value = page.nextCursor
-    }
-    catch (failure) {
+    } catch (failure) {
       notice.value = readApiError(failure).message
-    }
-    finally {
+    } finally {
       loadingMore.value = false
     }
   }
@@ -72,12 +76,14 @@ export const useGalleryStore = defineStore('coloring-gallery', () => {
   /** Runs a change on the server; on failure shows its message and leaves the cards as they were. */
   async function act(run: () => Promise<void>): Promise<boolean> {
     notice.value = ''
+
     try {
       await run()
+
       return true
-    }
-    catch (failure) {
+    } catch (failure) {
       notice.value = readApiError(failure).message
+
       return false
     }
   }
@@ -92,7 +98,9 @@ export const useGalleryStore = defineStore('coloring-gallery', () => {
         headers: { 'Content-Type': 'image/svg+xml' },
       })
     })
+
     if (done) await loadFirst()
+
     return done
   }
 
@@ -100,7 +108,9 @@ export const useGalleryStore = defineStore('coloring-gallery', () => {
     const done = await act(async () => {
       await api(`/api/coloring/arts/${id}`, { method: 'DELETE' })
     })
+
     if (done) items.value = items.value.filter(item => item.id !== id)
+
     return done
   }
 
@@ -108,13 +118,17 @@ export const useGalleryStore = defineStore('coloring-gallery', () => {
     let attempt = 0
     const done = await act(async () => {
       const result = await api<{ attempt: number }>(`/api/coloring/arts/${id}/restart`, { method: 'POST' })
+
       attempt = result.attempt
     })
+
     if (done) {
       // The new attempt starts empty; the server keeps the old one and says which attempt is current.
       const card = items.value.find(item => item.id === id)
+
       if (card) Object.assign(card, { percent: 0, completed: false, thumbnail: null, attempt })
     }
+
     return done
   }
 

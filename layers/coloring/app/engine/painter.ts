@@ -93,14 +93,17 @@ export class Painter {
    */
   beginStroke(regionId: number, style: StrokeStyle, live = false): PaintStroke | null {
     const mask = this.prepare(regionId)
+
     if (!mask) return null
     const { rect } = mask
     // A stroke that builds up on the scratch canvas starts from an empty one.
     const resetScratch = () => {
       if (accumulatesOnScratch(style)) this.scratchContext.clearRect(rect.x, rect.y, rect.width, rect.height)
     }
+
     if (live) this.saveBackup(rect)
     resetScratch()
+
     return new PaintStroke(style, {
       draw: (from, points, path, walker) => this.drawSegment(regionId, style, from, points, live ? path : null, walker),
       rebase: () => {
@@ -113,22 +116,27 @@ export class Painter {
 
   fill(regionId: number, color: string, opacity = DEFAULT_OPACITY): Rect | null {
     const mask = this.prepare(regionId)
+
     if (!mask) return null
     const { rect } = mask
     const ctx = this.scratchContext
+
     ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
     ctx.fillStyle = color
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height)
     this.composite(mask, rect, 'source-over', toAlpha(opacity))
+
     return rect
   }
 
   clear(regionId: number): Rect | null {
     const mask = this.prepare(regionId)
+
     if (!mask) return null
     this.ctx.globalCompositeOperation = 'destination-out'
     copyRect(this.ctx, mask.canvas, mask.rect)
     this.ctx.globalCompositeOperation = 'source-over'
+
     return mask.rect
   }
 
@@ -136,7 +144,9 @@ export class Painter {
     switch (op.type) {
       case 'stroke': {
         const stroke = this.beginStroke(op.region, op)
+
         stroke?.add(op.points)
+
         return stroke?.dirty ?? null
       }
       case 'fill':
@@ -153,6 +163,7 @@ export class Painter {
   /** Copies the whole paint onto `target`, a canvas of the same size. */
   copyPaintTo(target: AnyCanvas) {
     const ctx = context2d(target)
+
     ctx.globalCompositeOperation = 'copy'
     ctx.drawImage(this.canvas, 0, 0)
     ctx.globalCompositeOperation = 'source-over'
@@ -171,7 +182,9 @@ export class Painter {
    */
   captureRegions(regionIds: readonly number[]): PaintDelta | null {
     let area: Rect | null = null
+
     for (const id of regionIds) area = unionRect(area, this.prepare(id)?.rect ?? null)
+
     return area ? copyOut(this.canvas, area, this.fullRect) : null
   }
 
@@ -187,14 +200,17 @@ export class Painter {
   swapRect(delta: PaintDelta): Rect {
     const { canvas, rect } = delta
     const current = crop(this.canvas, rect)
+
     // The delta is exactly `rect` big, so drawing it over the cleared area touches nothing else.
     this.ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
     this.ctx.drawImage(canvas, rect.x, rect.y)
 
     const inside = context2d(canvas)
+
     inside.clearRect(0, 0, rect.width, rect.height)
     inside.drawImage(current, 0, 0)
     releaseCanvas(current)
+
     return rect
   }
 
@@ -206,6 +222,7 @@ export class Painter {
   dispose() {
     releaseCanvas(this.scratch)
     releaseCanvas(this.backup)
+
     if (this.masked) releaseCanvas(this.masked)
     this.masks.dispose()
   }
@@ -213,6 +230,7 @@ export class Painter {
   /** The region's mask (built or cached), or null for an unknown region. */
   private prepare(regionId: number): PreparedMask | null {
     const region = this.geometry.region(regionId)
+
     return region ? this.masks.use(region) : null
   }
 
@@ -235,23 +253,26 @@ export class Painter {
    */
   private drawSegment(regionId: number, style: StrokeStyle, from: [number, number] | null, points: number[], path: readonly number[] | null, walker: StampWalker): Rect | null {
     const mask = this.prepare(regionId)
+
     if (!mask) return null
     const widthPx = gridToPaint(style.width)
     const reach = widthPx / 2 + SEGMENT_PADDING
     const rect = intersectRect(segmentBounds(from, points, reach), mask.rect)
+
     if (!rect) return null
 
     const ctx = this.scratchContext
+
     ctx.save()
     ctx.beginPath()
     ctx.rect(rect.x, rect.y, rect.width, rect.height)
     ctx.clip()
     const accumulate = accumulatesOnScratch(style)
+
     if (!accumulate) ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
     if (style.tool === 'brush') {
       this.stampBrush(style.color ?? '#000000', widthPx, walker.walk(points))
-    }
-    else {
+    } else {
       this.traceLine(style, widthPx, path ?? (from ? [...from, ...points] : points), rect, reach)
     }
     ctx.restore()
@@ -260,12 +281,14 @@ export class Painter {
     // scratch already holds the whole stroke so far.
     if (path && (style.tool !== 'brush' || accumulate)) this.restoreBackup(rect)
     this.composite(mask, rect, style.tool === 'eraser' ? 'destination-out' : 'source-over', alphaOf(style), accumulate)
+
     return rect
   }
 
   private stampBrush(color: string, diameter: number, stamps: number[]) {
     const stamp = this.brushes.brushStamp(color, diameter)
     const radius = stamp.width / 2
+
     for (let i = 0; i + 1 < stamps.length; i += 2) {
       this.scratchContext.drawImage(stamp, stamps[i]! - radius, stamps[i + 1]! - radius)
     }
@@ -273,6 +296,7 @@ export class Painter {
 
   private traceLine(style: StrokeStyle, widthPx: number, line: readonly number[], rect: Rect, reach: number) {
     const ctx = this.scratchContext
+
     ctx.lineWidth = widthPx
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
@@ -290,6 +314,7 @@ export class Painter {
   private composite(mask: PreparedMask, rect: Rect, operation: GlobalCompositeOperation, alpha = 1, keepScratch = false) {
     let layer = this.scratch
     let layerContext = this.scratchContext
+
     if (keepScratch) {
       this.masked ??= createCanvas(this.space.paintWidth, this.space.paintHeight)
       layer = this.masked
@@ -321,12 +346,14 @@ function segmentBounds(from: [number, number] | null, points: number[], reach: n
   let minY = from ? from[1] : Infinity
   let maxX = from ? from[0] : -Infinity
   let maxY = from ? from[1] : -Infinity
+
   for (let i = 0; i + 1 < points.length; i += 2) {
     minX = Math.min(minX, points[i]!)
     maxX = Math.max(maxX, points[i]!)
     minY = Math.min(minY, points[i + 1]!)
     maxY = Math.max(maxY, points[i + 1]!)
   }
+
   return { x: minX - reach, y: minY - reach, width: maxX - minX + reach * 2, height: maxY - minY + reach * 2 }
 }
 
@@ -342,6 +369,7 @@ export function tracePolylineNear(ctx: AnyContext, line: readonly number[], rect
   if (line.length < 4) {
     ctx.moveTo(line[0]!, line[1]!)
     ctx.lineTo(line[0]!, line[1]!)
+
     return
   }
   const left = rect.x - reach
@@ -349,11 +377,13 @@ export function tracePolylineNear(ctx: AnyContext, line: readonly number[], rect
   const right = rect.x + rect.width + reach
   const bottom = rect.y + rect.height + reach
   let inRun = false
+
   for (let i = 0; i + 3 < line.length; i += 2) {
     const x0 = line[i]!
     const y0 = line[i + 1]!
     const x1 = line[i + 2]!
     const y1 = line[i + 3]!
+
     if (Math.max(x0, x1) < left || Math.min(x0, x1) > right || Math.max(y0, y1) < top || Math.min(y0, y1) > bottom) {
       inRun = false
       continue
@@ -378,14 +408,18 @@ export interface PaintDelta {
 /** Copies the part of `source` under `area` (kept inside `bounds`); null when nothing is left. */
 function copyOut(source: AnyCanvas, area: Rect, bounds: Rect): PaintDelta | null {
   const rect = intersectRect(area, bounds)
+
   if (!rect) return null
+
   return { canvas: crop(source, rect), rect }
 }
 
 /** A new canvas holding the part of `source` under `rect`. */
 function crop(source: AnyCanvas, rect: Rect): AnyCanvas {
   const canvas = createCanvas(rect.width, rect.height)
+
   context2d(canvas).drawImage(source, rect.x, rect.y, rect.width, rect.height, 0, 0, rect.width, rect.height)
+
   return canvas
 }
 
@@ -414,8 +448,10 @@ export class PaintStroke {
     if (gridPoints.length < 2) return
     this.gridPoints.push(...gridPoints)
     const paintPoints = gridPoints.map(gridToPaint)
+
     this.paintPath.push(...paintPoints)
     const rect = this.target.draw(this.last, paintPoints, this.paintPath, this.walker)
+
     this.last = [paintPoints[paintPoints.length - 2]!, paintPoints[paintPoints.length - 1]!]
     this.dirtyRect = unionRect(this.dirtyRect, rect)
   }
@@ -427,6 +463,7 @@ export class PaintStroke {
   restart() {
     const x = this.gridPoints[this.gridPoints.length - 2]!
     const y = this.gridPoints[this.gridPoints.length - 1]!
+
     this.gridPoints.length = 0
     this.paintPath.length = 0
     this.last = null

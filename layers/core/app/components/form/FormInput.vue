@@ -13,6 +13,7 @@ const [model, modifiers] = defineModel<string | number | null>({
 function toNumber(value: string | number | null): number | null {
   if (value === null || value === '') return null
   const parsed = Number(value)
+
   return Number.isNaN(parsed) ? null : parsed
 }
 </script>

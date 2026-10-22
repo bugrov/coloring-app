@@ -57,8 +57,10 @@ describe('artToSvg', () => {
   it('drops a tampered path or colour instead of writing it out', () => {
     if (!converted.ok) throw new Error('fixture must convert')
     const art = structuredClone(converted.art)
+
     for (const item of art.items) {
       item.d = 'M0 0"/><script>alert(1)</script>'
+
       if (item.type === 'ink') item.stroke = 'red" onload="x'
     }
     const svg = artToSvg(art)

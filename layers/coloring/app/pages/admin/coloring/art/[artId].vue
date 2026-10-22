@@ -11,6 +11,7 @@ const { details, summary, loadError, notice, busy, rename, setStatus, assign, re
 const STATUS_LABELS = { draft: 'Черновик', published: 'Опубликован', hidden: 'Скрыт' } as const
 
 const title = ref('')
+
 watch(details, (value) => {
   if (value) title.value = value.title
 }, { immediate: true })
@@ -19,6 +20,7 @@ const confirmDelete = ref(false)
 
 async function onDelete() {
   confirmDelete.value = false
+
   if (await remove()) await navigateTo({ name: ColoringRoutes.ADMIN_ARTS })
 }
 </script>

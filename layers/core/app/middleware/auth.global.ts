@@ -15,7 +15,9 @@ export default defineNuxtRouteMiddleware((to) => {
     // A player may still open the admin sign-in page, and the admin the player one, to switch.
     const signedInHere = (to.name === CoreRoutes.LOGIN && role === 'user')
       || (to.name === CoreRoutes.ADMIN_LOGIN && role === 'admin')
+
     if (loggedIn.value && signedInHere) return navigateTo(home)
+
     return
   }
 

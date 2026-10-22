@@ -12,6 +12,7 @@ const { samples, result, fileName, durationMs, stats, convert, convertFile } = u
 
 function onFileChange(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0]
+
   if (file) convertFile(file)
 }
 </script>

@@ -19,7 +19,9 @@ function isApiErrorData(value: unknown): value is ApiErrorData {
  */
 export function readApiError(error: unknown): ApiErrorData {
   const data = (error as { data?: { data?: unknown } } | null)?.data?.data
+
   if (isApiErrorData(data)) return data
   const status = (error as { statusCode?: number } | null)?.statusCode
+
   return status === TOO_MANY_REQUESTS ? RATE_LIMITED : FALLBACK
 }

@@ -12,6 +12,7 @@ import { useShareImage } from './useShareImage'
 export function useColoringSandbox(stage: Readonly<Ref<ColoringStageHandle | null>>) {
   const arts = Object.entries(BASE_ART_SAMPLES).flatMap(([name, source]) => {
     const result = convertSvg(source)
+
     return result.ok ? [{ name, art: result.art }] : []
   })
 

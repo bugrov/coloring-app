@@ -10,6 +10,7 @@ const playerId = computed(() => String(route.params.playerId))
 const artId = computed(() => String(route.params.artId))
 const attempt = computed(() => {
   const value = Number(route.query.attempt)
+
   return Number.isInteger(value) && value > 0 ? value : undefined
 })
 

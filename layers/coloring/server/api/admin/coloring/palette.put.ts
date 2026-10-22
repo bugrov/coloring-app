@@ -5,6 +5,8 @@ import { setPalette } from '../../../services/settings'
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
   const { palette } = await parseBody(event, settingsPaletteBodySchema)
+
   await setPalette(useDb(), palette)
+
   return palette
 })

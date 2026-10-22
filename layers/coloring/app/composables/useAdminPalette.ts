@@ -9,6 +9,7 @@ export function useAdminPalette() {
 
   /** The draft the administrator is editing; independent copies, so typing does not touch what is saved. */
   const colors = ref<PaletteColor[]>([])
+
   watch(data, (saved) => {
     if (saved) colors.value = saved.map(color => ({ ...color }))
   }, { immediate: true })
@@ -19,17 +20,18 @@ export function useAdminPalette() {
   async function save(): Promise<boolean> {
     saving.value = true
     message.value = ''
+
     try {
       await api('/api/admin/coloring/palette', { method: 'PUT', body: { palette: colors.value } })
       await refresh()
       message.value = 'Сохранено. Игроки увидят новые цвета при следующем открытии рисунка.'
+
       return true
-    }
-    catch (failure) {
+    } catch (failure) {
       message.value = readApiError(failure).message
+
       return false
-    }
-    finally {
+    } finally {
       saving.value = false
     }
   }

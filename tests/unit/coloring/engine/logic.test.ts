@@ -24,6 +24,7 @@ describe('StampWalker', () => {
 describe('HoldDetector', () => {
   it('stays pending while the pointer stays within the tolerance', () => {
     const hold = new HoldDetector(6)
+
     hold.start(100, 100)
 
     expect(hold.move(103, 104)).toBe(true)
@@ -32,6 +33,7 @@ describe('HoldDetector', () => {
 
   it('turns into a stroke once the pointer moves too far, even if it comes back', () => {
     const hold = new HoldDetector(6)
+
     hold.start(100, 100)
     hold.move(110, 100)
 

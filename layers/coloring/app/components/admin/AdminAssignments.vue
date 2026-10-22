@@ -13,6 +13,7 @@ const options = countryOptions()
 
 const chosenCountries = ref<string[]>([...props.countries])
 const chosenPlayers = ref<AdminPlayer[]>([...props.players])
+
 watch(() => props.countries, value => (chosenCountries.value = [...value]))
 watch(() => props.players, value => (chosenPlayers.value = [...value]))
 

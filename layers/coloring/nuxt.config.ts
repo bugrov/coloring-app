@@ -41,6 +41,7 @@ export default defineNuxtConfig({
   hooks: {
     'imports:dirs'(dirs) {
       const index = dirs.findIndex(isOwnSharedTypes)
+
       if (index !== -1) dirs.splice(index, 1)
     },
     'nitro:config'(config) {

@@ -12,12 +12,13 @@ export function usePlayerSearch() {
   async function search(): Promise<void> {
     error.value = ''
     const text = query.value.trim()
+
     if (!text) return
+
     try {
       found.value = await api<AdminPlayer[]>('/api/admin/coloring/players', { query: { query: text } })
       searched.value = true
-    }
-    catch (failure) {
+    } catch (failure) {
       error.value = readApiError(failure).message
     }
   }
@@ -34,12 +35,13 @@ export function useAdminPlayers() {
 
   async function select(player: AdminPlayer): Promise<void> {
     error.value = ''
+
     try {
       const result = await api<{ player: AdminPlayer, arts: PlayerArt[] }>(`/api/admin/coloring/players/${player.id}/arts`)
+
       selected.value = result.player
       arts.value = result.arts
-    }
-    catch (failure) {
+    } catch (failure) {
       error.value = readApiError(failure).message
     }
   }

@@ -32,15 +32,18 @@ export class ArtGeometry {
       switch (item.type) {
         case 'region': {
           const { d, bounds: [minX, minY, maxX, maxY], ...region } = item
+
           return { ...region, path: new Path2D(d), bounds: { minX, minY, maxX, maxY } }
         }
         case 'ink': {
           const { d, ...ink } = item
+
           return { ...ink, path: new Path2D(d) }
         }
       }
     })
     this.regions = this.items.filter((item): item is RegionShape => item.type === 'region')
+
     for (const region of this.regions) this.byId.set(region.id, region)
 
     // Regions drawn later cover earlier ones; painting must not reach under them.
@@ -64,9 +67,11 @@ export class ArtGeometry {
     for (let i = this.regions.length - 1; i >= 0; i--) {
       const region = this.regions[i]!
       const { bounds } = region
+
       if (x < bounds.minX || x > bounds.maxX || y < bounds.minY || y > bounds.maxY) continue
       if (this.hitContext.isPointInPath(region.path, x, y, region.fillRule)) return region
     }
+
     return null
   }
 
@@ -78,6 +83,7 @@ export class ArtGeometry {
     const y = Math.max(0, Math.floor((region.bounds.minY - space.y) * s) - RECT_PADDING)
     const right = Math.min(space.paintWidth, Math.ceil((region.bounds.maxX - space.x) * s) + RECT_PADDING)
     const bottom = Math.min(space.paintHeight, Math.ceil((region.bounds.maxY - space.y) * s) + RECT_PADDING)
+
     return { x, y, width: Math.max(0, right - x), height: Math.max(0, bottom - y) }
   }
 }
@@ -93,8 +99,7 @@ export function drawArt(ctx: AnyContext, geometry: ArtGeometry, regionFill: (reg
     if (item.type === 'region') {
       ctx.fillStyle = regionFill(item)
       ctx.fill(item.path, item.fillRule)
-    }
-    else {
+    } else {
       drawInk(ctx, item, inkColor)
     }
   }

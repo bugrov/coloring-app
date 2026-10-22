@@ -8,6 +8,7 @@ definePageMeta({ name: CoreRoutes.LOGIN, auth: 'public' })
 // Names and their order come from the browser's own locale data, which differs from the
 // server's: the list is built after mounting, so server and client markup match.
 const countries = ref<CountryOption[]>([])
+
 onMounted(() => {
   countries.value = countryOptions()
 })

@@ -69,11 +69,11 @@ interface Context {
 export function convertSvg(source: string, limits: SvgLimits = DEFAULT_SVG_LIMITS): SvgConversion {
   try {
     return { ok: true, ...new SvgConverter(limits).convert(source) }
-  }
-  catch (error) {
+  } catch (error) {
     if (error instanceof SvgConversionError) {
       return { ok: false, error: error.code, ...(error.detail ? { detail: error.detail } : {}) }
     }
+
     return { ok: false, error: 'invalid-svg' }
   }
 }
@@ -114,12 +114,14 @@ class SvgConverter {
     }
 
     const root = this.parse(stripBom(source))
+
     this.indexDocument(root)
     this.checkDeadline()
     this.viewBox = readViewBox(root)
     this.longSide = Math.max(this.viewBox[2], this.viewBox[3])
 
     const style = resolveStyle(root, INITIAL_STYLE, this.classRules)
+
     for (const child of childElements(root)) {
       this.visit(child, { matrix: IDENTITY, style, useDepth: 0, depth: 1 })
     }
@@ -127,6 +129,7 @@ class SvgConverter {
     if (this.regionCount === 0) throw new SvgConversionError('no-regions')
 
     const [x, y, width, height] = this.viewBox
+
     if (!this.hasBackground) {
       this.items.unshift({
         type: 'region',
@@ -139,49 +142,58 @@ class SvgConverter {
     }
 
     let nextId = 1
+
     for (const item of this.items) {
       if (item.type === 'region') item.id = nextId++
     }
 
     this.checkDeadline()
     const art = artSchema.parse({ version: ART_FORMAT_VERSION, viewBox: this.viewBox, items: this.items })
+
     return { art, warnings: [...this.warnings.values()] }
   }
 
   private parse(source: string): Element {
     let document
+
     try {
       document = new DOMParser({
         onError: (level, message) => {
           if (level !== 'warning') throw new SvgConversionError('malformed', safeDetail(message))
         },
       }).parseFromString(source, 'image/svg+xml')
-    }
-    catch {
+    } catch {
       throw new SvgConversionError('malformed')
     }
 
     const root = document.documentElement
+
     if (!root || root.localName !== 'svg') throw new SvgConversionError('not-svg')
+
     return root
   }
 
   private indexDocument(root: Element) {
     const all = root.getElementsByTagName('*')
+
     if (all.length + 1 > this.limits.maxElements) throw new SvgConversionError('too-many-elements')
 
     const css: string[] = []
     let cssLength = 0
+
     for (let i = 0; i < all.length; i++) {
       const element = all.item(i)!
       const id = element.getAttribute('id')
+
       if (id && !this.ids.has(id)) this.ids.set(id, element)
       if (element.localName === 'style') {
         const text = element.textContent ?? ''
+
         cssLength += text.length
         css.push(text)
       }
     }
+
     if (cssLength > this.limits.maxCssLength) this.warn('ignored-styles')
     else this.classRules = parseClassRules(css.join('\n'))
   }
@@ -192,24 +204,30 @@ class SvgConverter {
 
   private warn(code: SvgWarningCode, detail?: string) {
     const safe = detail === undefined ? '' : safeDetail(detail)
+
     this.warnings.set(`${code}:${safe}`, safe ? { code, detail: safe } : { code })
   }
 
   private visit(element: Element, parent: Context) {
     this.checkDeadline()
+
     if (++this.visits > this.limits.maxElements * MAX_VISITS_PER_ELEMENT || parent.depth > MAX_NESTING_DEPTH) {
       throw new SvgConversionError('too-complex')
     }
 
     const tag = element.localName ?? ''
+
     if (NON_RENDERED.has(tag)) return
     if (UNSUPPORTED.has(tag)) {
       this.warn('unsupported-element', tag)
+
       return
     }
 
     const style = resolveStyle(element, parent.style, this.classRules)
+
     if (style.display === 'none' || Number.parseFloat(style.opacity ?? '1') === 0) return
+
     for (const effect of ['mask', 'filter'] as const) {
       if (style[effect] && style[effect] !== 'none') this.warn('ignored-effect', effect)
     }
@@ -232,11 +250,14 @@ class SvgConverter {
 
   private visitUse(element: Element, context: Context) {
     const href = element.getAttribute('href') ?? element.getAttribute('xlink:href') ?? ''
+
     if (!href.startsWith('#')) {
       this.warn('external-reference', href)
+
       return
     }
     const target = this.ids.get(href.slice(1))
+
     if (!target || context.useDepth >= MAX_USE_DEPTH) return
 
     const x = numberAttr(element, 'x')
@@ -246,6 +267,7 @@ class SvgConverter {
       matrix: x || y ? multiply(context.matrix, translation(x, y)) : context.matrix,
       useDepth: context.useDepth + 1,
     }
+
     if (target.localName === 'symbol') this.visitChildren(target, referenced)
     else this.visit(target, referenced)
   }
@@ -253,12 +275,16 @@ class SvgConverter {
   /** The element's own transform composed with its parent's; malformed transforms are ignored, as browsers do. */
   private elementMatrix(element: Element, parent: Matrix): Matrix {
     const value = element.getAttribute('transform')?.trim()
+
     if (!value) return parent
     const own = value.length <= MAX_TRANSFORM_LENGTH ? parseTransform(value) : null
+
     if (!own) {
       this.warn('invalid-transform', element.localName ?? '')
+
       return parent
     }
+
     return multiply(parent, own)
   }
 
@@ -267,14 +293,18 @@ class SvgConverter {
 
     // Checked before any parsing or splitting: their cost grows with length.
     const max = this.limits.maxPathLength
+
     if ((element.getAttribute(tag === 'path' ? 'd' : 'points') ?? '').length > max) {
       this.warn('path-too-long', tag)
+
       return
     }
     const raw = shapeToPath(element)
+
     if (!raw) return
     if (raw.length > max) {
       this.warn('path-too-long', tag)
+
       return
     }
     this.emitPath(raw, tag, matrix, style)
@@ -284,21 +314,26 @@ class SvgConverter {
     // Processing far more path data than the file holds means heavy <use>
     // re-use, so stop before doing the work.
     this.processedLength += raw.length
+
     if (this.processedLength > this.processedLimit) {
       throw new SvgConversionError('too-complex')
     }
 
     // The tokenizer keeps the valid part before any junk (as browsers do) and emits only commands and numbers.
     const processed = processPath(raw, matrix, PATH_PRECISION)
+
     // Extreme transforms can produce Infinity or NaN coordinates.
     if (!processed || !isValidPathData(processed.d)) {
       this.warn('invalid-path', tag)
+
       return
     }
     const { d, bounds, closed, truncated } = processed
+
     if (truncated) this.warn('truncated-path', tag)
     if (d.length > this.limits.maxPathLength) {
       this.warn('path-too-long', tag)
+
       return
     }
 
@@ -342,6 +377,7 @@ class SvgConverter {
   private emit(item: ArtItem) {
     // The stored size: path data plus every other field of the item.
     this.outputLength += JSON.stringify(item).length
+
     if (this.items.length >= this.limits.maxItems || this.outputLength > this.outputLimit) {
       throw new SvgConversionError('too-complex')
     }
@@ -352,6 +388,7 @@ class SvgConverter {
   private hasArea(bounds: Bounds | null): boolean {
     if (!bounds) return false
     const minSize = this.longSide * MIN_REGION_SIZE
+
     return bounds.maxX - bounds.minX > minSize && bounds.maxY - bounds.minY > minSize
   }
 
@@ -359,10 +396,10 @@ class SvgConverter {
     // Only the first full-canvas shape (a Figma frame fill, typically) is the
     // background; later ones are ordinary areas.
     const kind = coversCanvas && !this.hasBackground && this.regionCount === 0 ? 'background' : 'area'
+
     if (kind === 'background') {
       this.hasBackground = true
-    }
-    else if (++this.regionCount > this.limits.maxRegions) {
+    } else if (++this.regionCount > this.limits.maxRegions) {
       throw new SvgConversionError('too-many-regions')
     }
     // Rounded outwards so the bounds stay an upper bound of the shape.
@@ -372,6 +409,7 @@ class SvgConverter {
       ceilTo(maxX, PATH_PRECISION),
       ceilTo(maxY, PATH_PRECISION),
     ]
+
     this.emit({ type: 'region', id: 0, kind, d, fillRule, bounds })
   }
 
@@ -380,6 +418,7 @@ class SvgConverter {
     const [x, y, width, height] = this.viewBox
     const dx = width * BACKGROUND_TOLERANCE
     const dy = height * BACKGROUND_TOLERANCE
+
     return bounds.minX <= x + dx && bounds.minY <= y + dy
       && bounds.maxX >= x + width - dx && bounds.maxY >= y + height - dy
   }
@@ -389,6 +428,7 @@ class SvgConverter {
     if (Number.parseFloat(opacity ?? '1') === 0) return { kind: 'none' }
     const resolved = value === 'currentColor' ? (currentColor ?? '#000000') : value
     const rgb = parseColor(resolved)
+
     return rgb ? { kind: 'color', rgb } : { kind: 'unsupported', value }
   }
 
@@ -396,35 +436,43 @@ class SvgConverter {
   private inkColor(stroke: Paint): string {
     if (stroke.kind === 'color') return toHex(stroke.rgb)
     if (stroke.kind === 'unsupported') this.warn('unsupported-paint', stroke.value)
+
     return '#000000'
   }
 }
 
 function childElements(element: Element): Element[] {
   const children: Element[] = []
+
   for (let node = element.firstChild; node; node = node.nextSibling) {
     if (node.nodeType === node.ELEMENT_NODE) children.push(node as Element)
   }
+
   return children
 }
 
 function readViewBox(root: Element): [number, number, number, number] {
   const parts = (root.getAttribute('viewBox') ?? '').trim().split(/[\s,]+/).map(Number)
+
   if (parts.length === 4 && parts.every(Number.isFinite) && parts[2]! > 0 && parts[3]! > 0) {
     return checkDimensions(parts as [number, number, number, number])
   }
   const width = numberAttr(root, 'width')
   const height = numberAttr(root, 'height')
+
   if (width > 0 && height > 0) return checkDimensions([0, 0, width, height])
+
   throw new SvgConversionError('no-dimensions')
 }
 
 function checkDimensions(viewBox: [number, number, number, number]): [number, number, number, number] {
   const [x, y, width, height] = viewBox
+
   if (!isSizeInRange(width) || !isSizeInRange(height) || Math.abs(x) > VIEWBOX_MAX_SIZE || Math.abs(y) > VIEWBOX_MAX_SIZE
     || Math.max(width / height, height / width) > VIEWBOX_MAX_ASPECT) {
     throw new SvgConversionError('invalid-dimensions')
   }
+
   return viewBox
 }
 

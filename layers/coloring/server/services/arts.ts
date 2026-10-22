@@ -68,18 +68,21 @@ export async function listGallery(db: Database, userId: string, cursor?: number)
     thumbnail: row.thumbnailAt?.getTime() ?? null,
   }))
   const last = page.at(-1)
+
   return { items, nextCursor: rows.length > GALLERY_PAGE_SIZE && last ? String(last.seq) : null }
 }
 
 /** The art, if this player may see it; null otherwise (also for someone else's import). */
 export async function findVisibleArt(db: Database, userId: string, artId: string): Promise<ArtRow | null> {
   const [row] = await db.select().from(arts).where(and(eq(arts.id, artId), visibleTo(userId))).limit(1)
+
   return row ?? null
 }
 
 /** Whether the player may see the art; reads no more than its id (the art itself can be large). */
 export async function artIsVisible(db: Database, userId: string, artId: string): Promise<boolean> {
   const [row] = await db.select({ id: arts.id }).from(arts).where(and(eq(arts.id, artId), visibleTo(userId))).limit(1)
+
   return row !== undefined
 }
 
@@ -89,6 +92,7 @@ export async function importLimitReached(db: Database, userId: string): Promise<
     .select({ total: sql<number>`count(*)::int` })
     .from(arts)
     .where(and(eq(arts.ownerId, userId), eq(arts.source, 'user')))
+
   return total >= IMPORT_LIMIT
 }
 
@@ -103,7 +107,9 @@ export async function importArt(db: Database, userId: string, title: string, dat
   if (await importLimitReached(db, userId)) return { ok: false, reason: 'limit_reached' }
 
   const [row] = await db.insert(arts).values({ source: 'user', ownerId: userId, title, data }).returning({ id: arts.id })
+
   if (!row) throw new Error('import insert returned no row')
+
   return { ok: true, id: row.id }
 }
 
@@ -113,5 +119,6 @@ export async function deleteImport(db: Database, userId: string, artId: string):
     .delete(arts)
     .where(and(eq(arts.id, artId), eq(arts.ownerId, userId), eq(arts.source, 'user')))
     .returning({ id: arts.id })
+
   return deleted.length > 0
 }

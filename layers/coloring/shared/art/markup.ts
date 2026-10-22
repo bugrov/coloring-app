@@ -11,13 +11,13 @@ const safeColor = (color: string | null) => (color !== null && HEX_COLOR.test(co
  */
 export function artToSvg(art: ColoringArt): string {
   const parts = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${art.viewBox.join(' ')}">`]
+
   for (const item of art.items) {
     // Stored data was validated on the way in; this keeps markup safe even if a row was tampered with.
     if (!isValidPathData(item.d)) continue
     if (item.type === 'region') {
       parts.push(`<path d="${item.d}" fill="#fff" fill-rule="${item.fillRule}"/>`)
-    }
-    else {
+    } else {
       parts.push(
         `<path d="${item.d}" fill="${safeColor(item.fill)}" fill-rule="${item.fillRule}" stroke="${safeColor(item.stroke)}"`
         + ` stroke-width="${item.strokeWidth}" stroke-linecap="${item.lineCap}" stroke-linejoin="${item.lineJoin}"`
@@ -26,5 +26,6 @@ export function artToSvg(art: ColoringArt): string {
     }
   }
   parts.push('</svg>')
+
   return parts.join('')
 }

@@ -9,6 +9,7 @@ const input = ref<HTMLInputElement>()
 
 function onChange() {
   const file = input.value?.files?.[0]
+
   // Clearing lets the same file be picked again after a failed import.
   if (file) emit('pick', file)
   if (input.value) input.value.value = ''

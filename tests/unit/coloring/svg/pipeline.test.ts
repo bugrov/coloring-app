@@ -13,7 +13,9 @@ const SQUARE = '<rect x="10" y="10" width="50" height="50" fill="white" stroke="
 
 function convertOk(source: string): { art: ColoringArt, warnings: string[] } {
   const result = convertSvg(source)
+
   if (!result.ok) throw new Error(`Expected success, got ${result.error}`)
+
   return { art: result.art, warnings: result.warnings.map(w => w.code) }
 }
 
@@ -49,9 +51,11 @@ describe('convertSvg: Figma exports', () => {
     expect(rest.map(item => item.type)).toEqual(['region', 'ink', 'ink', 'ink', 'region', 'ink'])
 
     const ring = inks(art.items).find(ink => ink.fill === '#000000')
+
     expect(ring?.fillRule).toBe('evenodd')
 
     const whisker = inks(art.items).find(ink => ink.lineCap === 'round')
+
     expect(whisker).toMatchObject({ fill: null, stroke: '#000000', strokeWidth: 2 })
   })
 

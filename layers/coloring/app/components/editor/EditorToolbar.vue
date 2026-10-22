@@ -62,14 +62,15 @@ onBeforeUnmount(() => {
 // colour, which is also scrolled to the middle; closing brings focus back to the chosen crayon.
 watch(() => editor.paletteOpen, async (open) => {
   await nextTick()
+
   if (open) {
     const list = palette.value
     const chosen = list?.querySelector<HTMLElement>('[aria-pressed="true"]')
+
     if (!list || !chosen) return
     list.scrollTop = chosen.offsetTop - (list.clientHeight - chosen.offsetHeight) / 2
     chosen.focus({ preventScroll: true })
-  }
-  else if (root.value?.contains(document.activeElement) || document.activeElement === document.body) {
+  } else if (root.value?.contains(document.activeElement) || document.activeElement === document.body) {
     root.value?.querySelector<HTMLElement>('.toolbar__recent [aria-pressed="true"]')?.focus()
   }
 })

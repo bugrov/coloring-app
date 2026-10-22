@@ -41,6 +41,7 @@ function fakeServer() {
       async save(request: SaveHistoryRequest) {
         server.saves.push(request)
         const failure = server.failures.shift()
+
         if (failure) throw failure
         if (request.rev !== server.state.rev) throw new SyncConflict()
         server.state = {
@@ -49,15 +50,19 @@ function fakeServer() {
           cursor: request.cursor,
           steps: [...server.state.steps.slice(0, request.keep), ...request.steps],
         }
+
         return { attempt: server.state.attempt, rev: server.state.rev }
       },
       async load() {
         const failure = server.loadFailures.shift()
+
         if (failure) throw failure
+
         return structuredClone(server.state)
       },
     },
   }
+
   return server
 }
 
@@ -67,6 +72,7 @@ function setup() {
   const timeline = new Timeline(blankHost)
   const statuses: SyncStatus[] = []
   const reconciled: unknown[] = []
+
   timeline.log.load(structuredClone(server.state))
   const sync = new HistorySync({
     timeline,
@@ -82,6 +88,7 @@ function setup() {
     timeline.record(step(region))
     sync.changed()
   }
+
   return { server, outbox, timeline, sync, statuses, reconciled, draw }
 }
 
@@ -136,6 +143,7 @@ describe('HistorySync', () => {
 
   it('sends an undo as a cursor move, many undos as one request', async () => {
     const { server, draw, timeline, sync } = setup()
+
     draw(1)
     draw(2)
     await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS)
@@ -152,6 +160,7 @@ describe('HistorySync', () => {
 
   it('keeps the work and retries with growing pauses while the network is down', async () => {
     const { server, draw, statuses, outbox } = setup()
+
     server.failures.push(new Error('offline'), new Error('offline'))
     draw(1)
 
@@ -175,6 +184,7 @@ describe('HistorySync', () => {
 
   it('retries at once when the network comes back', async () => {
     const { server, draw, sync } = setup()
+
     server.failures.push(new Error('offline'))
     draw(1)
     await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS)
@@ -187,6 +197,7 @@ describe('HistorySync', () => {
 
   it('stops retrying when the server refuses the save', async () => {
     const { server, draw, statuses } = setup()
+
     server.failures.push(new SyncRejected())
     draw(1)
 
@@ -198,6 +209,7 @@ describe('HistorySync', () => {
 
   it('puts the player\'s steps on top after a conflict and saves them', async () => {
     const { server, draw, timeline, reconciled } = setup()
+
     // Another device saved meanwhile.
     server.state = { attempt: 1, rev: 2, cursor: 2, steps: [step(7), step(8)] }
     draw(1)
@@ -212,6 +224,7 @@ describe('HistorySync', () => {
 
   it('retries later, instead of giving up, when the connection drops between a conflict and reading the server', async () => {
     const { server, draw, statuses } = setup()
+
     server.state = { attempt: 1, rev: 2, cursor: 1, steps: [step(7)] }
     server.loadFailures.push(new Error('offline'))
     draw(1)
@@ -226,6 +239,7 @@ describe('HistorySync', () => {
 
   it('gives up after conflicts that never settle', async () => {
     const { server, draw, statuses } = setup()
+
     server.failures.push(...Array.from({ length: MAX_CONFLICTS_IN_A_ROW + 2 }, () => new SyncConflict()))
     draw(1)
 
@@ -247,6 +261,7 @@ describe('HistorySync', () => {
 
   it('persists on demand when the page is going away', async () => {
     const { draw, sync, outbox } = setup()
+
     draw(1)
 
     await sync.persist()

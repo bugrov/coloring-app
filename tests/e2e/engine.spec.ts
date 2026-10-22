@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test'
 /** Pixel position at a share of the paint canvas. */
 async function at(page: Page, rx: number, ry: number): Promise<[number, number]> {
   const box = (await page.locator('.coloring-stage canvas').boundingBox())!
+
   return [box.x + box.width * rx, box.y + box.height * ry]
 }
 
@@ -10,7 +11,9 @@ async function paintedPixels(page: Page): Promise<number> {
   return page.locator('.coloring-stage canvas').evaluate((canvas: HTMLCanvasElement) => {
     const { data } = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height)
     let count = 0
+
     for (let i = 3; i < data.length; i += 4) if (data[i]! > 0) count++
+
     return count
   })
 }
@@ -23,8 +26,10 @@ test.describe('drawing engine (sandbox)', () => {
 
   test('a stroke records one op and paints inside the region only', async ({ page }) => {
     const [x, y] = await at(page, 0.3, 0.35)
+
     await page.mouse.move(x, y)
     await page.mouse.down()
+
     for (let i = 1; i <= 15; i++) await page.mouse.move(x + i * 20, y)
     await page.mouse.up()
 
@@ -55,6 +60,7 @@ test.describe('drawing engine (sandbox)', () => {
   test('pressing the empty band around the art does nothing', async ({ page }) => {
     const stage = (await page.locator('.coloring-stage').boundingBox())!
     const canvas = (await page.locator('.coloring-stage canvas').boundingBox())!
+
     test.skip(canvas.x - stage.x < 10, 'No empty band at this aspect ratio')
 
     await page.mouse.move(stage.x + 4, stage.y + stage.height / 2)
@@ -76,6 +82,7 @@ test.describe('drawing engine (sandbox)', () => {
     })
 
     await touch('touchStart', x)
+
     for (let i = 1; i <= 10; i++) await touch('touchMove', x + i * 15)
     await touch('touchEnd', x)
 
@@ -85,6 +92,7 @@ test.describe('drawing engine (sandbox)', () => {
 
   test('replaying the ops rebuilds the picture', async ({ page }) => {
     const [x, y] = await at(page, 0.5, 0.4)
+
     await page.mouse.move(x, y)
     await page.mouse.down()
     await page.waitForTimeout(700)

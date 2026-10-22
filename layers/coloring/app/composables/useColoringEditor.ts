@@ -25,6 +25,7 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
   const title = computed(() => data.value?.title ?? '')
   /** Share of a region that counts it as coloured (the administrator's setting). */
   const tolerance = computed(() => data.value?.tolerance)
+
   // The colours of the panel come with the art, as the administrator set them.
   watch(() => data.value?.palette, (colors) => {
     if (colors) editor.setPalette(colors)
@@ -57,15 +58,19 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
   /** The congratulation card; it goes away by itself, or at once if the picture is no longer complete. */
   const congratulating = ref(false)
   let congratsTimer: ReturnType<typeof setTimeout> | undefined
+
   // Runs the moment the progress changes (not on the next tick), so it can tell a finished picture that
   // is being opened or rebuilt from one the player has just finished.
   watch(() => editor.progress.complete, (complete, was) => {
     clearTimeout(congratsTimer)
+
     if (!editor.historyReady || editor.rebuilding) {
       congratulating.value = false
+
       return
     }
     congratulating.value = complete
+
     if (!complete) return
     if (!was) celebrating.value = true
     congratsTimer = setTimeout(() => {
@@ -89,30 +94,33 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
   async function restart(): Promise<boolean> {
     notice.value = ''
     const id = artId.value
+
     restarting.value = true
+
     try {
       // Unsaved work goes out first; when the player moved on to another art meanwhile its picture is not ours to reset.
       const done = await history.startOver(async () => {
         await api(`/api/coloring/arts/${id}/restart`, { method: 'POST' })
       })
+
       if (done) celebrating.value = false
+
       return done
-    }
-    catch (failure) {
+    } catch (failure) {
       showNotice(readApiError(failure).message)
+
       return false
-    }
-    finally {
+    } finally {
       restarting.value = false
     }
   }
 
   async function shareImage() {
     notice.value = ''
+
     try {
       await share()
-    }
-    catch {
+    } catch {
       showNotice('Не получилось сохранить картинку. Попробуйте ещё раз.')
     }
   }

@@ -12,6 +12,7 @@ import { convertSvg } from '../../../../layers/coloring/shared/svg'
 
 const SQUARE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="#fff"/></svg>'
 const converted = convertSvg(SQUARE)
+
 if (!converted.ok) throw new Error('fixture SVG must convert')
 
 /** The smallest bytes that read as each image type. */
@@ -20,6 +21,7 @@ const png = () => new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A
 
 function memoryStore(): ThumbnailStore & { files: Map<string, { body: Uint8Array, contentType: string }> } {
   const files = new Map<string, { body: Uint8Array, contentType: string }>()
+
   return {
     files,
     async put(pathname, body, contentType) {
@@ -27,6 +29,7 @@ function memoryStore(): ThumbnailStore & { files: Map<string, { body: Uint8Array
     },
     async get(pathname) {
       const file = files.get(pathname)
+
       return file ? { stream: new Blob([file.body.slice().buffer]).stream(), contentType: file.contentType } : null
     },
     async remove(pathnames) {
@@ -37,7 +40,9 @@ function memoryStore(): ThumbnailStore & { files: Map<string, { body: Uint8Array
 
 async function createDatabase() {
   const db = drizzle(new PGlite())
+
   await migrate(db, { migrationsFolder: 'layers/core/server/db/migrations' })
+
   return db
 }
 
@@ -64,12 +69,14 @@ describe('thumbnail services', () => {
   const newUser = async () => {
     counter += 1
     const [row] = await db.insert(users).values({ username: `t${counter}`, usernameKey: `t${counter}`, country: 'DE' }).returning()
+
     return row!.id
   }
 
   const started = async () => {
     anna = await newUser()
     const result = await importArt(db, anna, 'Рисунок', converted.art)
+
     if (!result.ok) throw new Error('import failed')
     artId = result.id
     await saveHistory(db, anna, artId, { attempt: 0, rev: 0, keep: 0, steps: [[{ type: 'fill', region: 1, color: '#e53935' }]], cursor: 1, percent: 10 })
@@ -82,6 +89,7 @@ describe('thumbnail services', () => {
   it('has nothing to store a thumbnail on before the first save of the history', async () => {
     anna = await newUser()
     const result = await importArt(db, anna, 'Рисунок', converted.art)
+
     if (!result.ok) throw new Error('import failed')
 
     expect(await saveThumbnail(db, memoryStore(), anna, result.id, webp())).toEqual({ ok: false, reason: 'not_started' })
@@ -94,9 +102,11 @@ describe('thumbnail services', () => {
     expect(await saveThumbnail(db, store, anna, artId, webp(20))).toEqual({ ok: true })
 
     const read = await readThumbnail(db, store, anna, artId)
+
     expect(read?.contentType).toBe('image/webp')
     expect(new Uint8Array(await new Response(read!.stream).arrayBuffer())).toEqual(webp(20))
     const card = (await listGallery(db, anna)).items.find(item => item.id === artId)
+
     expect(card?.thumbnail).toBeGreaterThan(Date.now() - 60_000)
   })
 
@@ -124,6 +134,7 @@ describe('thumbnail services', () => {
   it('starts over with no thumbnail: the card shows the empty art again', async () => {
     await started()
     const store = memoryStore()
+
     await saveThumbnail(db, store, anna, artId, webp())
 
     await restartArt(db, anna, artId)
@@ -135,6 +146,7 @@ describe('thumbnail services', () => {
   it('does not give a player the thumbnail of someone else', async () => {
     await started()
     const store = memoryStore()
+
     await saveThumbnail(db, store, anna, artId, webp())
     const boris = await newUser()
 
@@ -144,6 +156,7 @@ describe('thumbnail services', () => {
   it('names the files of every attempt of an art, to remove with it', async () => {
     await started()
     const store = memoryStore()
+
     await saveThumbnail(db, store, anna, artId, webp())
     await restartArt(db, anna, artId)
     await saveHistory(db, anna, artId, { attempt: 2, rev: 0, keep: 0, steps: [[{ type: 'fill', region: 1, color: '#e53935' }]], cursor: 1, percent: 10 })

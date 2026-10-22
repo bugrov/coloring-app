@@ -19,11 +19,13 @@ export async function searchPlayers(db: Database, query: string): Promise<AdminP
     .where(or(ilike(users.usernameKey, likePattern(query.toLowerCase())), ilike(users.username, likePattern(query))))
     .orderBy(desc(users.createdAt), asc(users.username))
     .limit(PLAYER_SEARCH_LIMIT)
+
   return rows
 }
 
 export async function getPlayer(db: Database, userId: string): Promise<AdminPlayer | null> {
   const [row] = await db.select({ id: users.id, username: users.username, country: users.country }).from(users).where(eq(users.id, userId)).limit(1)
+
   return row ?? null
 }
 
@@ -45,11 +47,14 @@ export async function listPlayerArts(db: Database, userId: string): Promise<Play
     .orderBy(desc(progress.updatedAt), desc(progress.attempt))
 
   const byArt = new Map<string, PlayerArt>()
+
   for (const row of rows) {
     const entry = byArt.get(row.artId) ?? { artId: row.artId, title: row.title, attempts: [] }
+
     entry.attempts.push({ attempt: row.attempt, percent: row.percent, completed: row.completed, steps: row.steps, updatedAt: row.updatedAt.toISOString() })
     byArt.set(row.artId, entry)
   }
+
   return [...byArt.values()]
 }
 
@@ -66,12 +71,15 @@ export interface PlayerArtState {
  */
 export async function loadPlayerArtState(db: Database, userId: string, artId: string, attempt?: number): Promise<PlayerArtState | null> {
   const [art] = await db.select({ title: arts.title, data: arts.data }).from(arts).where(eq(arts.id, artId)).limit(1)
+
   if (!art) return null
   const [started] = await db
     .select({ id: progress.id })
     .from(progress)
     .where(and(eq(progress.userId, userId), eq(progress.artId, artId), attempt === undefined ? undefined : eq(progress.attempt, attempt)))
     .limit(1)
+
   if (!started) return null
+
   return { title: art.title, art: art.data, history: await loadHistory(db, userId, artId, attempt) }
 }

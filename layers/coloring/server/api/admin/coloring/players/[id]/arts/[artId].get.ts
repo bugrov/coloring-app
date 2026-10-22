@@ -9,7 +9,9 @@ export default defineEventHandler(async (event) => {
   await requireAdmin(event)
   const { attempt } = parseQuery(event, playerHistoryQuerySchema)
   const state = await loadPlayerArtState(useDb(), parseUuidParam(event, 'id'), parseUuidParam(event, 'artId'), attempt)
+
   if (!state) throw apiError(404, 'not_found')
   setHeader(event, 'Cache-Control', 'no-store')
+
   return state
 })

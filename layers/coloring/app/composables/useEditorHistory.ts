@@ -64,11 +64,12 @@ export function useEditorHistory(
       async save(request) {
         try {
           return await api(historyUrl(id), { method: 'PUT', body: request, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
-        }
-        catch (failure) {
+        } catch (failure) {
           const status = (failure as { statusCode?: number }).statusCode
+
           if (status === 409 && readApiError(failure).code === 'history_conflict') throw new SyncConflict()
           if (status !== undefined && REFUSED_STATUSES.has(status)) throw new SyncRejected()
+
           throw failure
         }
       },
@@ -80,24 +81,29 @@ export function useEditorHistory(
   async function sendThumbnail() {
     const handle = stage.value
     const id = artId.value
+
     clearTimeout(thumbnailTimer)
     thumbnailTimer = undefined
+
     if (!thumbnailDue || !handle) return
     thumbnailDue = false
     thumbnailSentAt = Date.now()
+
     try {
       const image = await handle.exportThumbnail(THUMBNAIL_LONG_SIDE)
+
       await api(`/api/coloring/arts/${id}/thumbnail`, { method: 'PUT', body: image, headers: { 'content-type': image.type }, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
-    }
-    catch {
+    } catch {
       thumbnailDue = true
     }
   }
 
   function scheduleThumbnail() {
     thumbnailDue = true
+
     if (thumbnailTimer !== undefined) return
     const wait = Math.max(THUMBNAIL_DELAY_MS, THUMBNAIL_MIN_INTERVAL_MS - (Date.now() - thumbnailSentAt))
+
     thumbnailTimer = setTimeout(() => void sendThumbnail(), wait)
   }
 
@@ -116,10 +122,12 @@ export function useEditorHistory(
     thumbnailTimer = undefined
     thumbnailDue = false
     const closing = sync
+
     // The picture's memory goes back at once; saving needs the history only.
     timeline?.dispose()
     sync = null
     timeline = null
+
     if (!closing) return
     // A last try to save; if it fails the outbox has the work. Nobody awaits it.
     void closing.persist()
@@ -132,35 +140,43 @@ export function useEditorHistory(
   async function open() {
     const handle = stage.value
     const id = artId.value
+
     if (!handle) return
     close()
     const mine = generation
+
     editor.historyReady = false
     loadError.value = ''
 
     let server: HistoryState
+
     try {
       server = await api<HistoryState>(historyUrl(id), { query: { track: 'open' } })
-    }
-    catch (failure) {
+    } catch (failure) {
       if (mine === generation) loadError.value = readApiError(failure).message
+
       return
     }
     const unsent = await outbox.read(outboxKey(id))
+
     if (mine !== generation) return
 
     const opened = new Timeline(handle.paint)
     let result: Reconciliation
+
     try {
       result = await opened.open(server, unsent)
-    }
-    catch {
+    } catch {
       opened.dispose()
+
       if (mine === generation) loadError.value = HISTORY_ERROR_MESSAGES.history_open
+
       return
     }
+
     if (mine !== generation) {
       opened.dispose()
+
       return
     }
     timeline = opened
@@ -174,6 +190,7 @@ export function useEditorHistory(
       onStatus: (status) => {
         if (mine !== generation) return
         editor.saveStatus = status
+
         if (status === 'saved') scheduleThumbnail()
       },
       onReconciled: (reconciliation) => {
@@ -190,6 +207,7 @@ export function useEditorHistory(
     // picture that was already finished does not play its victory when it is opened.
     publish()
     editor.historyReady = true
+
     if (result.merged || opened.log.dirty) sync.changed()
   }
 
@@ -202,6 +220,7 @@ export function useEditorHistory(
   function record(step: HistoryStep, delta: PaintDelta | null) {
     if (!timeline) {
       if (delta) stage.value?.paint.discard(delta)
+
       return
     }
     timeline.record(step, delta)
@@ -224,25 +243,30 @@ export function useEditorHistory(
    */
   async function startOver(restart: () => Promise<void>): Promise<boolean> {
     const id = artId.value
+
     if (!timeline || !sync) return false
     // Nothing may be drawn or undone from here until the new attempt is on the canvas.
     editor.rebuilding = true
+
     try {
       await sync.flush()
+
       if (timeline.log.dirty) {
         hooks.notify(HISTORY_ERROR_MESSAGES.history_unsaved)
+
         return false
       }
       await restart()
       const fresh = await api<HistoryState>(historyUrl(id))
+
       if (artId.value !== id || !timeline) return false
       await outbox.remove(outboxKey(id))
       await timeline.load(fresh)
-    }
-    finally {
+    } finally {
       editor.rebuilding = false
     }
     publish()
+
     return true
   }
 
@@ -290,6 +314,7 @@ export function useEditorHistory(
       await sync?.flush()
       await sendThumbnail()
     })()
+
     await Promise.race([settled, new Promise(resolve => setTimeout(resolve, LEAVE_WAIT_MS))])
   })
 

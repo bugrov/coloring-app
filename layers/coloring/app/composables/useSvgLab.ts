@@ -9,6 +9,7 @@ export function useSvgLab() {
 
   function convert(source: string, name: string) {
     const started = performance.now()
+
     result.value = convertSvg(source)
     durationMs.value = Math.round(performance.now() - started)
     fileName.value = name
@@ -20,6 +21,7 @@ export function useSvgLab() {
 
   const stats = computed(() => {
     const items = result.value?.ok ? result.value.art.items : []
+
     return {
       areas: items.filter(item => item.type === 'region' && item.kind === 'area').length,
       ink: items.filter(item => item.type === 'ink').length,

@@ -13,6 +13,7 @@ describe('editor store', () => {
 
   it('keeps the three most recent colours, the last one selected', () => {
     const editor = useEditorStore()
+
     expect(editor.recentColors).toHaveLength(3)
 
     editor.selectColor('#43a047')
@@ -47,6 +48,7 @@ describe('editor store', () => {
   it('steps the opacity 100, 75, 50, 25 and back to 100', () => {
     const editor = useEditorStore()
     const seen = [editor.opacity]
+
     for (let i = 0; i < 4; i++) {
       editor.cycleOpacity()
       seen.push(editor.opacity)
@@ -56,6 +58,7 @@ describe('editor store', () => {
 
   it('shows the standard palette until an art brings the one of the administrator, and the toolbar reads it from the store', () => {
     const editor = useEditorStore()
+
     expect(editor.palette).toHaveLength(32)
 
     editor.setPalette([{ hex: '#123456', name: 'Мой цвет' }])
@@ -65,9 +68,11 @@ describe('editor store', () => {
 
   it('mirrors what the history allows, and starting over needs something to start over from', () => {
     const editor = useEditorStore()
+
     expect(editor.canRestart).toBe(false)
 
     const log = new HistoryLog()
+
     log.push([fill(1)])
     log.push([fill(2)])
     log.undo()
@@ -80,6 +85,7 @@ describe('editor store', () => {
 
   it('locks drawing until the saved history is on the canvas, and while the canvas is rebuilt', () => {
     const editor = useEditorStore()
+
     expect(editor.locked).toBe(true)
 
     editor.historyReady = true
@@ -92,6 +98,7 @@ describe('editor store', () => {
   it('opening an art drops the history and closes the palette but keeps the choices', () => {
     const editor = useEditorStore()
     const log = new HistoryLog()
+
     log.push([fill(1)])
     editor.selectColor('#43a047')
     editor.syncHistory(log)

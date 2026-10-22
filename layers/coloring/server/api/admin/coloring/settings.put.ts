@@ -5,6 +5,8 @@ import { setPaintedTolerance } from '../../../services/settings'
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
   const { paintedTolerance } = await parseBody(event, settingsSchema)
+
   await setPaintedTolerance(useDb(), paintedTolerance)
+
   return { paintedTolerance }
 })

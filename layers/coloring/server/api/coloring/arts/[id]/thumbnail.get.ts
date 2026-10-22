@@ -9,12 +9,15 @@ export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
   const artId = parseUuidParam(event, 'id')
   const db = useDb()
+
   if (!await artIsVisible(db, user.id, artId)) throw apiError(404, 'not_found')
 
   const thumbnail = await readThumbnail(db, useThumbnailStore(), user.id, artId)
+
   if (!thumbnail) throw apiError(404, 'not_found')
   setHeader(event, 'Content-Type', thumbnail.contentType)
   setHeader(event, 'Cache-Control', 'private, max-age=31536000, immutable')
   setHeader(event, 'Vary', 'Cookie')
+
   return thumbnail.stream
 })

@@ -7,6 +7,7 @@ test.describe('app shell', () => {
     const shell = await page.evaluate(() => {
       const body = getComputedStyle(document.body)
       const root = document.documentElement
+
       return {
         userSelect: body.userSelect || body.webkitUserSelect,
         // No pinch-zoom or double-tap zoom of the page.
@@ -32,6 +33,7 @@ test.describe('portrait on a touch device', () => {
     test.skip(!isMobile, 'Only touch devices are asked to rotate')
 
     const { width, height } = page.viewportSize() ?? { width: 0, height: 0 }
+
     await page.setViewportSize({ width: Math.min(width, height), height: Math.max(width, height) })
     await page.goto('/')
 

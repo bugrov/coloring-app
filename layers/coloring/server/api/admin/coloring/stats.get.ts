@@ -5,5 +5,6 @@ import { loadStats } from '../../../services/admin-stats'
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
   const { days } = parseQuery(event, statsQuerySchema)
+
   return loadStats(useDb(), days)
 })

@@ -7,10 +7,12 @@ export default defineEventHandler(async (event) => {
   const { user } = await signIn(useDb(), input)
 
   const { id, username, country } = user
+
   // replaceUserSession: signing in as a user must not keep any earlier (admin) session data.
   await replaceUserSession(event, {
     user: { id, username, country, role: 'user' },
     secure: { role: 'user' },
   })
+
   return { ok: true }
 })

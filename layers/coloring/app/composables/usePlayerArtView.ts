@@ -43,22 +43,26 @@ export function usePlayerArtView(
   async function show() {
     const current = state.value
     const handle = stage.value
+
     if (!current || !handle || !stageReady.value) return
     const mine = ++generation
+
     rebuilding.value = true
     timeline?.dispose()
     timeline = new Timeline(handle.paint)
+
     try {
       await timeline.load({ ...current.history, cursor: step.value })
-    }
-    finally {
+    } finally {
       if (mine === generation) rebuilding.value = false
     }
+
     if (mine === generation) handle.publishProgress()
   }
 
   /** The slider moved because a history was loaded, not because the administrator dragged it: no extra rebuild. */
   let followingState = false
+
   watch(state, (value) => {
     if (!value || step.value === value.history.cursor) return
     followingState = true
@@ -70,6 +74,7 @@ export function usePlayerArtView(
   watch(step, () => {
     if (followingState) {
       followingState = false
+
       return
     }
     clearTimeout(pending)

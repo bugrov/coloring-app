@@ -17,6 +17,7 @@ const importing = ref(false)
 
 const dialog = computed(() => {
   if (!pending.value) return { title: '', text: '', confirmLabel: '' }
+
   return pending.value.kind === 'remove'
     ? { title: 'Удалить рисунок?', text: 'Рисунок и вся раскраска пропадут насовсем.', confirmLabel: 'Удалить' }
     : { title: 'Начать заново?', text: 'Закрашенное сбросится, и рисунок начнётся с чистого листа.', confirmLabel: 'Начать заново' }
@@ -24,7 +25,9 @@ const dialog = computed(() => {
 
 async function confirm() {
   const current = pending.value
+
   pending.value = null
+
   if (!current) return
   if (current.kind === 'remove') await gallery.remove(current.item.id)
   else await gallery.restart(current.item.id)
@@ -32,10 +35,10 @@ async function confirm() {
 
 async function onPick(file: File) {
   importing.value = true
+
   try {
     await gallery.importSvg(file)
-  }
-  finally {
+  } finally {
     importing.value = false
   }
 }
@@ -54,6 +57,7 @@ onMounted(() => {
   watchEffect(() => {
     void gallery.items.length
     observer?.disconnect()
+
     if (sentinel.value) observer?.observe(sentinel.value)
   })
 })

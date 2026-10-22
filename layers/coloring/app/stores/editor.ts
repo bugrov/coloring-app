@@ -62,12 +62,14 @@ export const useEditorStore = defineStore('coloring-editor', () => {
   /** Steps 100 → 75 → 50 → 25 → 100. */
   function cycleOpacity() {
     const index = (OPACITY_LEVELS as readonly number[]).indexOf(opacity.value)
+
     opacity.value = OPACITY_LEVELS[(index + 1) % OPACITY_LEVELS.length] ?? DEFAULT_OPACITY
   }
 
   /** Steps thin → normal → thick → thin. */
   function cycleThickness() {
     const index = (THICKNESS_SCALES as readonly number[]).indexOf(thickness.value)
+
     thickness.value = THICKNESS_SCALES[(index + 1) % THICKNESS_SCALES.length] ?? DEFAULT_THICKNESS
   }
 

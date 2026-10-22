@@ -16,6 +16,7 @@ export function useAdminArts() {
   async function upload(file: File): Promise<string | null> {
     uploading.value = true
     uploadError.value = ''
+
     try {
       const result = await api<{ id: string }>('/api/admin/coloring/arts', {
         method: 'POST',
@@ -23,13 +24,13 @@ export function useAdminArts() {
         body: await file.arrayBuffer(),
         headers: { 'Content-Type': 'image/svg+xml' },
       })
+
       return result.id
-    }
-    catch (failure) {
+    } catch (failure) {
       uploadError.value = readApiError(failure).message
+
       return null
-    }
-    finally {
+    } finally {
       uploading.value = false
     }
   }

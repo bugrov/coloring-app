@@ -5,5 +5,6 @@ import { searchPlayers } from '../../../services/admin-players'
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
   const { query } = parseQuery(event, playerSearchQuerySchema)
+
   return searchPlayers(useDb(), query)
 })

@@ -9,6 +9,7 @@ export const IDENTITY: Matrix = [1, 0, 0, 1, 0, 0]
 export function multiply(outer: Matrix, inner: Matrix): Matrix {
   const [a1, b1, c1, d1, e1, f1] = outer
   const [a2, b2, c2, d2, e2, f2] = inner
+
   return [
     a1 * a2 + c1 * b2,
     b1 * a2 + d1 * b2,
@@ -60,6 +61,7 @@ function toMatrix(name: string, args: number[]): Matrix {
       const angle = radians(args[0]!)
       const rotation: Matrix = [Math.cos(angle), Math.sin(angle), -Math.sin(angle), Math.cos(angle), 0, 0]
       const [, cx = 0, cy = 0] = args
+
       return multiply(translation(cx, cy), multiply(rotation, translation(-cx, -cy)))
     }
     case 'skewX':
@@ -82,19 +84,24 @@ function parseArguments(text: string): number[] | null {
   }
 
   skipWhitespace()
+
   while (position < text.length) {
     NUMBER.lastIndex = position
     const match = NUMBER.exec(text)
+
     if (!match) return null
     args.push(Number(match[0]))
     position = NUMBER.lastIndex
     skipWhitespace()
+
     if (text[position] === ',') {
       position++
       skipWhitespace()
+
       if (position >= text.length) return null
     }
   }
+
   return args
 }
 
@@ -108,6 +115,7 @@ function parseArguments(text: string): number[] | null {
 export function parseTransform(value: string): Matrix | null {
   let result = IDENTITY
   let position = 0
+
   while (position < value.length) {
     if (isSeparator(value[position])) {
       position++
@@ -115,14 +123,17 @@ export function parseTransform(value: string): Matrix | null {
     }
     const open = value.indexOf('(', position)
     const close = open === -1 ? -1 : value.indexOf(')', open)
+
     if (close === -1) return null
 
     const name = value.slice(position, open).trim()
     const args = parseArguments(value.slice(open + 1, close))
+
     if (!args || !FUNCTION_ARITY.get(name)?.includes(args.length) || !args.every(Number.isFinite)) return null
 
     result = multiply(result, toMatrix(name, args))
     position = close + 1
   }
+
   return result
 }

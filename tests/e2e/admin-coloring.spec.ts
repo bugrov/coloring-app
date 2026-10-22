@@ -10,12 +10,14 @@ const NIL = '00000000-0000-4000-8000-000000000000'
 
 function freshAddress(): string {
   const octet = () => Math.floor(Math.random() * 254) + 1
+
   return `10.${octet()}.${octet()}.${octet()}`
 }
 
 async function signInAdmin(page: Page) {
   await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': freshAddress() })
   const response = await page.request.post('/api/admin/login', { data: { login: E2E_ADMIN.login, password: E2E_ADMIN.password } })
+
   expect(response.status()).toBe(200)
 }
 
@@ -23,24 +25,31 @@ async function signInPlayer(page: Page, country = 'RU') {
   await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': freshAddress() })
   const username = `adm${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
   const response = await page.request.post('/api/auth/login', { data: { username, country } })
+
   expect(response.status()).toBe(200)
+
   return username
 }
 
 async function upload(request: APIRequestContext, name: string): Promise<string> {
   const response = await request.post(`/api/admin/coloring/arts?name=${name}.svg`, { data: SQUARE, headers: { 'content-type': 'image/svg+xml' } })
+
   expect(response.status()).toBe(200)
+
   return (await response.json()).id
 }
 
 const galleryIds = async (request: APIRequestContext): Promise<string[]> => {
   const ids: string[] = []
   let cursor: string | null = null
+
   do {
     const page = await (await request.get(`/api/coloring/arts${cursor ? `?cursor=${cursor}` : ''}`)).json()
+
     ids.push(...page.items.map((item: { id: string }) => item.id))
     cursor = page.nextCursor
   } while (cursor)
+
   return ids
 }
 
@@ -66,6 +75,7 @@ test.describe('admin API without the right to use it', () => {
   test('every endpoint answers 401 without a session', async ({ request }) => {
     for (const { method, path } of ENDPOINTS) {
       const response = await request[method](path, { data: method === 'get' ? undefined : {} })
+
       expect(response.status(), `${method} ${path}`).toBe(401)
     }
   })
@@ -73,8 +83,10 @@ test.describe('admin API without the right to use it', () => {
   test('every endpoint answers 403 to a player', async ({ page }) => {
     test.skip(!withDb, 'Signing a player in needs the database')
     await signInPlayer(page)
+
     for (const { method, path } of ENDPOINTS) {
       const response = await page.request[method](path, { data: method === 'get' ? undefined : {} })
+
       expect(response.status(), `${method} ${path}`).toBe(403)
     }
   })
@@ -89,6 +101,7 @@ test.describe('administration with the database', () => {
 
     const playerContext = await browser.newContext()
     const player = await playerContext.newPage()
+
     await signInPlayer(player, 'RU')
     expect(await galleryIds(player.request)).not.toContain(id)
     expect((await player.request.get(`/api/coloring/arts/${id}`)).status()).toBe(404)
@@ -113,6 +126,7 @@ test.describe('administration with the database', () => {
     await signInAdmin(page)
 
     const bad = await page.request.post('/api/admin/coloring/arts?name=bad.svg', { data: '<html></html>', headers: { 'content-type': 'image/svg+xml' } })
+
     expect(bad.status()).toBe(422)
     expect((await bad.json()).data.code).toBe('svg_rejected')
     expect((await page.request.post('/api/admin/coloring/arts?name=empty.svg', { data: '', headers: { 'content-type': 'image/svg+xml' } })).status()).toBe(400)
@@ -122,6 +136,7 @@ test.describe('administration with the database', () => {
   test('the analytics count what a player does, and the administrator sees it', async ({ page, browser }) => {
     await signInAdmin(page)
     const id = await upload(page.request, 'counted')
+
     await page.request.patch(`/api/admin/coloring/arts/${id}`, { data: { status: 'published' } })
     const art = await (await page.request.get(`/api/admin/coloring/arts/${id}`)).json()
     const region = (art.art.items as { type: string, id: number, kind: string }[]).find(item => item.type === 'region' && item.kind === 'area')!.id
@@ -129,12 +144,14 @@ test.describe('administration with the database', () => {
     const playerContext = await browser.newContext()
     const player = await playerContext.newPage()
     const username = await signInPlayer(player, 'RU')
+
     // Only a read that says it is the editor opening counts as an open; a plain read after "start over" does not.
     await player.request.get(`/api/coloring/arts/${id}/history?track=open`)
     await player.request.get(`/api/coloring/arts/${id}/history?track=open`)
     await player.request.get(`/api/coloring/arts/${id}/history`)
     const step = [{ type: 'fill', region, color: '#e53935' }]
     const first = await player.request.put(`/api/coloring/arts/${id}/history`, { data: { attempt: 0, rev: 0, keep: 0, steps: [step], cursor: 1, percent: 100 } })
+
     expect(first.status()).toBe(200)
     // Saving the same finished picture again must not count a second start or completion.
     await player.request.put(`/api/coloring/arts/${id}/history`, { data: { attempt: 1, rev: 1, keep: 1, steps: [step], cursor: 2, percent: 100 } })
@@ -142,18 +159,23 @@ test.describe('administration with the database', () => {
     // Events are written after the responses; give them a moment.
     await expect.poll(async () => {
       const listed = await (await page.request.get('/api/admin/coloring/arts')).json()
+
       return listed.find((entry: { id: string }) => entry.id === id)
     }).toMatchObject({ opens: 2, starts: 1, completes: 1 })
     const stats = await (await page.request.get('/api/admin/coloring/stats?days=7')).json()
+
     expect(stats.arts.find((entry: { id: string }) => entry.id === id)).toMatchObject({ opens: 2, starts: 1, completes: 1 })
     expect(stats.daily).toHaveLength(7)
 
     const found = await (await page.request.get(`/api/admin/coloring/players?query=${username.slice(0, 8)}`)).json()
     const mine = found.find((entry: { username: string }) => entry.username === username)
+
     expect(mine).toBeTruthy()
     const arts = await (await page.request.get(`/api/admin/coloring/players/${mine.id}/arts`)).json()
+
     expect(arts.arts.find((entry: { artId: string }) => entry.artId === id).attempts[0]).toMatchObject({ attempt: 1, percent: 100, steps: 2 })
     const view = await (await page.request.get(`/api/admin/coloring/players/${mine.id}/arts/${id}?attempt=1`)).json()
+
     expect(view.history.steps).toHaveLength(2)
     expect((await page.request.get(`/api/admin/coloring/players/${mine.id}/arts/${NIL}`)).status()).toBe(404)
     await page.request.delete(`/api/admin/coloring/arts/${id}`)
@@ -170,9 +192,11 @@ test.describe('administration with the database', () => {
 
     const playerContext = await browser.newContext()
     const player = await playerContext.newPage()
+
     await signInPlayer(player)
     const seen = await player.request.get(`/api/coloring/arts`).then(response => response.json())
     const art = await (await player.request.get(`/api/coloring/arts/${seen.items[0].id}`)).json()
+
     expect(art.tolerance).toBe(0.8)
 
     await page.request.put('/api/admin/coloring/settings', { data: { paintedTolerance: before } })
@@ -182,18 +206,22 @@ test.describe('administration with the database', () => {
   test('the palette of the administrator reaches the player and is validated', async ({ page, browser }) => {
     await signInAdmin(page)
     const before = await (await page.request.get('/api/admin/coloring/palette')).json()
+
     expect(before).toHaveLength(32)
 
     expect((await page.request.put('/api/admin/coloring/palette', { data: { palette: before.slice(1) } })).status()).toBe(422)
     expect((await page.request.put('/api/admin/coloring/palette', { data: { palette: before.map((color: { name: string }) => ({ ...color, hex: 'red' })) } })).status()).toBe(422)
     const custom = before.map((color: { hex: string, name: string }, index: number) => (index === 0 ? { hex: '#123456', name: 'Мой цвет' } : color))
+
     expect((await page.request.put('/api/admin/coloring/palette', { data: { palette: custom } })).status()).toBe(200)
 
     const playerContext = await browser.newContext()
     const player = await playerContext.newPage()
+
     await signInPlayer(player)
     const seen = await player.request.get('/api/coloring/arts').then(response => response.json())
     const art = await (await player.request.get(`/api/coloring/arts/${seen.items[0].id}`)).json()
+
     expect(art.palette[0]).toEqual({ hex: '#123456', name: 'Мой цвет' })
 
     await page.request.put('/api/admin/coloring/palette', { data: { palette: before } })
@@ -236,6 +264,7 @@ test.describe('administration with the database', () => {
     const playerContext = await browser.newContext()
     const player = await playerContext.newPage()
     const username = await signInPlayer(player, 'RU')
+
     await player.request.put(`/api/coloring/arts/${id}/history`, { data: { attempt: 0, rev: 0, keep: 0, steps: [[{ type: 'fill', region, color: '#e53935' }]], cursor: 1, percent: 100 } })
     const found = await (await page.request.get(`/api/admin/coloring/players?query=${username}`)).json()
 
@@ -244,7 +273,9 @@ test.describe('administration with the database', () => {
     await expect.poll(() => page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => {
       const { data } = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height)
       let painted = 0
+
       for (let i = 3; i < data.length; i += 4) if (data[i]! > 0) painted++
+
       return painted
     })).toBeGreaterThan(1000)
 
