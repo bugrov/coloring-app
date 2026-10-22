@@ -126,7 +126,7 @@ function isOnArt([rx, ry]: [number, number]): boolean {
 
 /**
  * Connects a {@link ColoringEngine} to the stage element: pointer input
- * (mouse, touch, pen), long press, two-finger zoom/pan, Ctrl+wheel zoom.
+ * (mouse, touch, pen), long press, two-finger zoom/pan, Ctrl+wheel zoom, right-button drag pan.
  * Input is collected per event and drawn once per animation frame; nothing
  * runs while the user is idle.
  */
@@ -139,6 +139,8 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
   const hold = new HoldDetector(HOLD_TOLERANCE_PX)
   let stroke: ActiveStroke | null = null
   let gesture: Gesture | null = null
+  /** A mouse drag with the right or middle button: moves the zoomed art, never draws. */
+  let drag: { pointerId: number, x: number, y: number } | null = null
   let holdTimer: ReturnType<typeof setTimeout> | undefined
   /** Where the current press began, relative to the stage, and the colour it would fill with. */
   let holdAt: Pick<HoldFeedback, 'x' | 'y' | 'color'> = { x: 0, y: 0, color: null }
@@ -291,7 +293,11 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
   }
 
   function onPointerDown(event: PointerEvent) {
-    if (!engine.value || (event.pointerType === 'mouse' && event.button !== 0)) return
+    if (!engine.value) return
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+      startDrag(event)
+      return
+    }
     // Palm rejection: while the pen draws, touches are ignored instead of starting
     // a gesture; a palm that landed before the pen is dropped when the pen arrives.
     if (stroke?.pointerType === 'pen' && event.pointerType !== 'pen') return
@@ -331,7 +337,34 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     scheduleFrame()
   }
 
+  function startDrag(event: PointerEvent) {
+    // Only the right and the middle button pan; a stroke or another drag in progress is left alone.
+    if (event.button === 3 || event.button === 4 || stroke || drag) return
+    event.preventDefault()
+    drag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY }
+    stage.value!.setPointerCapture(event.pointerId)
+  }
+
+  function moveDrag(event: PointerEvent) {
+    if (!drag) return
+    const box = contentBox()
+    view.value = panBy(view.value, event.clientX - drag.x, event.clientY - drag.y, box.width, box.height)
+    drag.x = event.clientX
+    drag.y = event.clientY
+  }
+
+  /** Ends the drag of this pointer; returns whether there was one. */
+  function endDrag(event: PointerEvent): boolean {
+    if (drag?.pointerId !== event.pointerId) return false
+    drag = null
+    return true
+  }
+
   function onPointerMove(event: PointerEvent) {
+    if (drag?.pointerId === event.pointerId) {
+      moveDrag(event)
+      return
+    }
     if (!pointers.has(event.pointerId)) return
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY, type: event.pointerType })
 
@@ -366,11 +399,13 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
   }
 
   function onPointerUp(event: PointerEvent) {
+    if (endDrag(event)) return
     if (releasePointer(event) && stroke?.pointerId === event.pointerId) finishStroke()
   }
 
   /** The system took the pointer away (edge swipe, rotation): the stroke was not finished on purpose. */
   function onPointerCancel(event: PointerEvent) {
+    if (endDrag(event)) return
     if (releasePointer(event) && stroke?.pointerId === event.pointerId) abortStroke()
   }
 
