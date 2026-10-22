@@ -26,39 +26,14 @@ function onChange() {
       :aria-label="busy ? 'Импортируем рисунок' : 'Импортировать свой SVG-рисунок'"
       @click="input?.click()"
     >
-      <svg
+      <IconSpinner
         v-if="busy"
         class="gallery-add__spinner"
-        viewBox="0 0 64 64"
-        aria-hidden="true"
-      >
-        <circle
-          cx="32"
-          cy="32"
-          r="24"
-        />
-      </svg>
-      <svg
+      />
+      <IconPlus
         v-else
         class="gallery-add__plus"
-        viewBox="0 0 64 64"
-        aria-hidden="true"
-      >
-        <rect
-          x="0"
-          y="24"
-          width="64"
-          height="16"
-          rx="8"
-        />
-        <rect
-          x="24"
-          y="0"
-          width="16"
-          height="64"
-          rx="8"
-        />
-      </svg>
+      />
     </button>
     <input
       ref="input"
@@ -92,35 +67,9 @@ function onChange() {
   cursor: pointer;
 }
 
-.gallery-add__plus {
-  width: 64px;
-  height: 64px;
-  fill: var(--color-sky);
-}
-
-// A 3/4 arc turning in place: transform only, and still when the user asks for less motion.
+.gallery-add__plus,
 .gallery-add__spinner {
-  width: 64px;
-  height: 64px;
-  animation: gallery-add-spin 0.9s linear infinite;
-
-  circle {
-    fill: none;
-    stroke: var(--color-sky);
-    stroke-dasharray: 113 38;
-    stroke-linecap: round;
-    stroke-width: 12;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    animation: none;
-  }
-}
-
-@keyframes gallery-add-spin {
-  to {
-    transform: rotate(360deg);
-  }
+  color: var(--color-sky);
 }
 
 .gallery-add__button:disabled {

@@ -59,20 +59,7 @@ const thicknessLook = computed(() => THICKNESS_LOOKS[THICKNESS_SCALES.findIndex(
         :title="`Толщина линии: ${thicknessLook.name}`"
         @click="editor.cycleThickness()"
       >
-        <svg
-          viewBox="0 0 28 28"
-          width="28"
-          height="28"
-          fill="none"
-          stroke="currentColor"
-          stroke-linecap="round"
-          aria-hidden="true"
-        >
-          <path
-            d="M5 22 L23 6"
-            :stroke-width="thicknessLook.stroke"
-          />
-        </svg>
+        <EditorThicknessIcon :stroke="thicknessLook.stroke" />
       </button>
       <button
         type="button"
@@ -82,20 +69,7 @@ const thicknessLook = computed(() => THICKNESS_LOOKS[THICKNESS_SCALES.findIndex(
         :disabled="!canRestart"
         @click="emit('restart')"
       >
-        <svg
-          viewBox="0 0 24 24"
-          width="28"
-          height="28"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M4 12a8 8 0 1 0 2.6-5.9" />
-          <path d="M4 4v5h5" />
-        </svg>
+        <IconRestart />
       </button>
     </div>
 
