@@ -41,7 +41,7 @@ async function onDelete() {
       class="art"
     >
       <section
-        class="art__preview"
+        class="admin-card art__preview"
         aria-label="Как выглядит рисунок"
       >
         <ArtPreview
@@ -56,7 +56,7 @@ async function onDelete() {
       <div class="art__side">
         <form
           v-if="details.source === 'admin'"
-          class="art__card"
+          class="admin-card"
           @submit.prevent="rename(title)"
         >
           <label
@@ -66,7 +66,7 @@ async function onDelete() {
           <input
             id="art-title"
             v-model="title"
-            class="art__input"
+            class="form-input form-input--on-surface"
             maxlength="60"
             required
           >
@@ -80,7 +80,7 @@ async function onDelete() {
         </form>
 
         <section
-          class="art__card"
+          class="admin-card"
           aria-labelledby="art-status"
         >
           <h2
@@ -177,31 +177,18 @@ async function onDelete() {
   gap: var(--space-4);
 }
 
-.art__preview {
-  padding: var(--space-4);
-  border-radius: var(--radius-m);
-  background: var(--color-surface);
-}
-
 .art__svg {
   display: block;
   width: 100%;
   max-height: 60dvh;
-  background: var(--color-surface);
+  // The page colour behind the drawing: its white areas stand out from the white card.
+  background: var(--color-bg);
 }
 
 .art__side {
   display: grid;
   align-content: start;
   gap: var(--space-4);
-}
-
-.art__card {
-  display: grid;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border-radius: var(--radius-m);
-  background: var(--color-surface);
 }
 
 .art__label {
@@ -211,20 +198,6 @@ async function onDelete() {
 .art__heading {
   margin: 0;
   font-size: var(--font-size-m);
-}
-
-.art__input {
-  min-height: 44px;
-  padding: 0 var(--space-3);
-  border: 2px solid var(--color-bg);
-  border-radius: var(--radius-m);
-  background: var(--color-surface);
-  font: inherit;
-}
-
-.art__input:focus-visible {
-  border-color: var(--color-accent);
-  outline: none;
 }
 
 .art__actions {

@@ -63,24 +63,24 @@ const byCountry = computed(() => (stats.value?.countries ?? []).map(entry => ({ 
           Игроков за период: <strong>{{ stats.totals.players }}</strong>
         </p>
         <div class="stats__grid">
-          <section class="stats__card">
+          <section class="admin-card">
             <AdminBars
               title="Воронка"
               unit="раз"
               :items="funnel"
             />
           </section>
-          <section class="stats__card stats__card--wide">
+          <section class="admin-card stats__card--wide">
             <AdminLineChart :days="stats.daily" />
           </section>
-          <section class="stats__card">
+          <section class="admin-card">
             <AdminBars
               title="Популярные рисунки (открытия)"
               unit="открытий"
               :items="popular"
             />
           </section>
-          <section class="stats__card">
+          <section class="admin-card">
             <AdminBars
               title="Страны (открытия)"
               unit="открытий"
@@ -126,12 +126,6 @@ const byCountry = computed(() => (stats.value?.countries ?? []).map(entry => ({ 
 .stats__grid {
   display: grid;
   gap: var(--space-4);
-}
-
-.stats__card {
-  padding: var(--space-4);
-  border-radius: var(--radius-m);
-  background: var(--color-surface);
 }
 
 @media (min-width: 900px) {

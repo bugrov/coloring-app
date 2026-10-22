@@ -33,7 +33,7 @@ const everyone = computed(() => chosenCountries.value.length === 0 && chosenPlay
 
 <template>
   <section
-    class="assign"
+    class="admin-card"
     aria-labelledby="assign-heading"
   >
     <h2
@@ -54,7 +54,7 @@ const everyone = computed(() => chosenCountries.value.length === 0 && chosenPlay
       <select
         id="assign-country"
         v-model="pickedCountry"
-        class="assign__input"
+        class="form-input form-input--on-surface assign__input"
         @change="addCountry"
       >
         <option value="">
@@ -101,7 +101,7 @@ const everyone = computed(() => chosenCountries.value.length === 0 && chosenPlay
       <input
         id="assign-player"
         v-model="query"
-        class="assign__input"
+        class="form-input form-input--on-surface assign__input"
         type="search"
         placeholder="Начало имени"
         autocomplete="off"
@@ -171,14 +171,6 @@ const everyone = computed(() => chosenCountries.value.length === 0 && chosenPlay
 </template>
 
 <style scoped lang="scss">
-.assign {
-  display: grid;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border-radius: var(--radius-m);
-  background: var(--color-surface);
-}
-
 .assign__heading {
   margin: 0;
   font-size: var(--font-size-m);
@@ -203,18 +195,8 @@ const everyone = computed(() => chosenCountries.value.length === 0 && chosenPlay
 
 .assign__input {
   flex: 1;
+  width: auto;
   min-width: 160px;
-  min-height: 44px;
-  padding: 0 var(--space-3);
-  border: 2px solid var(--color-bg);
-  border-radius: var(--radius-m);
-  background: var(--color-surface);
-  font: inherit;
-}
-
-.assign__input:focus-visible {
-  border-color: var(--color-accent);
-  outline: none;
 }
 
 .assign__chips,

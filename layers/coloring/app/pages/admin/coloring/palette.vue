@@ -49,7 +49,7 @@ const { colors, loadError, message, saving, dirty, save, resetToStandard } = use
           >
           <input
             v-model="color.name"
-            class="palette__name"
+            class="form-input form-input--on-surface palette__name"
             type="text"
             :maxlength="PALETTE_NAME_MAX_LENGTH"
             :aria-label="`Название цвета ${index + 1}`"
@@ -137,21 +137,15 @@ const { colors, loadError, message, saving, dirty, save, resetToStandard } = use
   background: var(--color-surface);
 }
 
-.palette__name {
-  flex: 1;
-  min-width: 0;
-  min-height: 44px;
-  padding: 0 var(--space-3);
-  border: 2px solid var(--color-bg);
-  border-radius: var(--radius-m);
-  background: var(--color-surface);
-  font: inherit;
-}
-
-.palette__name:focus-visible,
 .palette__color:focus-visible {
   border-color: var(--color-accent);
   outline: none;
+}
+
+.palette__name {
+  flex: 1;
+  width: auto;
+  min-width: 0;
 }
 
 .palette__actions {

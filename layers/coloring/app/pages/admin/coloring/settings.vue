@@ -45,7 +45,7 @@ async function save() {
         <input
           id="tolerance"
           v-model.number="percent"
-          class="settings__input"
+          class="form-input form-input--on-surface settings__input"
           type="number"
           inputmode="numeric"
           :min="MIN_PERCENT"
@@ -89,24 +89,13 @@ async function save() {
   color: var(--color-text-muted);
 }
 
+.settings__input {
+  width: 96px;
+}
+
 .settings__row {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-}
-
-.settings__input {
-  width: 96px;
-  min-height: 44px;
-  padding: 0 var(--space-3);
-  border: 2px solid transparent;
-  border-radius: var(--radius-m);
-  background: var(--color-surface);
-  font: inherit;
-}
-
-.settings__input:focus-visible {
-  border-color: var(--color-accent);
-  outline: none;
 }
 </style>

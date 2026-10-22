@@ -117,6 +117,21 @@ textarea {
   }
 }
 
+// The same field on a white card (the administration): white inside, the page colour as the border.
+.form-input--on-surface {
+  border-color: var(--color-bg);
+  background: var(--color-surface);
+}
+
+// A white panel: a block of related content (the administration).
+.admin-card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-m);
+  background: var(--color-surface);
+}
+
 .button {
   display: inline-flex;
   align-items: center;

@@ -26,7 +26,7 @@ const when = (iso: string) => new Date(iso).toLocaleString('ru')
         <input
           id="players-query"
           v-model="query"
-          class="players__input"
+          class="form-input form-input--on-surface players__input"
           type="search"
           placeholder="Начало имени"
           autocomplete="off"
@@ -90,7 +90,7 @@ const when = (iso: string) => new Date(iso).toLocaleString('ru')
         <article
           v-for="art in arts"
           :key="art.artId"
-          class="players__art"
+          class="admin-card players__art"
         >
           <h3 class="players__art-title">
             {{ art.title }}
@@ -129,22 +129,6 @@ const when = (iso: string) => new Date(iso).toLocaleString('ru')
 
 .players__label {
   font-weight: 600;
-}
-
-.players__input {
-  flex: 1;
-  min-width: 180px;
-  min-height: 44px;
-  padding: 0 var(--space-3);
-  border: 2px solid var(--color-bg);
-  border-radius: var(--radius-m);
-  background: var(--color-surface);
-  font: inherit;
-}
-
-.players__input:focus-visible {
-  border-color: var(--color-accent);
-  outline: none;
 }
 
 .players__error {
@@ -194,10 +178,10 @@ const when = (iso: string) => new Date(iso).toLocaleString('ru')
   font-size: var(--font-size-m);
 }
 
-.players__art {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-m);
-  background: var(--color-surface);
+.players__input {
+  flex: 1;
+  width: auto;
+  min-width: 180px;
 }
 
 .players__art-title {
