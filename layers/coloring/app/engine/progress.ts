@@ -21,11 +21,11 @@ export interface ProgressState {
 export const EMPTY_PROGRESS: Readonly<Progress> = { percent: 0, complete: false }
 
 /**
- * Share of coloured area. A region at or above REGION_COMPLETE_RATIO counts
- * as fully coloured, so small gaps along outlines do not block 100%.
+ * Share of coloured area. A region at or above `tolerance` (the administrator's setting, by default
+ * REGION_COMPLETE_RATIO) counts as fully coloured, so small gaps along outlines do not block 100%.
  * `totals[i]` and `painted[i]` are cell counts of the i-th counted region.
  */
-export function computeProgress(totals: ArrayLike<number>, painted: ArrayLike<number>): Progress {
+export function computeProgress(totals: ArrayLike<number>, painted: ArrayLike<number>, tolerance = REGION_COMPLETE_RATIO): Progress {
   let area = 0
   let covered = 0
   let complete = true
@@ -33,7 +33,7 @@ export function computeProgress(totals: ArrayLike<number>, painted: ArrayLike<nu
     const total = totals[i]!
     if (total === 0) continue
     const ratio = painted[i]! / total
-    const done = ratio >= REGION_COMPLETE_RATIO
+    const done = ratio >= tolerance
     complete &&= done
     area += total
     covered += done ? total : painted[i]!
@@ -67,7 +67,7 @@ export class ProgressTracker {
   private readonly totals: Uint32Array
   private readonly paintedCounts: Uint32Array
 
-  constructor(space: ArtSpace, geometry: ArtGeometry) {
+  constructor(space: ArtSpace, geometry: ArtGeometry, private readonly tolerance = REGION_COMPLETE_RATIO) {
     const scale = PROGRESS_GRID_LONG_SIDE / space.longSide
     this.gridWidth = Math.max(1, Math.round(space.width * scale))
     this.gridHeight = Math.max(1, Math.round(space.height * scale))
@@ -182,6 +182,6 @@ export class ProgressTracker {
   }
 
   get progress(): Progress {
-    return computeProgress(this.totals, this.paintedCounts)
+    return computeProgress(this.totals, this.paintedCounts, this.tolerance)
   }
 }

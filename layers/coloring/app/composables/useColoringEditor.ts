@@ -23,6 +23,8 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
   const { data, error, refresh } = useFetch<ArtDetails>(() => `/api/coloring/arts/${artId.value}`, { key: () => `coloring-art-${artId.value}` })
   const art = computed(() => data.value?.art ?? null)
   const title = computed(() => data.value?.title ?? '')
+  /** Share of a region that counts it as coloured (the administrator's setting). */
+  const tolerance = computed(() => data.value?.tolerance)
 
   /** Why the art is not shown: the message for the player, or empty while it loads or is ready. */
   const loadError = computed(() => (error.value ? readApiError(error.value).message : ''))
@@ -114,6 +116,7 @@ export function useColoringEditor(artId: Readonly<Ref<string>>, stage: Readonly<
   return {
     art,
     title,
+    tolerance,
     loadError,
     retry: refresh,
     historyError: history.loadError,

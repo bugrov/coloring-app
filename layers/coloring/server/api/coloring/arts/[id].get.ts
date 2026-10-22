@@ -1,4 +1,5 @@
 import { findVisibleArt } from '../../../services/arts'
+import { getPaintedTolerance } from '../../../services/settings'
 
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
@@ -9,5 +10,5 @@ export default defineEventHandler(async (event) => {
   // stored copy without asking the server.
   setHeader(event, 'Cache-Control', 'private, no-cache')
   setHeader(event, 'Vary', 'Cookie')
-  return { id: art.id, title: art.title, art: art.data }
+  return { id: art.id, title: art.title, art: art.data, tolerance: await getPaintedTolerance(useDb()) }
 })

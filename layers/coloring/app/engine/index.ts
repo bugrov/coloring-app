@@ -48,11 +48,12 @@ export class ColoringEngine {
   private readonly painter: Painter
   private readonly tracker: ProgressTracker
 
-  constructor(art: ColoringArt, canvas: HTMLCanvasElement) {
+  /** `tolerance`: the share of a region that counts it as coloured (the administrator can change it). */
+  constructor(art: ColoringArt, canvas: HTMLCanvasElement, tolerance?: number) {
     this.space = new ArtSpace(art)
     this.geometry = new ArtGeometry(art, this.space)
     this.painter = new Painter(canvas, this.space, this.geometry)
-    this.tracker = new ProgressTracker(this.space, this.geometry)
+    this.tracker = new ProgressTracker(this.space, this.geometry, tolerance)
   }
 
   /** Grid point and region under a position given as a share (0–1) of the rendered art. */

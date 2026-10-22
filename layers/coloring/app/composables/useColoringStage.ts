@@ -32,6 +32,8 @@ export interface ColoringStageOptions {
   opacity: Ref<number>
   /** Multiplier of the tool's line width. */
   thickness: Ref<number>
+  /** Share of a region that counts it as coloured; read when the engine for an art is made. */
+  tolerance?: Ref<number | undefined>
   /** While true the player cannot draw (the picture is being rebuilt, or the history is full). */
   locked?: Ref<boolean>
   /** Feedback for a long press; position is in px relative to the stage. */
@@ -149,7 +151,7 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     engine.value?.dispose()
     engine.value = null
     if (!element) return
-    engine.value = markRaw(new ColoringEngine(art, element))
+    engine.value = markRaw(new ColoringEngine(art, element, options.tolerance?.value))
     view.value = IDENTITY_VIEW
     Object.assign(stats, createFrameStats())
     // The content box changes with the art's proportions; remember it once laid out.

@@ -14,7 +14,9 @@ const props = withDefaults(defineProps<{
   thickness?: number
   /** The player cannot draw while true; zoom and pan still work. */
   locked?: boolean
-}>(), { opacity: DEFAULT_OPACITY, thickness: DEFAULT_THICKNESS, locked: false })
+  /** Share of a region that counts it as coloured; the engine default when absent. */
+  tolerance?: number
+}>(), { opacity: DEFAULT_OPACITY, thickness: DEFAULT_THICKNESS, locked: false, tolerance: undefined })
 
 const emit = defineEmits<{
   ops: [ops: Op[], delta: PaintDelta | null]
@@ -45,6 +47,7 @@ const { contentStyle, handle } = useColoringStage({ stage, content, canvas }, {
   opacity: toRef(props, 'opacity'),
   thickness: toRef(props, 'thickness'),
   locked: toRef(props, 'locked'),
+  tolerance: toRef(props, 'tolerance'),
   onReady: () => emit('ready'),
   onHold,
   onOps: (ops, delta) => emit('ops', ops, delta),

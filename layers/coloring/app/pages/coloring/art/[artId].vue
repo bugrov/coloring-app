@@ -9,7 +9,7 @@ const artId = computed(() => String(route.params.artId))
 
 const editor = useEditorStore()
 const stage = useTemplateRef<ColoringStageHandle>('stage')
-const { art, title, loadError, retry, historyError, retryHistory, notice, restarting, celebrating, congratulating, onStageReady, onOps, onProgress, undo, redo, restart, shareImage } = useColoringEditor(artId, stage)
+const { art, title, tolerance, loadError, retry, historyError, retryHistory, notice, restarting, celebrating, congratulating, onStageReady, onOps, onProgress, undo, redo, restart, shareImage } = useColoringEditor(artId, stage)
 
 useHead({ title: computed(() => title.value || 'Раскраска'), meta: [{ name: 'robots', content: 'noindex' }] })
 
@@ -48,6 +48,7 @@ async function onRestartConfirmed() {
         :opacity="editor.opacity"
         :thickness="editor.thickness"
         :locked="editor.locked"
+        :tolerance="tolerance"
         @ready="onStageReady"
         @ops="onOps"
         @progress="onProgress"
