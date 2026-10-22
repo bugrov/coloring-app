@@ -1,5 +1,6 @@
 import { HISTORY_ERROR_MESSAGES, saveHistorySchema } from '../../../../../shared'
 import { findVisibleArt } from '../../../../services/arts'
+import { recordEvent } from '../../../../services/events'
 import { saveHistory } from '../../../../services/history'
 
 /**
@@ -21,5 +22,10 @@ export default defineEventHandler(async (event) => {
 
   const result = await saveHistory(db, user.id, artId, save)
   if (!result.ok) throw domainError(409, 'history_conflict', HISTORY_ERROR_MESSAGES.history_conflict)
+
+  // The first accepted save of an attempt with steps is its start; 100 % is its completion. Both count once.
+  const base = { userId: user.id, artId, attempt: result.attempt, country: user.country ?? '' }
+  if (result.rev === 1 && save.steps.length > 0) await recordEvent(db, { ...base, type: 'start' })
+  if (save.percent === 100) await recordEvent(db, { ...base, type: 'complete' })
   return { attempt: result.attempt, rev: result.rev }
 })

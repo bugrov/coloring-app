@@ -25,9 +25,9 @@ async function latestAttempt(db: Database, userId: string, artId: string) {
 /**
  * The player's latest attempt at the art with all its steps, read in one statement so the steps
  * always belong to the revision and the cursor that come with them. Before the first attempt the
- * history is empty (attempt 0).
+ * history is empty (attempt 0). `attempt` asks for a given attempt instead of the latest (the admin).
  */
-export async function loadHistory(db: Database, userId: string, artId: string): Promise<HistoryState> {
+export async function loadHistory(db: Database, userId: string, artId: string, attempt?: number): Promise<HistoryState> {
   const result = await db.execute(sql`
     SELECT p.attempt, p.rev, p.cursor,
       COALESCE(
@@ -35,7 +35,7 @@ export async function loadHistory(db: Database, userId: string, artId: string): 
         '[]'::jsonb
       ) AS steps
     FROM progress p
-    WHERE p.user_id = ${userId} AND p.art_id = ${artId}
+    WHERE p.user_id = ${userId} AND p.art_id = ${artId} ${attempt === undefined ? sql`` : sql`AND p.attempt = ${attempt}`}
     ORDER BY p.attempt DESC
     LIMIT 1
   `)

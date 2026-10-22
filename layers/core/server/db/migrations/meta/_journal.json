@@ -29,6 +29,13 @@
       "when": 1792611200355,
       "tag": "0003_red_santa_claus",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792675472004,
+      "tag": "0004_mysterious_nighthawk",
+      "breakpoints": true
     }
   ]
 }
