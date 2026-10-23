@@ -71,7 +71,7 @@ test.describe('editor with the database', () => {
     await page.getByRole('button', { name: 'Вернуть' }).click()
     await expect(page.getByRole('button', { name: 'Отменить' })).toBeEnabled()
 
-    await page.getByRole('button', { name: 'Начать заново', exact: true }).click()
+    await page.locator('.editor__actions').getByRole('button', { name: 'Начать заново' }).click()
     await page.getByRole('dialog').getByRole('button', { name: 'Начать заново' }).click()
     await expect(page.getByRole('button', { name: 'Отменить' })).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Вернуть' })).toBeDisabled()

@@ -166,7 +166,7 @@ test.describe('history with the database', () => {
     await openOctopus(page)
     await scribble(page)
 
-    await page.getByRole('button', { name: 'Начать заново', exact: true }).click()
+    await page.locator('.editor__actions').getByRole('button', { name: 'Начать заново' }).click()
     await page.getByRole('dialog').getByRole('button', { name: 'Начать заново' }).click()
 
     // The buttons are disabled while the picture is rebuilt, so wait for the canvas itself.
