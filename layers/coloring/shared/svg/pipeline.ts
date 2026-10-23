@@ -156,7 +156,7 @@ class SvgConverter {
     if (ink.length === 0) return
     const budget = Math.max(0, this.limits.maxOutputLength - this.outputLength)
     const found = findRegions(ink, this.viewBox, this.limits.maxRegions, budget, () => this.checkDeadline())
-    const areas = found.map((region): ArtItem => ({ type: 'region', id: 0, kind: 'area', d: region.d, fillRule: 'nonzero', bounds: region.bounds }))
+    const areas = found.map((region): ArtItem => ({ type: 'region', id: 0, kind: region.background ? 'background' : 'area', d: region.d, fillRule: 'nonzero', bounds: region.bounds }))
 
     // They are not part of the file: counted against the size of the result as a whole, not against its share of the file.
     this.outputLength += areas.reduce((total, area) => total + JSON.stringify(area).length, 0)

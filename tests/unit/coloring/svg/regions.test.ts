@@ -106,11 +106,17 @@ describe('areas between the lines of a drawing that has only dark shapes', () =>
     expect(result.ok && areas(result.art.items)).toHaveLength(1)
   })
 
-  it('makes areas of the parts of a page that lines divide from edge to edge (sky, sea and sand of a scene)', () => {
-    // A band across the whole sheet: both halves reach the edge, and both are big.
-    const body = '<rect x="0" y="45" width="100" height="10" fill="#000"/>'
+  it('keeps the parts of a page that lines divide from edge to edge (sky, sea and sand of a scene) as page: coloured, not counted', () => {
+    // A band across the whole sheet, and a ring in the upper half.
+    const body = '<rect x="0" y="45" width="100" height="10" fill="#000"/><path d="M20 15H40V35H20Z M24 19H36V31H24Z" fill="#000" fill-rule="evenodd"/>'
+    const result = convertSvg(svg(body))
 
-    expect(areasOf(svg(body))).toHaveLength(2)
+    if (!result.ok) throw new Error(result.error)
+    const page = result.art.items.filter((item): item is ArtRegion => item.type === 'region' && item.kind === 'background')
+
+    // The whole sheet and the two halves are page; the inside of the ring is the only area.
+    expect(page).toHaveLength(3)
+    expect(areas(result.art.items)).toHaveLength(1)
   })
 
   it('does not make an area of the page around an object, nor of a small pocket the object cuts off at the edge', () => {

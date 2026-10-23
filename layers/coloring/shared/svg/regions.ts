@@ -19,6 +19,8 @@ import { roundTo } from './number'
  * the empty parts that do not touch the border are the areas, and each one is traced back into a path.
  */
 export interface FoundRegion {
+  /** Part of the page (it reaches the edge of the sheet): can be coloured, but does not count towards the progress. */
+  background: boolean
   d: string
   bounds: [number, number, number, number]
 }
@@ -60,7 +62,8 @@ export function findRegions(
   const closed = dilate(drawn, width, height, SYNTH_GAP_CLOSE_PX)
   const { labels, parts } = label(closed, width, height, checkDeadline)
   const minArea = Math.max(SYNTH_MIN_AREA_PX, Math.round(width * height * SYNTH_MIN_AREA_SHARE))
-  // The part that reaches the edge is the page around an object, not an area: unless lines divide the page itself.
+  // The part that reaches the edge is the page around an object, not an area of the drawing: unless lines divide
+  // the page itself (a scene that fills the sheet), where every part is kept, as a part of the page (not counted).
   const reachingEdge = parts.filter(part => part.touchesBorder && part.area >= minArea).sort((a, b) => b.area - a.area)
   const pageIsDivided = reachingEdge.length >= 2 && reachingEdge[1]!.area >= width * height * SYNTH_DIVIDED_SHARE
   const kept = parts
@@ -87,6 +90,7 @@ export function findRegions(
     if (used > budget) break
 
     found.push({
+      background: part.touchesBorder,
       d,
       bounds: [Math.floor(Math.min(...xs)), Math.floor(Math.min(...ys)), Math.ceil(Math.max(...xs)), Math.ceil(Math.max(...ys))],
     })
