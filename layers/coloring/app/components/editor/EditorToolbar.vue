@@ -73,7 +73,9 @@ watch(() => editor.paletteOpen, async (open) => {
     const chosen = list?.querySelector<HTMLElement>('[aria-pressed="true"]')
 
     if (!list || !chosen) return
-    list.scrollTop = chosen.offsetTop - (list.clientHeight - chosen.offsetHeight) / 2
+    // The palette scrolls down a column held sideways, along a row held upright.
+    if (window.matchMedia('(orientation: portrait)').matches) list.scrollLeft = chosen.offsetLeft - (list.clientWidth - chosen.offsetWidth) / 2
+    else list.scrollTop = chosen.offsetTop - (list.clientHeight - chosen.offsetHeight) / 2
     chosen.focus({ preventScroll: true })
   } else if (root.value?.contains(document.activeElement) || document.activeElement === document.body) {
     root.value?.querySelector<HTMLElement>('.toolbar__recent [aria-pressed="true"]')?.focus()
@@ -104,12 +106,14 @@ watch(() => editor.paletteOpen, async (open) => {
         :aria-label="tool.label"
         @click="editor.tool = tool.name"
       >
-        <img
-          class="toolbar__tool"
-          :src="tool.image"
-          alt=""
-          draggable="false"
-        >
+        <span class="toolbar__art">
+          <img
+            class="toolbar__tool"
+            :src="tool.image"
+            alt=""
+            draggable="false"
+          >
+        </span>
       </button>
     </div>
 
@@ -136,10 +140,12 @@ watch(() => editor.paletteOpen, async (open) => {
           :aria-label="hex === editor.color ? `${colorName(hex)}, открыть все цвета` : colorName(hex)"
           @click="pickRecent(hex)"
         >
-          <EditorCrayon
-            :color="hex"
-            :tool="editor.tool"
-          />
+          <span class="toolbar__art">
+            <EditorCrayon
+              :color="hex"
+              :tool="editor.tool"
+            />
+          </span>
         </button>
       </div>
     </TransitionGroup>
@@ -162,10 +168,12 @@ watch(() => editor.paletteOpen, async (open) => {
         :aria-label="swatch.name"
         @click="pickFromPalette(swatch.hex)"
       >
-        <EditorCrayon
-          :color="swatch.hex"
-          :tool="editor.tool"
-        />
+        <span class="toolbar__art">
+          <EditorCrayon
+            :color="swatch.hex"
+            :tool="editor.tool"
+          />
+        </span>
       </button>
     </div>
   </nav>
@@ -174,7 +182,12 @@ watch(() => editor.paletteOpen, async (open) => {
 <style scoped lang="scss">
 // `clip`, not `hidden`: a hidden box can still be scrolled, and focusing a crayon that waits behind the
 // screen edge scrolled the whole rail sideways (the brush lost its tip).
+// `--ax` and `--ay` are the axis the crayons slide along: sideways (towards the screen edge) in a rail
+// held sideways, down in a strip held upright.
 .toolbar {
+  --ax: 1;
+  --ay: 0;
+
   position: relative;
   display: flex;
   flex-direction: column;
@@ -213,7 +226,7 @@ watch(() => editor.paletteOpen, async (open) => {
 // The palette takes the whole column: the tools slide up out of the way, the recent crayons fade.
 .toolbar--palette .toolbar__tools {
   opacity: 0;
-  transform: translateY(-100%);
+  transform: translate(calc(-100% * var(--ay)), calc(-100% * var(--ax)));
 }
 
 .toolbar--palette .toolbar__recent {
@@ -228,6 +241,8 @@ watch(() => editor.paletteOpen, async (open) => {
 }
 
 .toolbar__item {
+  --slide: var(--pencil-hidden);
+
   flex: none;
   width: var(--rail-width);
   height: var(--pencil-height);
@@ -236,7 +251,7 @@ watch(() => editor.paletteOpen, async (open) => {
 
   // Idle crayons hide behind the screen edge and leave their tip; the chosen one comes out.
   opacity: 0.8;
-  transform: translateX(var(--pencil-hidden));
+  transform: translate(calc(var(--slide) * var(--ax)), calc(var(--slide) * var(--ay)));
   transition:
     transform var(--duration-base) var(--ease-out),
     filter var(--duration-fast),
@@ -244,14 +259,15 @@ watch(() => editor.paletteOpen, async (open) => {
 }
 
 .toolbar__item--chosen {
+  --slide: 0px;
+
   opacity: 1;
-  transform: none;
 }
 
 // A crayon moves out a little under the pointer and sinks back when pressed; the chosen one only
 // brightens (it is out as far as it goes). Hover is for mice, so a touch never leaves it stuck.
 .toolbar__item:active:not(.toolbar__item--chosen) {
-  transform: translateX(calc(var(--pencil-hidden) - 4px * var(--ui-scale)));
+  --slide: calc(var(--pencil-hidden) - 4px * var(--ui-scale));
 }
 
 .toolbar__item:active {
@@ -260,8 +276,9 @@ watch(() => editor.paletteOpen, async (open) => {
 
 @media (hover: hover) {
   .toolbar__item:hover:not(.toolbar__item--chosen) {
+    --slide: calc(var(--pencil-hidden) - 16px * var(--ui-scale));
+
     opacity: 1;
-    transform: translateX(calc(var(--pencil-hidden) - 16px * var(--ui-scale)));
   }
 
   .toolbar__item--chosen:hover {
@@ -273,6 +290,12 @@ watch(() => editor.paletteOpen, async (open) => {
   @include focus-ring(-3px);
 
   border-radius: var(--radius-m);
+}
+
+.toolbar__art {
+  display: block;
+  width: var(--rail-width);
+  height: var(--pencil-height);
 }
 
 .toolbar__tool {
@@ -307,7 +330,42 @@ watch(() => editor.paletteOpen, async (open) => {
   // The resting transform is the end value: it differs for idle and chosen crayons.
   from {
     opacity: 0;
-    transform: translateX(var(--rail-width));
+    transform: translate(calc(var(--rail-width) * var(--ax)), calc(var(--rail-width) * var(--ay)));
+  }
+}
+
+// Held upright the panel is a strip along the bottom edge. The crayons stand with their tips up,
+// hidden behind the bottom edge instead of the right one, tools on the left and colours on the right;
+// the palette scrolls along the strip.
+@media (orientation: portrait) {
+  .toolbar {
+    --ax: 0;
+    --ay: 1;
+
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .toolbar__tools,
+  .toolbar__recent,
+  .toolbar__palette {
+    flex-direction: row;
+  }
+
+  .toolbar__palette {
+    overflow: auto hidden;
+    overscroll-behavior-x: contain;
+  }
+
+  .toolbar__item {
+    width: var(--pencil-height);
+    height: var(--rail-width);
+  }
+
+  // The crayon is drawn lying down with its tip to the left; turned a quarter, the tip points up.
+  .toolbar__art {
+    transform: translateX(var(--pencil-height)) rotate(90deg);
+    transform-origin: 0 0;
   }
 }
 

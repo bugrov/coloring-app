@@ -77,6 +77,43 @@ test.describe('editor with the database', () => {
     await expect(page.getByRole('button', { name: 'Вернуть' })).toBeDisabled()
   })
 
+  test('held upright the actions lie above the picture and the crayons below it, and the drawing survives turning the device', async ({ page }) => {
+    const { width, height } = page.viewportSize() ?? { width: 0, height: 0 }
+    const portrait = { width: Math.min(width, height), height: Math.max(width, height) }
+
+    await page.setViewportSize(portrait)
+    await openOctopus(page, 'p')
+
+    const frame = (await page.locator('.editor__frame').boundingBox())!
+    const actions = (await page.locator('.editor__actions').boundingBox())!
+    const toolbar = (await page.locator('.editor__toolbar').boundingBox())!
+
+    expect(actions.y + actions.height).toBeLessThanOrEqual(frame.y + 1)
+    expect(toolbar.y).toBeGreaterThanOrEqual(frame.y + frame.height - 1)
+    expect(frame.width).toBeGreaterThan(portrait.width * 0.8)
+
+    // The second "start over" button would crowd the undo/redo plate on a narrow screen: the row above has one.
+    if (portrait.width <= 450) await expect(page.locator('.restart-corner')).toBeHidden()
+
+    // On a narrow stage the picture is zoomed until it fills the frame from top to bottom (the rest is a move away).
+    const stage = (await page.locator('.coloring-stage').boundingBox())!
+    const canvas = (await page.locator('.coloring-stage canvas').boundingBox())!
+
+    expect(canvas.height).toBeGreaterThanOrEqual(stage.height - 2)
+
+    // What is drawn is still there after turning the device: the picture is rebuilt from the history.
+    await scribble(page)
+    await expect(page.getByRole('button', { name: 'Отменить' })).toBeEnabled()
+
+    await page.setViewportSize({ width: portrait.height, height: portrait.width })
+    await expect(page.getByRole('button', { name: 'Отменить' })).toBeEnabled()
+    await expect.poll(() => page.locator('.coloring-stage canvas').evaluate((canvas: HTMLCanvasElement) => {
+      const { data } = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height)
+
+      return data.some((value, index) => index % 4 === 3 && value > 0)
+    })).toBe(true)
+  })
+
   test('the palette opens from the chosen crayon, a pick moves it to the chosen place and closes it', async ({ page }) => {
     await openOctopus(page, 'c')
 

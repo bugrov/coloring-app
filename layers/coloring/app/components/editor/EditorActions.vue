@@ -190,4 +190,21 @@ const thicknessLook = computed(() => THICKNESS_LOOKS[THICKNESS_SCALES.findIndex(
 .actions__round:focus-visible {
   @include focus-ring;
 }
+
+// Held upright the rail becomes a row above the picture.
+@media (orientation: portrait) {
+  .actions {
+    flex-direction: row;
+    height: auto;
+    padding: calc(var(--space-2) * var(--ui-scale)) calc(var(--space-4) * var(--ui-scale)) calc(var(--space-4) * var(--ui-scale));
+  }
+
+  .actions__settings {
+    flex-direction: row;
+  }
+
+  .actions__camera {
+    margin: 0;
+  }
+}
 </style>

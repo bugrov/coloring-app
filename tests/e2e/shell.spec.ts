@@ -20,23 +20,16 @@ test.describe('app shell', () => {
 
     expect(shell).toEqual({ userSelect: 'none', touchAction: 'pan-x pan-y', overscroll: 'none', scrollable: false })
   })
-
-  test('hides the rotate prompt in landscape', async ({ page }) => {
-    await page.goto('/')
-
-    await expect(page.getByText('Поверните устройство')).toBeHidden()
-  })
 })
 
-test.describe('portrait on a touch device', () => {
-  test('asks to rotate the device', async ({ page, isMobile }) => {
-    test.skip(!isMobile, 'Only touch devices are asked to rotate')
-
+test.describe('portrait', () => {
+  test('is a layout of its own, not a prompt to turn the device', async ({ page }) => {
     const { width, height } = page.viewportSize() ?? { width: 0, height: 0 }
 
     await page.setViewportSize({ width: Math.min(width, height), height: Math.max(width, height) })
-    await page.goto('/')
+    await page.goto('/login')
 
-    await expect(page.getByText('Поверните устройство')).toBeVisible()
+    await expect(page.getByText('Поверните устройство')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Играть' })).toBeVisible()
   })
 })

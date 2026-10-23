@@ -27,7 +27,7 @@ export type { PaintDelta } from './painter'
 export { EMPTY_PROGRESS, type Progress } from './progress'
 export { sheetOf } from './space'
 export { Timeline, type PaintHost } from './timeline'
-export { clampView, IDENTITY_VIEW, panBy, zoomAt, type View } from './viewport'
+export { clampView, IDENTITY_VIEW, panBy, zoomAt, type Area, type View } from './viewport'
 
 /**
  * The colouring engine for one art: hit testing, drawing, progress and

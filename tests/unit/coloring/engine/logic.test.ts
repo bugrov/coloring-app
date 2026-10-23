@@ -162,6 +162,23 @@ describe('viewport', () => {
     expect((100 - view.x) / view.scale).toBe(100)
   })
 
+  it('lets a sheet wider than the stage be moved at scale 1, and keeps its edges out of the stage', () => {
+    // The sheet is 600 wide on a stage 400 wide: it starts 100 left of the stage.
+    const area = { x: -100, y: 0, width: 600, height: H }
+
+    expect(panBy({ scale: 1, x: 0, y: 0 }, 60, 0, W, H, area).x).toBe(60)
+    expect(panBy({ scale: 1, x: 0, y: 0 }, 500, 0, W, H, area).x).toBe(100)
+    expect(panBy({ scale: 1, x: 0, y: 0 }, -500, 0, W, H, area).x).toBe(-100)
+    // Without the area the old rule holds: nothing to move at scale 1.
+    expect(panBy({ scale: 1, x: 0, y: 0 }, 60, 0, W, H).x).toBe(0)
+  })
+
+  it('keeps a sheet narrower than the stage in the middle', () => {
+    const area = { x: 50, y: 0, width: 300, height: H }
+
+    expect(clampView({ scale: 1, x: 40, y: 0 }, W, H, area).x).toBe(0)
+  })
+
   it('limits zoom and never shows empty space around the art', () => {
     expect(zoomAt({ scale: 1, x: 0, y: 0 }, 0.5, 0, 0, W, H)).toEqual({ scale: 1, x: 0, y: 0 })
     expect(zoomAt({ scale: 4, x: 0, y: 0 }, 10, 0, 0, W, H).scale).toBe(5)
