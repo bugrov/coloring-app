@@ -186,6 +186,44 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
   opacity: 1;
 }
 
+// Under a mouse the whole tile lifts (a deeper shadow), the picture dims a little and comes closer.
+// The link itself keeps the global hover look off: the tile, not the link, is what moves.
+.gallery-card {
+  transition: box-shadow var(--duration-base) var(--ease-out);
+}
+
+.gallery-card__link {
+  filter: none;
+}
+
+.gallery-card__art--loaded {
+  transition:
+    opacity var(--duration-base) var(--ease-out),
+    transform var(--duration-base) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .gallery-card:hover {
+    box-shadow: 0 14px 32px rgb(35 38 47 / 30%);
+  }
+
+  .gallery-card:hover .gallery-card__art--loaded {
+    opacity: 0.85;
+    transform: scale(1.08);
+  }
+}
+
+.gallery-card__link:active .gallery-card__art--loaded {
+  transform: scale(1.03);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gallery-card,
+  .gallery-card__art--loaded {
+    transition: none;
+  }
+}
+
 .gallery-card__missing {
   color: var(--color-text-muted);
   opacity: 0.5;

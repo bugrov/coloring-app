@@ -235,13 +235,16 @@ watch(() => editor.paletteOpen, async (open) => {
   @include plain-button;
 
   // Idle crayons hide behind the screen edge and leave their tip; the chosen one comes out.
+  opacity: 0.8;
   transform: translateX(var(--pencil-hidden));
   transition:
     transform var(--duration-base) var(--ease-out),
-    filter var(--duration-fast);
+    filter var(--duration-fast),
+    opacity var(--duration-fast);
 }
 
 .toolbar__item--chosen {
+  opacity: 1;
   transform: none;
 }
 
@@ -257,11 +260,12 @@ watch(() => editor.paletteOpen, async (open) => {
 
 @media (hover: hover) {
   .toolbar__item:hover:not(.toolbar__item--chosen) {
-    transform: translateX(calc(var(--pencil-hidden) - 12px * var(--ui-scale)));
+    opacity: 1;
+    transform: translateX(calc(var(--pencil-hidden) - 16px * var(--ui-scale)));
   }
 
   .toolbar__item--chosen:hover {
-    filter: brightness(1.06);
+    filter: brightness(1.1);
   }
 }
 

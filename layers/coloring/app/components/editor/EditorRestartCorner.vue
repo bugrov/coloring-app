@@ -45,7 +45,8 @@ defineEmits<{ restart: [] }>()
 
 @media (hover: hover) {
   .restart-corner:hover:not(:disabled) {
-    transform: scale(1.06);
+    filter: drop-shadow(0 4px 6px rgb(35 38 47 / 40%));
+    transform: scale(1.1);
   }
 }
 

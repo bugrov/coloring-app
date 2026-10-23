@@ -72,6 +72,23 @@ function onChange() {
   color: var(--color-sky);
 }
 
+// Like the picture cards: the plus comes closer under a mouse.
+.gallery-add__plus {
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .gallery-add__button:hover:not(:disabled) .gallery-add__plus {
+    transform: scale(1.15);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gallery-add__plus {
+    transition: none;
+  }
+}
+
 .gallery-add__button:disabled {
   cursor: progress;
 }
