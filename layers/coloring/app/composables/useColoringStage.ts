@@ -21,6 +21,7 @@ import {
   type PaintHost,
   type PaintSnapshot,
   type Progress,
+  type SheetOrientation,
   type StrokeRecorder,
   type View,
 } from '../engine'
@@ -35,6 +36,8 @@ export interface ColoringStageOptions {
   thickness: Ref<number>
   /** Share of a region that counts it as coloured; read when the engine for an art is made. */
   tolerance?: Ref<number | undefined>
+  /** Which way the sheet around the art is stretched; the picture is rebuilt when it changes. */
+  orientation?: Ref<SheetOrientation>
   /** While true the player cannot draw (the picture is being rebuilt, or the history is full). */
   locked?: Ref<boolean>
   /** Feedback for a long press; position is in px relative to the stage. */
@@ -152,14 +155,14 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
   let canvasRect: DOMRect | null = null
   let contentSize = { width: 0, height: 0 }
 
-  watch([options.art, canvas], ([art, element]) => {
+  watch([options.art, canvas, () => options.orientation?.value], ([art, element, orientation]) => {
     // The canvas is about to be rebuilt for another art: nothing of the old stroke is kept.
     discardStroke()
     engine.value?.dispose()
     engine.value = null
 
     if (!element) return
-    engine.value = markRaw(new ColoringEngine(art, element, options.tolerance?.value))
+    engine.value = markRaw(new ColoringEngine(art, element, options.tolerance?.value, orientation))
     view.value = IDENTITY_VIEW
     Object.assign(stats, createFrameStats())
     // The content box changes with the art's proportions; remember it once laid out.

@@ -164,6 +164,24 @@ async function onRestartConfirmed() {
   }
 }
 
+// Held upright: the actions lie in a row above the picture, the crayons in a strip along the bottom
+// edge (the same panel, turned), and the picture takes the rest.
+@media (orientation: portrait) {
+  .editor {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) var(--rail-width);
+    padding-bottom: var(--safe-bottom);
+  }
+
+  .editor__frame {
+    margin-inline: calc(var(--space-4) * var(--ui-scale));
+  }
+
+  .editor__toolbar {
+    padding-inline: var(--safe-left) var(--safe-right);
+  }
+}
+
 .editor__state {
   display: grid;
   place-content: center;

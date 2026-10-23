@@ -6,7 +6,7 @@ import { exportPng, exportThumbnail } from './export'
 import { ArtGeometry } from './geometry'
 import { Painter, type PaintDelta, type PaintStroke, type StrokeStyle } from './painter'
 import { ProgressTracker, type Progress, type ProgressState } from './progress'
-import { ArtSpace, gridLength } from './space'
+import { ArtSpace, gridLength, type SheetOrientation } from './space'
 
 export {
   DEFAULT_THICKNESS,
@@ -25,7 +25,7 @@ export { releaseCanvas } from './canvas'
 export { HoldDetector } from './hold'
 export type { PaintDelta } from './painter'
 export { EMPTY_PROGRESS, type Progress } from './progress'
-export { sheetOf } from './space'
+export { sheetOf, type SheetOrientation } from './space'
 export { Timeline, type PaintHost } from './timeline'
 export { clampView, IDENTITY_VIEW, panBy, zoomAt, type View } from './viewport'
 
@@ -50,9 +50,12 @@ export class ColoringEngine {
   private readonly painter: Painter
   private readonly tracker: ProgressTracker
 
-  /** `tolerance`: the share of a region that counts it as coloured (the administrator can change it). */
-  constructor(art: ColoringArt, canvas: HTMLCanvasElement, tolerance?: number) {
-    this.space = new ArtSpace(art)
+  /**
+   * `tolerance`: the share of a region that counts it as coloured (the administrator can change it).
+   * `orientation`: which way the sheet around the art is stretched (see `sheetOf`).
+   */
+  constructor(art: ColoringArt, canvas: HTMLCanvasElement, tolerance?: number, orientation: SheetOrientation = 'wide') {
+    this.space = new ArtSpace(art, orientation)
     this.geometry = new ArtGeometry(art, this.space)
     this.painter = new Painter(canvas, this.space, this.geometry)
     this.tracker = new ProgressTracker(this.space, this.geometry, tolerance)

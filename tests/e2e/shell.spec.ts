@@ -20,23 +20,4 @@ test.describe('app shell', () => {
 
     expect(shell).toEqual({ userSelect: 'none', touchAction: 'pan-x pan-y', overscroll: 'none', scrollable: false })
   })
-
-  test('hides the rotate prompt in landscape', async ({ page }) => {
-    await page.goto('/')
-
-    await expect(page.getByText('Поверните устройство')).toBeHidden()
-  })
-})
-
-test.describe('portrait on a touch device', () => {
-  test('asks to rotate the device', async ({ page, isMobile }) => {
-    test.skip(!isMobile, 'Only touch devices are asked to rotate')
-
-    const { width, height } = page.viewportSize() ?? { width: 0, height: 0 }
-
-    await page.setViewportSize({ width: Math.min(width, height), height: Math.max(width, height) })
-    await page.goto('/')
-
-    await expect(page.getByText('Поверните устройство')).toBeVisible()
-  })
 })

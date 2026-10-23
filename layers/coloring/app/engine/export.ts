@@ -41,9 +41,22 @@ async function renderPicture(space: ArtSpace, geometry: ArtGeometry, paint: AnyC
   }
 }
 
-/** The finished picture without any UI, the whole sheet at the paint canvas' own size. */
+/** The part of the paint canvas that holds the art itself, without the sheet around it. */
+function artArea(space: ArtSpace, paint: AnyCanvas): Rect {
+  return {
+    x: space.artPaintX,
+    y: space.artPaintY,
+    width: Math.min(paint.width - space.artPaintX, Math.round(space.width * space.paintScale)),
+    height: Math.min(paint.height - space.artPaintY, Math.round(space.height * space.paintScale)),
+  }
+}
+
+/**
+ * The finished picture without any UI: the art itself at the paint canvas' own resolution. The sheet
+ * around the art is left out: how much of it there is depends on how the device is held.
+ */
 export function exportPng(space: ArtSpace, geometry: ArtGeometry, paint: AnyCanvas): Promise<Blob> {
-  return renderPicture(space, geometry, paint, 1, { x: 0, y: 0, width: space.paintWidth, height: space.paintHeight }, canvas => canvasToPng(canvas))
+  return renderPicture(space, geometry, paint, 1, artArea(space, paint), canvas => canvasToPng(canvas))
 }
 
 /**
@@ -52,12 +65,7 @@ export function exportPng(space: ArtSpace, geometry: ArtGeometry, paint: AnyCanv
  */
 export function exportThumbnail(space: ArtSpace, geometry: ArtGeometry, paint: AnyCanvas, longSide: number): Promise<Blob> {
   // The card shows the art itself, not the sheet around it.
-  const area = {
-    x: space.artPaintX,
-    y: space.artPaintY,
-    width: Math.min(paint.width - space.artPaintX, Math.round(space.width * space.paintScale)),
-    height: Math.min(paint.height - space.artPaintY, Math.round(space.height * space.paintScale)),
-  }
+  const area = artArea(space, paint)
   const scale = longSide / Math.max(area.width, area.height)
 
   return renderPicture(space, geometry, paint, scale, area, canvas => canvasToBlob(canvas, 'image/webp', THUMBNAIL_QUALITY))

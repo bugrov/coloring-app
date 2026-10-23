@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { DEFAULT_OPACITY } from '../../shared'
 import type { ColoringArt, Op, Tool } from '../../shared'
-import { DEFAULT_THICKNESS, HOLD_DURATION_MS, sheetOf, type PaintDelta, type Progress } from '../engine'
+import { DEFAULT_THICKNESS, HOLD_DURATION_MS, sheetOf, type PaintDelta, type Progress, type SheetOrientation } from '../engine'
 import type { ColoringStageHandle, HoldFeedback } from '../composables/useColoringStage'
 
 const props = withDefaults(defineProps<{
@@ -40,6 +40,20 @@ function onHoldAnimationEnd() {
   if (hold.value?.kind === 'burst') hold.value = null
 }
 
+/**
+ * Which way the sheet is stretched follows the stage: wide when it is wider than high, tall when it is
+ * higher. Between the two (a nearly square stage) it stays as it is, so a window dragged across the
+ * line does not rebuild the picture over and over.
+ */
+const ORIENTATION_MARGIN = 1.1
+
+const orientation = ref<SheetOrientation>(import.meta.client && window.innerWidth < window.innerHeight ? 'tall' : 'wide')
+
+useResizeObserver(stage, ({ width, height }) => {
+  if (width > height * ORIENTATION_MARGIN) orientation.value = 'wide'
+  else if (width * ORIENTATION_MARGIN < height) orientation.value = 'tall'
+})
+
 const { contentStyle, handle } = useColoringStage({ stage, content, canvas }, {
   art: toRef(props, 'art'),
   tool: toRef(props, 'tool'),
@@ -47,6 +61,7 @@ const { contentStyle, handle } = useColoringStage({ stage, content, canvas }, {
   opacity: toRef(props, 'opacity'),
   thickness: toRef(props, 'thickness'),
   locked: toRef(props, 'locked'),
+  orientation,
   tolerance: toRef(props, 'tolerance'),
   onReady: () => emit('ready'),
   onHold,
@@ -60,13 +75,14 @@ const { contentStyle, handle } = useColoringStage({ stage, content, canvas }, {
  */
 const layout = computed(() => {
   const [x, y, width, height] = props.art.viewBox
-  const sheet = sheetOf(props.art.viewBox)
+  const sheet = sheetOf(props.art.viewBox, orientation.value)
 
   return {
     '--ratio': width / height,
     '--sheet-scale': sheet.width / width,
     '--sheet-aspect': sheet.width / sheet.height,
     '--art-left': `${((x - sheet.x) / sheet.width) * 100}%`,
+    '--art-center-y': (y - sheet.y + height / 2) / sheet.height,
     '--art-top': `${((y - sheet.y) / sheet.height) * 100}%`,
     '--art-width': `${(width / sheet.width) * 100}%`,
     '--art-height': `${(height / sheet.height) * 100}%`,
@@ -198,11 +214,16 @@ defineExpose<ColoringStageHandle>(handle)
 // centred and may be wider than the stage, which cuts off the rest.
 .coloring-stage__sheet {
   position: absolute;
-  top: 50%;
+
+  // `--stage-inset-bottom`: the part of the stage's foot that something lies over; the art is kept above
+  // it while the background goes on underneath.
+  top: calc(50% - var(--stage-inset-bottom, 0px) / 2);
   left: 50%;
-  width: calc(min(100cqw, 100cqh * var(--ratio)) * var(--sheet-scale));
+  width: calc(min(100cqw, (100cqh - var(--stage-inset-bottom, 0px)) * var(--ratio)) * var(--sheet-scale));
   aspect-ratio: var(--sheet-aspect);
-  transform: translate(-50%, -50%);
+
+  // The art, not the sheet, is what sits in the middle: the sheet reaches further below it than above.
+  transform: translate(-50%, calc(var(--art-center-y) * -100%));
 }
 
 .coloring-stage__layer {
