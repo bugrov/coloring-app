@@ -5,7 +5,7 @@ import { context2d, copyRect, createCanvas, intersectRect, releaseCanvas, unionR
 import { BRUSH_STAMP_SPACING } from './constants'
 import type { ArtGeometry } from './geometry'
 import { RegionMasks, type PreparedMask } from './mask'
-import { gridToPaint, type ArtSpace } from './space'
+import type { ArtSpace } from './space'
 import { StampWalker } from './stamps'
 
 export interface StrokeStyle {
@@ -43,6 +43,10 @@ const SEGMENT_PADDING = 2
 
 /** What a stroke needs from the painter; keeps the painter's canvases private. */
 interface StrokeTarget {
+  /** Paint pixels of a flat list of grid points. */
+  toPaint: (points: readonly number[]) => number[]
+  /** Paint pixels of a length in grid units. */
+  lengthToPaint: (length: number) => number
   /**
    * Draws the new points (paint pixels). `path` is every point of the current
    * op so far: live line tools redraw it within the touched area, so live
@@ -110,6 +114,8 @@ export class Painter {
     resetScratch()
 
     return new PaintStroke(style, {
+      toPaint: points => this.space.gridPointsToPaint(points),
+      lengthToPaint: length => this.space.gridLengthToPaint(length),
       draw: (from, points, path, walker) => this.drawSegment(regionId, style, from, points, live ? path : null, walker),
       rebase: () => {
         if (live) this.saveBackup(rect)
@@ -286,7 +292,7 @@ export class Painter {
     const mask = this.prepare(regionId)
 
     if (!mask) return null
-    const widthPx = gridToPaint(style.width)
+    const widthPx = this.space.gridLengthToPaint(style.width)
     const reach = widthPx / 2 + SEGMENT_PADDING
     const rect = intersectRect(segmentBounds(from, points, reach), mask.rect)
 
@@ -478,7 +484,7 @@ export class PaintStroke {
   add(gridPoints: readonly number[]) {
     if (gridPoints.length < 2) return
     this.gridPoints.push(...gridPoints)
-    const paintPoints = gridPoints.map(gridToPaint)
+    const paintPoints = this.target.toPaint(gridPoints)
 
     this.paintPath.push(...paintPoints)
     const rect = this.target.draw(this.last, paintPoints, this.paintPath, this.walker)
@@ -509,6 +515,6 @@ export class PaintStroke {
   }
 
   private createWalker(): StampWalker {
-    return new StampWalker(gridToPaint(this.style.width) * BRUSH_STAMP_SPACING)
+    return new StampWalker(this.target.lengthToPaint(this.style.width) * BRUSH_STAMP_SPACING)
   }
 }

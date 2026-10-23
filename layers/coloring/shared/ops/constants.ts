@@ -5,6 +5,13 @@
  */
 export const OP_GRID = 4096
 
+/**
+ * The sheet around the art (the background on its sides) lets a stroke start outside the art, so a
+ * coordinate may lie this far before the art's edge or beyond its far edge. The origin stays the art's
+ * top-left corner, which keeps every history saved before the sheet valid.
+ */
+export const OP_GRID_REACH = OP_GRID
+
 export const TOOLS = ['pencil', 'brush', 'eraser'] as const
 
 /** Paint opacity presets in percent, in the order the UI cycles through them. */

@@ -1,11 +1,23 @@
 import type { Tool } from '../../shared'
 
 /**
- * Paint canvas resolution along the art's long side. Fixed (not tied to the
+ * Paint canvas resolution along the art's long side, at most. Fixed (not tied to the
  * device pixel ratio) so memory is predictable on iOS, zoom stays sharp up to
  * ~2x on phones, and the export uses the same pixels.
  */
 export const PAINT_LONG_SIDE = 2048
+
+/**
+ * The sheet is the art with the background carried on around it, so that the paint reaches the edges
+ * of a wide screen: it is this much wider than it is high, whatever the art's own shape is.
+ */
+export const SHEET_ASPECT = 2.2
+
+/**
+ * Paint canvas resolution along the sheet's long side, at most: keeps the pixels of the canvas (and so
+ * the memory of every canvas the editor holds) close to what a plain art took.
+ */
+export const PAINT_SHEET_LONG_SIDE = 3072
 
 /** Line widths as a share of the art's long side. */
 export const TOOL_WIDTH: Record<Tool, number> = {
