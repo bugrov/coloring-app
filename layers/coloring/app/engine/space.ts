@@ -51,7 +51,8 @@ export function sheetOf(viewBox: ColoringArt['viewBox'], orientation: SheetOrien
 
     marginTop = Math.max(SHEET_MIN_TOP_CELLS, vertical)
     marginBottom = Math.max(SHEET_MIN_BOTTOM_CELLS, vertical)
-    marginCols = Math.max(SHEET_MIN_SIDE_CELLS, Math.ceil((SHEET_ASPECT * (artRows + marginTop + marginBottom) - artCols) / 2))
+    // The width follows the art's own height, not the strip kept below it for the undo plate.
+    marginCols = Math.max(SHEET_MIN_SIDE_CELLS, Math.ceil((SHEET_ASPECT * artRows - artCols) / 2))
   } else {
     marginCols = Math.max(SHEET_MIN_SIDE_CELLS, Math.ceil((artRows / SHEET_ASPECT - artCols) / 2))
     const extra = Math.max(0, Math.ceil(SHEET_ASPECT * (artCols + 2 * marginCols) - artRows))

@@ -84,21 +84,21 @@ describe('ArtSpace', () => {
   const space = new ArtSpace({ viewBox: [10, 20, 800, 400] })
 
   it('covers the sheet around the art with the paint canvas, in whole cells', () => {
-    expect([space.paintWidth, space.paintHeight]).toEqual([3094, 1400])
-    // The art keeps its place inside: 93 cells of 7 px of margin on its sides, 8 above it (and 64 below).
-    expect([space.artPaintX, space.artPaintY]).toEqual([651, 56])
-    expect(space.cellPx).toBe(7)
+    expect([space.paintWidth, space.paintHeight]).toEqual([2432, 1600])
+    // The art keeps its place inside: 24 cells of 8 px of margin on its sides, 8 above it (and 64 below).
+    expect([space.artPaintX, space.artPaintY]).toEqual([192, 64])
+    expect(space.cellPx).toBe(8)
   })
 
   it('maps positions on the rendered sheet to integer grid units within its bounds', () => {
-    // The sheet reaches 1488 grid units before the art and 128 above it, and further below than above.
+    // The sheet reaches 384 grid units before the art and 128 above it, and further below than above.
     expect(space.gridFromRatio(0.5, 0.5)).toEqual([2048, 1472])
-    expect(space.gridFromRatio(-0.1, 1.2)[0]).toBe(-1488)
+    expect(space.gridFromRatio(-0.1, 1.2)[0]).toBe(-384)
   })
 
   it('turns grid points into paint pixels from the sheet corner', () => {
-    expect(space.gridPointsToPaint([0, 0, 4096, 2048])).toEqual([651, 56, 651 + 2048 * 7 / 16 * 2, 56 + 1024 * 7 / 16 * 2])
-    expect(space.gridLengthToPaint(16)).toBe(7)
+    expect(space.gridPointsToPaint([0, 0, 4096, 2048])).toEqual([192, 64, 2240, 1088])
+    expect(space.gridLengthToPaint(16)).toBe(8)
   })
 
   it('maps grid units back to art units', () => {
@@ -112,7 +112,7 @@ describe('sheetOf', () => {
     ['square', [0, 0, 500, 500]],
     ['tall', [0, 0, 300, 900]],
     ['very wide', [5, 5, 2000, 400]],
-  ])('lays a %s art on a sheet at least 2.2 times as long as it is wide (wide or tall), art in the middle', (_name, viewBox) => {
+  ])('lays a %s art on a sheet that reaches the width of a wide stage (or the height of a tall one), art in the middle', (_name, viewBox) => {
     const sheet = sheetOf(viewBox)
     const tall = sheetOf(viewBox, 'tall')
 
@@ -123,7 +123,8 @@ describe('sheetOf', () => {
     expect(sheet.y + sheet.height - (viewBox[1] + viewBox[3])).toBeGreaterThan(viewBox[1] - sheet.y)
     const [x, y, width, height] = viewBox
 
-    expect(sheet.width / sheet.height).toBeGreaterThan(2.0)
+    // Held sideways it is 2.2 times as wide as the art is high (the strip kept under the art is not counted).
+    expect(sheet.width / viewBox[3]).toBeGreaterThan(2.1)
     expect(sheet.x).toBeLessThanOrEqual(x)
     expect(sheet.y).toBeLessThanOrEqual(y)
     expect(sheet.x + sheet.width).toBeGreaterThanOrEqual(x + width)

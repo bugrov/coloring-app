@@ -128,7 +128,7 @@ test.describe('drawing engine (sandbox)', () => {
     const after = (await page.locator('.coloring-stage canvas').boundingBox())!
 
     expect(after.y).toBeCloseTo(before.y, 0)
-    expect(after.x).toBeGreaterThan(before.x + 50)
+    expect(after.x).toBeGreaterThan(before.x + 10)
     // Never further than the edge of the sheet reaching the edge of the stage.
     expect(after.x).toBeLessThanOrEqual(stage.x + 1)
   })
