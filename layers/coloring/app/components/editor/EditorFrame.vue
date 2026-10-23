@@ -38,6 +38,9 @@ const RADIUS = 64
     <div class="frame__plate">
       <slot name="plate" />
     </div>
+    <div class="frame__corner">
+      <slot name="corner" />
+    </div>
   </div>
 </template>
 
@@ -98,6 +101,13 @@ const RADIUS = 64
   bottom: var(--border-card);
   left: 50%;
   transform: translateX(-50%);
+}
+
+// Bottom-right corner of the white area, level with the undo/redo plate.
+.frame__corner {
+  position: absolute;
+  right: calc(var(--border-card) + 20px * var(--ui-scale));
+  bottom: calc(var(--border-card) + (var(--plate-height) - 44px * var(--ui-scale)) / 2);
 }
 
 // 100%: the whole frame shakes; players who prefer less motion get a glow instead.

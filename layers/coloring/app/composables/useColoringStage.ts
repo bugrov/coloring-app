@@ -271,7 +271,9 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     const { ops, delta } = stroke.recorder.finish()
 
     stroke = null
-    commit(ops, delta)
+
+    // A stroke that changed nothing leaves no op: it is not a step of the history.
+    if (ops.length > 0) commit(ops, delta)
   }
 
   function onHold() {
@@ -287,6 +289,12 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
       ? engine.value.clear(recorder.region)
       : engine.value.fill(recorder.region, options.color.value, options.opacity.value)
 
+    // A fill that changed nothing was taken back by the engine: no feedback, no step.
+    if (!op) {
+      options.onHold?.({ phase: 'cancel', ...holdAt })
+
+      return
+    }
     navigator.vibrate?.(HOLD_VIBRATION_MS)
     options.onHold?.({ phase: 'fill', ...holdAt })
     commit([op], delta)
