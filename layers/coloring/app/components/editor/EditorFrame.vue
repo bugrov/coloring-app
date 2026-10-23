@@ -55,13 +55,11 @@ const RADIUS = 64
 }
 
 // The undo/redo plate lies over the bottom edge of the white area: the art stops above it, so that its
-// lowest lines are not under the plate on screens that are not tall (the stage keeps the art out of
-// that strip, and the background goes on under the plate; drop the inset to take this back).
+// lowest lines are not under the plate on screens that are not tall (drop the padding to take this back).
 .frame__inner {
-  --stage-inset-bottom: var(--plate-height);
-
   position: relative;
   height: 100%;
+  padding-bottom: var(--plate-height);
   overflow: hidden;
   border-radius: calc(var(--radius-card) - var(--border-card));
   background: var(--color-surface);

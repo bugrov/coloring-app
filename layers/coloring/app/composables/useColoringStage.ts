@@ -22,7 +22,6 @@ import {
   type Area,
   type PaintSnapshot,
   type Progress,
-  type SheetOrientation,
   type StrokeRecorder,
   type View,
 } from '../engine'
@@ -37,8 +36,6 @@ export interface ColoringStageOptions {
   thickness: Ref<number>
   /** Share of a region that counts it as coloured; read when the engine for an art is made. */
   tolerance?: Ref<number | undefined>
-  /** Which way the sheet around the art is stretched; the picture is rebuilt when it changes. */
-  orientation?: Ref<SheetOrientation>
   /** While true the player cannot draw (the picture is being rebuilt, or the history is full). */
   locked?: Ref<boolean>
   /** Feedback for a long press; position is in px relative to the stage. */
@@ -158,14 +155,14 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
   /** The sheet in content pixels at scale 1: the part of the content the view may be moved over (it can be wider than the stage). */
   let sheetArea: Area | undefined
 
-  watch([options.art, canvas, () => options.orientation?.value], ([art, element, orientation]) => {
+  watch([options.art, canvas], ([art, element]) => {
     // The canvas is about to be rebuilt for another art: nothing of the old stroke is kept.
     discardStroke()
     engine.value?.dispose()
     engine.value = null
 
     if (!element) return
-    engine.value = markRaw(new ColoringEngine(art, element, options.tolerance?.value, orientation))
+    engine.value = markRaw(new ColoringEngine(art, element, options.tolerance?.value))
     view.value = IDENTITY_VIEW
     Object.assign(stats, createFrameStats())
     // The content box changes with the art's proportions; remember it once laid out.
@@ -503,15 +500,13 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
 
     sheetArea = { x: (rect.left - box.left - x) / scale, y: (rect.top - box.top - y) / scale, width: rect.width / scale, height: rect.height / scale }
 
-    // Only along the long side of the sheet: on a stage held sideways the picture moves sideways (the
-    // background beside the art), not up and down, where the stage shows all the art there is.
-    if (options.orientation?.value === 'tall') sheetArea = { ...sheetArea, x: 0, width: contentSize.width }
-    else sheetArea = { ...sheetArea, y: 0, height: contentSize.height }
+    // Only sideways: the sheet is wider than the art, never higher, so up and down the stage holds all there is.
+    sheetArea = { ...sheetArea, y: 0, height: contentSize.height }
   }
 
-  /** A sheet wider or higher than the stage can be moved at scale 1 as well. */
+  /** A sheet wider than the stage (a narrow screen) can be moved sideways at scale 1 as well. */
   function isSheetWiderThanStage(): boolean {
-    return !!sheetArea && (sheetArea.width > contentSize.width + 1 || sheetArea.height > contentSize.height + 1)
+    return !!sheetArea && sheetArea.width > contentSize.width + 1
   }
 
   /** Keeps the same part of the art in view when the stage changes size (rotation, window resize). */

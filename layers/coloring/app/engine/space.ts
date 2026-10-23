@@ -1,6 +1,6 @@
 import { OP_GRID } from '../../shared'
 import type { ColoringArt } from '../../shared'
-import { PAINT_LONG_SIDE, PAINT_MAX_PIXELS, PAINT_SHEET_LONG_SIDE, PROGRESS_GRID_LONG_SIDE, SHEET_ASPECT, SHEET_MIN_BOTTOM_CELLS, SHEET_MIN_SIDE_CELLS, SHEET_MIN_TOP_CELLS } from './constants'
+import { PAINT_LONG_SIDE, PAINT_SHEET_LONG_SIDE, PROGRESS_GRID_LONG_SIDE, SHEET_ASPECT } from './constants'
 
 export type Transform = [number, number, number, number, number, number]
 
@@ -15,10 +15,9 @@ export interface Sheet {
   y: number
   width: number
   height: number
-  /** Whole progress cells added on each side of the art, and above and below it. */
+  /** Whole progress cells added on each side of the art, horizontally and vertically. */
   marginCols: number
-  marginTop: number
-  marginBottom: number
+  marginRows: number
   /** Cells of the sheet along each axis. */
   cols: number
   rows: number
@@ -26,51 +25,28 @@ export interface Sheet {
   unit: number
 }
 
-/** Which way the sheet is stretched: wide for a stage held sideways, tall for one held upright. */
-export type SheetOrientation = 'wide' | 'tall'
-
 /**
- * The sheet of an art: the art with a margin of whole progress cells around it (at least the minimums
- * in the constants, more below than above), so that the sheet is `SHEET_ASPECT` times wider than high (`wide`) or higher than wide (`tall`), or as big as the art
- * needs. The sizes depend on the art and the orientation alone: every device lays the same sheet
- * around the same art, so a history replays alike everywhere. The orientation only decides how much
- * of the background beside the art is there to paint; the ops do not change with it.
+ * The sheet of an art: the art with a margin of whole progress cells on every side, so that the sheet
+ * is `SHEET_ASPECT` times wider than high (or as wide as the art needs). The sizes depend on the art
+ * alone: every device lays the same sheet around the same art, so a history replays alike everywhere.
  */
-export function sheetOf(viewBox: ColoringArt['viewBox'], orientation: SheetOrientation = 'wide'): Sheet {
+export function sheetOf(viewBox: ColoringArt['viewBox']): Sheet {
   const [x, y, width, height] = viewBox
   const unit = Math.max(width, height) / PROGRESS_GRID_LONG_SIDE
   const artCols = Math.max(1, Math.round(width / unit))
   const artRows = Math.max(1, Math.round(height / unit))
-  let marginCols: number
-  let marginTop: number
-  let marginBottom: number
-
-  if (orientation === 'wide') {
-    // Above and below only what the art's own shape asks for (or the minimum); the sides make up the width.
-    const vertical = Math.ceil((artCols / SHEET_ASPECT - artRows) / 2)
-
-    marginTop = Math.max(SHEET_MIN_TOP_CELLS, vertical)
-    marginBottom = Math.max(SHEET_MIN_BOTTOM_CELLS, vertical)
-    // The width follows the art's own height, not the strip kept below it for the undo plate.
-    marginCols = Math.max(SHEET_MIN_SIDE_CELLS, Math.ceil((SHEET_ASPECT * artRows - artCols) / 2))
-  } else {
-    marginCols = Math.max(SHEET_MIN_SIDE_CELLS, Math.ceil((artRows / SHEET_ASPECT - artCols) / 2))
-    const extra = Math.max(0, Math.ceil(SHEET_ASPECT * (artCols + 2 * marginCols) - artRows))
-
-    marginTop = Math.max(SHEET_MIN_TOP_CELLS, Math.ceil(extra / 2))
-    marginBottom = Math.max(SHEET_MIN_BOTTOM_CELLS, Math.ceil(extra / 2))
-  }
+  const marginCols = Math.max(0, Math.ceil((SHEET_ASPECT * artRows - artCols) / 2))
+  const marginRows = Math.max(0, Math.ceil((artCols / SHEET_ASPECT - artRows) / 2))
 
   return {
     x: x - marginCols * unit,
-    y: y - marginTop * unit,
+    y: y - marginRows * unit,
     width: width + 2 * marginCols * unit,
-    height: height + (marginTop + marginBottom) * unit,
+    height: height + 2 * marginRows * unit,
     marginCols,
-    marginTop,
-    marginBottom,
+    marginRows,
     cols: artCols + 2 * marginCols,
-    rows: artRows + marginTop + marginBottom,
+    rows: artRows + 2 * marginRows,
     unit,
   }
 }
@@ -113,9 +89,9 @@ export class ArtSpace {
   private readonly gridWidth: number
   private readonly gridHeight: number
 
-  constructor(art: Pick<ColoringArt, 'viewBox'>, orientation: SheetOrientation = 'wide') {
+  constructor(art: Pick<ColoringArt, 'viewBox'>) {
     const [x, y, width, height] = art.viewBox
-    const sheet = sheetOf(art.viewBox, orientation)
+    const sheet = sheetOf(art.viewBox)
 
     this.x = x
     this.y = y
@@ -126,15 +102,14 @@ export class ArtSpace {
     this.cellPx = Math.max(1, Math.min(
       Math.floor(PAINT_LONG_SIDE / PROGRESS_GRID_LONG_SIDE),
       Math.floor(PAINT_SHEET_LONG_SIDE / Math.max(sheet.cols, sheet.rows)),
-      Math.floor(Math.sqrt(PAINT_MAX_PIXELS / (sheet.cols * sheet.rows))),
     ))
     this.paintScale = this.cellPx / sheet.unit
     this.paintWidth = Math.round(sheet.width * this.paintScale)
     this.paintHeight = Math.round(sheet.height * this.paintScale)
     this.artPaintX = sheet.marginCols * this.cellPx
-    this.artPaintY = sheet.marginTop * this.cellPx
+    this.artPaintY = sheet.marginRows * this.cellPx
     this.gridX = -sheet.marginCols * GRID_PER_CELL
-    this.gridY = -sheet.marginTop * GRID_PER_CELL
+    this.gridY = -sheet.marginRows * GRID_PER_CELL
     this.gridWidth = sheet.width / (this.longSide / OP_GRID)
     this.gridHeight = sheet.height / (this.longSide / OP_GRID)
   }

@@ -9,10 +9,10 @@ export const OP_GRID = 4096
  * The sheet around the art (the background on its sides) lets a stroke start outside the art, so a
  * coordinate may lie this far before the art's edge or beyond its far edge. The origin stays the art's
  * top-left corner, which keeps every history saved before the sheet valid. The widest margin a sheet
- * has is about 1.41 times the art's long side (a very narrow art on a sheet 2.2 times as long as it is
- * wide, with the margin of the other sides); 1.5 leaves room, and a test of the engine keeps the two in step.
+ * has is half the sheet's width over the art's long side (the engine's `SHEET_ASPECT` / 2, 1.1 for a
+ * very tall art); 1.2 leaves room, and a test of the engine keeps the two in step.
  */
-export const OP_GRID_REACH = Math.ceil(OP_GRID * 1.5)
+export const OP_GRID_REACH = Math.ceil(OP_GRID * 1.2)
 
 export const TOOLS = ['pencil', 'brush', 'eraser'] as const
 

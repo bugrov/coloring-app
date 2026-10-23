@@ -14,21 +14,10 @@ export const PAINT_LONG_SIDE = 2048
 export const SHEET_ASPECT = 2.2
 
 /**
- * The sheet reaches at least this many progress cells beyond the art: on the sides, above it (the
- * stage's edge is close there) and below it, where the undo plate lies over the foot of the stage and
- * the art is kept above it while the background goes on underneath (about a quarter of the art's height
- * on a low phone screen).
+ * Paint canvas resolution along the sheet's long side, at most: keeps the pixels of the canvas (and so
+ * the memory of every canvas the editor holds) close to what a plain art took.
  */
-export const SHEET_MIN_SIDE_CELLS = 24
-export const SHEET_MIN_TOP_CELLS = 8
-export const SHEET_MIN_BOTTOM_CELLS = 64
-
-/**
- * Paint canvas resolution along the sheet's long side, at most, and the most pixels the canvas may
- * have: keeps the memory of every canvas the editor holds close to what a plain art took.
- */
-export const PAINT_SHEET_LONG_SIDE = 3584
-export const PAINT_MAX_PIXELS = 5_200_000
+export const PAINT_SHEET_LONG_SIDE = 3072
 
 /** Line widths as a share of the art's long side. */
 export const TOOL_WIDTH: Record<Tool, number> = {

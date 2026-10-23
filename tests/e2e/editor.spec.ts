@@ -77,7 +77,7 @@ test.describe('editor with the database', () => {
     await expect(page.getByRole('button', { name: 'Вернуть' })).toBeDisabled()
   })
 
-  test('held upright the actions lie above the picture, the crayons below it, and the picture survives turning the device', async ({ page }) => {
+  test('held upright the actions lie above the picture and the crayons below it, and the drawing survives turning the device', async ({ page }) => {
     const { width, height } = page.viewportSize() ?? { width: 0, height: 0 }
     const portrait = { width: Math.min(width, height), height: Math.max(width, height) }
 
@@ -95,24 +95,17 @@ test.describe('editor with the database', () => {
     // The second "start over" button would crowd the undo/redo plate on a narrow screen: the row above has one.
     if (portrait.width <= 450) await expect(page.locator('.restart-corner')).toBeHidden()
 
-    // A hold on the background beside the art fills it all the way to the frame, and it is still there after turning the device.
-    const stage = (await page.locator('.coloring-stage').boundingBox())!
-
-    await page.mouse.move(stage.x + 40, stage.y + stage.height * 0.2)
-    await page.mouse.down()
-    await page.waitForTimeout(700)
-    await page.mouse.up()
+    // What is drawn is still there after turning the device: the picture is rebuilt from the history.
+    await scribble(page)
     await expect(page.getByRole('button', { name: 'Отменить' })).toBeEnabled()
 
     await page.setViewportSize({ width: portrait.height, height: portrait.width })
-    await expect(page.locator('.save-status')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Отменить' })).toBeEnabled()
-    // The picture is rebuilt from the history for the other way of holding the device: wait for it.
     await expect.poll(() => page.locator('.coloring-stage canvas').evaluate((canvas: HTMLCanvasElement) => {
-      const { data } = canvas.getContext('2d')!.getImageData(8, 8, 1, 1)
+      const { data } = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height)
 
-      return data[3]!
-    })).toBeGreaterThan(0)
+      return data.some((value, index) => index % 4 === 3 && value > 0)
+    })).toBe(true)
   })
 
   test('the palette opens from the chosen crayon, a pick moves it to the chosen place and closes it', async ({ page }) => {

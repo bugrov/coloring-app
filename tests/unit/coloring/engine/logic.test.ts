@@ -84,20 +84,20 @@ describe('ArtSpace', () => {
   const space = new ArtSpace({ viewBox: [10, 20, 800, 400] })
 
   it('covers the sheet around the art with the paint canvas, in whole cells', () => {
-    expect([space.paintWidth, space.paintHeight]).toEqual([2432, 1600])
-    // The art keeps its place inside: 24 cells of 8 px of margin on its sides, 8 above it (and 64 below).
-    expect([space.artPaintX, space.artPaintY]).toEqual([192, 64])
+    expect([space.paintWidth, space.paintHeight]).toEqual([2256, 1024])
+    // The art keeps its place inside: 13 cells of 8 px of margin on each side.
+    expect([space.artPaintX, space.artPaintY]).toEqual([104, 0])
     expect(space.cellPx).toBe(8)
   })
 
   it('maps positions on the rendered sheet to integer grid units within its bounds', () => {
-    // The sheet reaches 384 grid units before the art and 128 above it, and further below than above.
-    expect(space.gridFromRatio(0.5, 0.5)).toEqual([2048, 1472])
-    expect(space.gridFromRatio(-0.1, 1.2)[0]).toBe(-384)
+    // The middle of the sheet is the middle of the art; the sheet reaches 208 grid units before the art.
+    expect(space.gridFromRatio(0.5, 0.5)).toEqual([2048, 1024])
+    expect(space.gridFromRatio(-0.1, 1.2)).toEqual([-208, 2048])
   })
 
   it('turns grid points into paint pixels from the sheet corner', () => {
-    expect(space.gridPointsToPaint([0, 0, 4096, 2048])).toEqual([192, 64, 2240, 1088])
+    expect(space.gridPointsToPaint([0, 0, 4096, 2048])).toEqual([104, 0, 104 + 2048, 1024])
     expect(space.gridLengthToPaint(16)).toBe(8)
   })
 
@@ -112,24 +112,18 @@ describe('sheetOf', () => {
     ['square', [0, 0, 500, 500]],
     ['tall', [0, 0, 300, 900]],
     ['very wide', [5, 5, 2000, 400]],
-  ])('lays a %s art on a sheet that reaches the width of a wide stage (or the height of a tall one), art in the middle', (_name, viewBox) => {
+  ])('lays a %s art on a sheet 2.2 times as wide as it is high, art in the middle', (_name, viewBox) => {
     const sheet = sheetOf(viewBox)
-    const tall = sheetOf(viewBox, 'tall')
-
-    // Held upright it is the other way round, and the art is in the middle as well.
-    expect(tall.height / tall.width).toBeGreaterThan(2.0)
-    expect(viewBox[0] - tall.x).toBeCloseTo(tall.x + tall.width - (viewBox[0] + viewBox[2]))
-    // The sheet reaches further below the art than above it (the undo plate lies over the foot of the stage).
-    expect(sheet.y + sheet.height - (viewBox[1] + viewBox[3])).toBeGreaterThan(viewBox[1] - sheet.y)
     const [x, y, width, height] = viewBox
 
-    // Held sideways it is 2.2 times as wide as the art is high (the strip kept under the art is not counted).
-    expect(sheet.width / viewBox[3]).toBeGreaterThan(2.1)
+    expect(sheet.width / sheet.height).toBeGreaterThan(2.1)
+    expect(sheet.width / sheet.height).toBeLessThan(2.3)
     expect(sheet.x).toBeLessThanOrEqual(x)
     expect(sheet.y).toBeLessThanOrEqual(y)
     expect(sheet.x + sheet.width).toBeGreaterThanOrEqual(x + width)
     expect(sheet.y + sheet.height).toBeGreaterThanOrEqual(y + height)
     expect(x - sheet.x).toBeCloseTo(sheet.x + sheet.width - (x + width))
+    expect(y - sheet.y).toBeCloseTo(sheet.y + sheet.height - (y + height))
   })
 
   it.each<[string, [number, number, number, number]]>([
@@ -137,14 +131,12 @@ describe('sheetOf', () => {
     ['a very wide art', [0, 0, 1000, 1]],
     ['a square art', [0, 0, 500, 500]],
   ])('keeps every position of the sheet within what an op may hold (%s)', (_name, viewBox) => {
-    for (const orientation of ['wide', 'tall'] as const) {
-      const space = new ArtSpace({ viewBox }, orientation)
+    const space = new ArtSpace({ viewBox })
 
-      for (const [rx, ry] of [[0, 0], [1, 1], [0, 1], [1, 0]] as const) {
-        for (const value of space.gridFromRatio(rx, ry)) {
-          expect(value).toBeGreaterThanOrEqual(-OP_GRID_REACH)
-          expect(value).toBeLessThanOrEqual(OP_GRID + OP_GRID_REACH)
-        }
+    for (const [rx, ry] of [[0, 0], [1, 1], [0, 1], [1, 0]] as const) {
+      for (const value of space.gridFromRatio(rx, ry)) {
+        expect(value).toBeGreaterThanOrEqual(-OP_GRID_REACH)
+        expect(value).toBeLessThanOrEqual(OP_GRID + OP_GRID_REACH)
       }
     }
   })
@@ -153,7 +145,7 @@ describe('sheetOf', () => {
     for (const viewBox of [[0, 0, 800, 400], [0, 0, 500, 500], [0, 0, 300, 900]] satisfies [number, number, number, number][]) {
       const space = new ArtSpace({ viewBox })
 
-      expect(space.paintWidth * space.paintHeight).toBeLessThan(5_300_000)
+      expect(space.paintWidth * space.paintHeight).toBeLessThan(2048 * 2048)
     }
   })
 })
