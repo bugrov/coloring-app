@@ -1,6 +1,6 @@
 import { DEFAULT_OPACITY, MAX_STROKE_POINTS } from '../../shared'
 import type { ClearOp, ColoringArt, FillOp, Op, StrokeOp, Tool } from '../../shared'
-import { unionRect, type AnyCanvas, type Rect } from './canvas'
+import { releaseCanvas, unionRect, type AnyCanvas, type Rect } from './canvas'
 import { DEFAULT_THICKNESS, TOOL_WIDTH } from './constants'
 import { exportPng, exportThumbnail } from './export'
 import { ArtGeometry } from './geometry'
@@ -75,24 +75,35 @@ export class ColoringEngine {
     if (tool !== 'eraser' && opacity !== DEFAULT_OPACITY) style.opacity = opacity
     const stroke = this.painter.beginStroke(region, style, true)
 
-    return stroke ? new StrokeRecorder(region, stroke, rect => this.track(rect), rect => this.painter.captureBackup(rect)) : null
+    return stroke
+      ? new StrokeRecorder(region, stroke, rect => this.track(rect), rect => this.painter.captureBackup(rect), delta => this.painter.looksUnchanged(region, delta))
+      : null
   }
 
-  /** Fills the region; the delta is what was there before (null for an unknown region). */
-  fill(region: number, color: string, opacity = DEFAULT_OPACITY): { op: FillOp, delta: PaintDelta | null } {
+  /** Fills the region; the delta is what was there before (null for an unknown region). The op is null when the fill changed nothing: it is taken back. */
+  fill(region: number, color: string, opacity = DEFAULT_OPACITY): { op: FillOp | null, delta: PaintDelta | null } {
     const op: FillOp = opacity === DEFAULT_OPACITY ? { type: 'fill', region, color } : { type: 'fill', region, color, opacity }
-    const delta = this.painter.captureRegions([region])
 
-    this.track(this.painter.apply(op))
-
-    return { op, delta }
+    return this.applyEffective(op)
   }
 
-  clear(region: number): { op: ClearOp, delta: PaintDelta | null } {
-    const op: ClearOp = { type: 'clear', region }
-    const delta = this.painter.captureRegions([region])
+  /** Clears the region; the op is null when it was empty already. */
+  clear(region: number): { op: ClearOp | null, delta: PaintDelta | null } {
+    return this.applyEffective({ type: 'clear', region })
+  }
 
-    this.track(this.painter.apply(op))
+  /** Paints a whole-region op; one that leaves the picture as it was is taken back and not recorded. */
+  private applyEffective<T extends FillOp | ClearOp>(op: T): { op: T | null, delta: PaintDelta | null } {
+    const delta = this.painter.captureRegions([op.region])
+    const rect = this.painter.apply(op)
+
+    if (delta && this.painter.looksUnchanged(op.region, delta)) {
+      this.painter.swapRect(delta)
+      releaseCanvas(delta.canvas)
+
+      return { op: null, delta: null }
+    }
+    this.track(rect)
 
     return { op, delta }
   }
@@ -188,6 +199,7 @@ export class StrokeRecorder {
     private readonly stroke: PaintStroke,
     private readonly track: (rect: Rect | null) => void,
     private readonly captureDelta: (rect: Rect | null) => PaintDelta | null,
+    private readonly looksUnchanged: (before: PaintDelta) => boolean,
   ) {}
 
   add(points: readonly number[]) {
@@ -214,8 +226,17 @@ export class StrokeRecorder {
    * taken back without replaying; null for a split stroke (its base was saved again midway).
    */
   finish(): { ops: StrokeOp[], delta: PaintDelta | null } {
-    this.track(this.stroke.dirty)
     const delta = this.isSplit ? null : this.captureDelta(this.stroke.dirty)
+
+    // A stroke that changed nothing (the same colour over itself, the eraser on a clear area) is taken
+    // back and not recorded: no op, no history step.
+    if (delta && this.looksUnchanged(delta)) {
+      this.stroke.cancel()
+      releaseCanvas(delta.canvas)
+
+      return { ops: [], delta: null }
+    }
+    this.track(this.stroke.dirty)
 
     return { ops: [...this.completed, this.toOp()], delta }
   }

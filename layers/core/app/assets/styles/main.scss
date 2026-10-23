@@ -81,6 +81,42 @@ input[type="file"] {
   cursor: pointer;
 }
 
+// States of everything that can be pressed: it lights up under a mouse (hover is for pointers that
+// can hover, so a touch never leaves a button stuck), sinks when pressed, shows a ring for the
+// keyboard and fades when disabled. `:where` keeps the specificity at zero: a component that
+// draws its own state (the crayons, the cards) simply overrides these.
+:where(a, button, summary, select, input[type="range"], input[type="file"]) {
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    filter var(--duration-fast),
+    background-color var(--duration-fast),
+    border-color var(--duration-fast),
+    box-shadow var(--duration-fast),
+    opacity var(--duration-fast);
+}
+
+@media (hover: hover) {
+  // A soft shadow as well as the brightness: a white button cannot get any brighter.
+  :where(a[href], button:not(:disabled), summary, select, label[for], input[type="range"], input[type="file"]):hover {
+    filter: brightness(1.06) drop-shadow(0 2px 4px rgb(35 38 47 / 18%));
+  }
+}
+
+:where(a[href], button:not(:disabled), summary):active {
+  filter: brightness(0.94);
+  transform: scale(0.97);
+}
+
+:where(a, button, summary, select, input[type="range"], input[type="file"]):focus-visible {
+  outline: 3px solid var(--color-progress);
+  outline-offset: 2px;
+}
+
+:where(button, select, input, textarea):disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 // Text fields stay selectable so users can edit and paste their username.
 input,
 textarea {
@@ -110,10 +146,17 @@ textarea {
   background: var(--color-bg);
   color: var(--color-text);
   font: inherit;
+  transition: border-color var(--duration-fast);
 
   &:focus-visible {
     border-color: var(--color-accent);
     outline: none;
+  }
+
+  @media (hover: hover) {
+    &:hover:not(:focus-visible, :disabled) {
+      border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+    }
   }
 }
 
@@ -142,7 +185,10 @@ textarea {
   border-radius: var(--radius-m);
   font-weight: 600;
   cursor: pointer;
-  transition: transform var(--duration-fast) var(--ease-out);
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    filter var(--duration-fast),
+    opacity var(--duration-fast);
 
   &:active:not(:disabled) {
     transform: scale(0.97);

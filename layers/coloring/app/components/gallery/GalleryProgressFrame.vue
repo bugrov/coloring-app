@@ -36,8 +36,7 @@ const offset = computed(() => progressDashOffset(props.percent))
     aria-hidden="true"
   >
     <path
-      v-if="percent > 0"
-      :class="{ 'progress-frame__line--shown': measured }"
+      :class="{ 'progress-frame__line--shown': measured && percent > 0 }"
       :d="path"
       :stroke-width="band"
       pathLength="1"
@@ -60,7 +59,11 @@ const offset = computed(() => progressDashOffset(props.percent))
     stroke: var(--color-progress);
     stroke-linecap: butt;
     opacity: 0;
-    transition: opacity var(--duration-base) var(--ease-out);
+
+    // The line grows and shrinks smoothly (a stroke, an undo, a restart) instead of jumping.
+    transition:
+      opacity var(--duration-base) var(--ease-out),
+      stroke-dashoffset var(--duration-progress) var(--ease-out);
 
     @media (prefers-reduced-motion: reduce) {
       transition: none;

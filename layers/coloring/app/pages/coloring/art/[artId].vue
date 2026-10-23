@@ -83,6 +83,12 @@ async function onRestartConfirmed() {
             :status="editor.saveStatus"
           />
         </template>
+        <template #corner>
+          <EditorRestartCorner
+            :disabled="!editor.canRestart || restarting"
+            @restart="confirmRestart = true"
+          />
+        </template>
         <template #plate>
           <EditorHistoryBar
             :can-undo="editor.canUndo && !editor.locked"
@@ -129,6 +135,8 @@ async function onRestartConfirmed() {
   background: var(--color-editor-bg);
 
   @media (min-width: 1000px) and (min-height: 800px) {
+    display: grid;
+    place-items: center;
     padding: 52px 20px;
     background: var(--color-sky);
   }
@@ -145,7 +153,12 @@ async function onRestartConfirmed() {
     var(--safe-left);
   background: var(--color-editor-bg);
 
+  // The card never grows past the Figma frame (1320×1024 with the 20 and 52 px margins): a bigger
+  // window shows the sky around it.
   @media (min-width: 1000px) and (min-height: 800px) {
+    width: 100%;
+    max-width: 1280px;
+    max-height: 920px;
     overflow: clip;
     border-radius: var(--radius-card);
   }

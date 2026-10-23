@@ -58,6 +58,11 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeyDown)
 })
 
+// The eraser has no colours to show: an open palette would leave nothing reachable.
+watch(() => editor.tool, (tool) => {
+  if (tool === 'eraser') editor.togglePalette(false)
+})
+
 // Opening hides the pressed crayon behind `inert`, so focus moves into the list, on the chosen
 // colour, which is also scrolled to the middle; closing brings focus back to the chosen crayon.
 watch(() => editor.paletteOpen, async (open) => {
@@ -112,9 +117,10 @@ watch(() => editor.paletteOpen, async (open) => {
       tag="div"
       name="toolbar-recent"
       class="toolbar__recent"
+      :class="{ 'toolbar__recent--hidden': editor.tool === 'eraser' }"
       role="group"
       aria-label="Недавние цвета"
-      :inert="editor.paletteOpen"
+      :inert="editor.paletteOpen || editor.tool === 'eraser'"
     >
       <!-- The slot moves when colours swap; the button inside keeps its own sideways offset. -->
       <div
@@ -130,7 +136,10 @@ watch(() => editor.paletteOpen, async (open) => {
           :aria-label="hex === editor.color ? `${colorName(hex)}, открыть все цвета` : colorName(hex)"
           @click="pickRecent(hex)"
         >
-          <EditorPencil :color="hex" />
+          <EditorCrayon
+            :color="hex"
+            :tool="editor.tool"
+          />
         </button>
       </div>
     </TransitionGroup>
@@ -153,7 +162,10 @@ watch(() => editor.paletteOpen, async (open) => {
         :aria-label="swatch.name"
         @click="pickFromPalette(swatch.hex)"
       >
-        <EditorPencil :color="swatch.hex" />
+        <EditorCrayon
+          :color="swatch.hex"
+          :tool="editor.tool"
+        />
       </button>
     </div>
   </nav>
@@ -189,6 +201,15 @@ watch(() => editor.paletteOpen, async (open) => {
   transition: opacity var(--duration-fast);
 }
 
+// The eraser has no colour: the crayons leave and cannot be reached.
+.toolbar__recent--hidden {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--duration-fast),
+    visibility 0s var(--duration-fast);
+}
+
 // The palette takes the whole column: the tools slide up out of the way, the recent crayons fade.
 .toolbar--palette .toolbar__tools {
   opacity: 0;
@@ -214,12 +235,38 @@ watch(() => editor.paletteOpen, async (open) => {
   @include plain-button;
 
   // Idle crayons hide behind the screen edge and leave their tip; the chosen one comes out.
+  opacity: 0.8;
   transform: translateX(var(--pencil-hidden));
-  transition: transform var(--duration-base) var(--ease-out);
+  transition:
+    transform var(--duration-base) var(--ease-out),
+    filter var(--duration-fast),
+    opacity var(--duration-fast);
 }
 
 .toolbar__item--chosen {
+  opacity: 1;
   transform: none;
+}
+
+// A crayon moves out a little under the pointer and sinks back when pressed; the chosen one only
+// brightens (it is out as far as it goes). Hover is for mice, so a touch never leaves it stuck.
+.toolbar__item:active:not(.toolbar__item--chosen) {
+  transform: translateX(calc(var(--pencil-hidden) - 4px * var(--ui-scale)));
+}
+
+.toolbar__item:active {
+  filter: brightness(0.94);
+}
+
+@media (hover: hover) {
+  .toolbar__item:hover:not(.toolbar__item--chosen) {
+    opacity: 1;
+    transform: translateX(calc(var(--pencil-hidden) - 16px * var(--ui-scale)));
+  }
+
+  .toolbar__item--chosen:hover {
+    filter: brightness(1.1);
+  }
 }
 
 .toolbar__item:focus-visible {
@@ -267,6 +314,7 @@ watch(() => editor.paletteOpen, async (open) => {
 @media (prefers-reduced-motion: reduce) {
   .toolbar__tools,
   .toolbar__recent,
+  .toolbar__recent--hidden,
   .toolbar__item,
   .toolbar-recent-move {
     transition: none;

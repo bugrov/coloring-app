@@ -29,7 +29,7 @@ const line = (pairs: number) => Array.from({ length: pairs * 2 }, (_, i) => (i %
 describe('StrokeRecorder', () => {
   it('turns a short stroke into one op with all its points', () => {
     const { stroke } = recordingStroke()
-    const recorder = new StrokeRecorder(7, stroke, () => {}, () => null)
+    const recorder = new StrokeRecorder(7, stroke, () => {}, () => null, () => false)
 
     recorder.add([10, 20])
     recorder.add([30, 40, 50, 60])
@@ -41,7 +41,7 @@ describe('StrokeRecorder', () => {
 
   it('splits very long strokes while drawing, each op continuing from the previous one', () => {
     const { stroke, calls } = recordingStroke()
-    const recorder = new StrokeRecorder(1, stroke, () => {}, () => null)
+    const recorder = new StrokeRecorder(1, stroke, () => {}, () => null, () => false)
 
     recorder.add(line(MAX_STROKE_POINTS * 2 + 10))
     const { ops } = recorder.finish()
@@ -61,7 +61,7 @@ describe('StrokeRecorder', () => {
   it('reports the touched area once, when the stroke is finished', () => {
     const { stroke } = recordingStroke()
     const tracked: unknown[] = []
-    const recorder = new StrokeRecorder(1, stroke, rect => tracked.push(rect), () => null)
+    const recorder = new StrokeRecorder(1, stroke, rect => tracked.push(rect), () => null, () => false)
 
     recorder.add([1, 1, 2, 2])
 
@@ -73,21 +73,34 @@ describe('StrokeRecorder', () => {
   it('hands over what the stroke covered, unless it was split', () => {
     const covered = { id: 'before' }
     const short = recordingStroke()
-    const recorder = new StrokeRecorder(1, short.stroke, () => {}, () => covered as never)
+    const recorder = new StrokeRecorder(1, short.stroke, () => {}, () => covered as never, () => false)
 
     recorder.add([1, 1, 2, 2])
     expect(recorder.finish().delta).toBe(covered)
 
     const long = recordingStroke()
-    const split = new StrokeRecorder(1, long.stroke, () => {}, () => covered as never)
+    const split = new StrokeRecorder(1, long.stroke, () => {}, () => covered as never, () => false)
 
     split.add(line(MAX_STROKE_POINTS + 10))
     expect(split.finish().delta).toBeNull()
   })
 
+  it('takes back a stroke that changed nothing and records no op', () => {
+    const { stroke, restoredCount } = recordingStroke()
+    const tracked: unknown[] = []
+    const before = { canvas: { width: 1, height: 1 }, rect: { x: 0, y: 0, width: 1, height: 1 } }
+    const recorder = new StrokeRecorder(1, stroke, rect => tracked.push(rect), () => before as never, () => true)
+
+    recorder.add([1, 1, 2, 2])
+
+    expect(recorder.finish()).toEqual({ ops: [], delta: null })
+    expect(restoredCount()).toBe(1)
+    expect(tracked).toHaveLength(0)
+  })
+
   it('takes the stroke back on cancel', () => {
     const { stroke, restoredCount } = recordingStroke()
-    const recorder = new StrokeRecorder(1, stroke, () => {}, () => null)
+    const recorder = new StrokeRecorder(1, stroke, () => {}, () => null, () => false)
 
     recorder.add([1, 1])
     recorder.cancel()
@@ -98,7 +111,7 @@ describe('StrokeRecorder', () => {
 
   it('reports when a stroke was split and can no longer be taken back', () => {
     const { stroke } = recordingStroke()
-    const recorder = new StrokeRecorder(1, stroke, () => {}, () => null)
+    const recorder = new StrokeRecorder(1, stroke, () => {}, () => null, () => false)
 
     recorder.add(line(MAX_STROKE_POINTS + 10))
 

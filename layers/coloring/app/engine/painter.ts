@@ -33,6 +33,11 @@ function accumulatesOnScratch(style: StrokeStyle): boolean {
   return style.tool === 'brush' && alphaOf(style) < 1
 }
 
+/** A mask pixel at least this opaque is inside the region for sure (not on its soft edge). */
+const UNCHANGED_MASK_ALPHA = 250
+/** Rounding noise of compositing the same colour over itself (a soft brush shows up to 3), per 8-bit channel. */
+const UNCHANGED_CHANNEL_DELTA = 6
+
 /** Extra pixels around a segment's bounds so caps and soft edges are not cut. */
 const SEGMENT_PADDING = 2
 
@@ -212,6 +217,31 @@ export class Painter {
     releaseCanvas(current)
 
     return rect
+  }
+
+  /**
+   * Whether the paint still looks as `before` (what was under a step) inside the region: a step that
+   * leaves it so changed nothing the player can see. Only pixels the region shows in full are compared,
+   * since the soft edge of a mask makes the same colour painted over itself a little denser there.
+   */
+  looksUnchanged(regionId: number, before: PaintDelta): boolean {
+    const mask = this.prepare(regionId)
+
+    if (!mask) return false
+    const { x, y, width, height } = before.rect
+    const old = context2d(before.canvas).getImageData(0, 0, width, height).data
+    const now = this.ctx.getImageData(x, y, width, height).data
+    const visible = context2d(mask.canvas).getImageData(x, y, width, height).data
+
+    for (let i = 0; i < old.length; i += 4) {
+      if (visible[i + 3]! < UNCHANGED_MASK_ALPHA) continue
+
+      for (let channel = 0; channel < 4; channel++) {
+        if (Math.abs(old[i + channel]! - now[i + channel]!) > UNCHANGED_CHANNEL_DELTA) return false
+      }
+    }
+
+    return true
   }
 
   /** A blank canvas of the paint's size, for a snapshot. */

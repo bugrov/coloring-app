@@ -168,6 +168,23 @@ const thicknessLook = computed(() => THICKNESS_LOOKS[THICKNESS_SCALES.findIndex(
   opacity: var(--opacity);
 }
 
+// Under a mouse a button comes closer on a deeper shadow, like the one in the corner of the picture.
+@media (hover: hover) {
+  .actions__home:hover,
+  .actions__camera:hover,
+  .actions__round:hover:not(:disabled) {
+    filter: drop-shadow(0 4px 6px rgb(35 38 47 / 40%));
+    transform: scale(1.1);
+  }
+}
+
+.actions__home:active,
+.actions__camera:active,
+.actions__round:active:not(:disabled) {
+  filter: none;
+  transform: scale(0.92);
+}
+
 .actions__home:focus-visible,
 .actions__camera:focus-visible,
 .actions__round:focus-visible {

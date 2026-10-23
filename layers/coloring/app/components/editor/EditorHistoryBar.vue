@@ -53,9 +53,29 @@ const emit = defineEmits<{ undo: [], redo: [] }>()
   place-items: center;
   width: var(--plate-button);
   height: var(--plate-button);
-  transition: opacity var(--duration-fast);
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    filter var(--duration-fast),
+    opacity var(--duration-fast);
 
   @include plain-button;
+}
+
+// The arrow leans the way it points and lifts on a deep shadow; pressed, it sinks back.
+@media (hover: hover) {
+  .history__button:hover:not(:disabled) {
+    filter: drop-shadow(0 5px 6px rgb(35 38 47 / 40%));
+    transform: translateY(-2px) rotate(-14deg) scale(1.1);
+  }
+
+  .history__button--redo:hover:not(:disabled) {
+    transform: translateY(-2px) rotate(14deg) scale(1.1);
+  }
+}
+
+.history__button:active:not(:disabled) {
+  filter: none;
+  transform: scale(0.92);
 }
 
 .history__button:disabled {
