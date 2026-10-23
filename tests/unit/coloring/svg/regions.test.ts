@@ -97,6 +97,15 @@ describe('areas between the lines of a drawing that has only dark shapes', () =>
     expect(limited.ok && JSON.stringify(limited.art).length).toBeLessThanOrEqual(4000)
   })
 
+  it('takes a big dark outline that spans the whole drawing for the drawing, not for a frame fill', () => {
+    // Its bounds are the whole canvas, but it has curves: a frame fill is a plain rectangle.
+    const outline = '<path d="M0 0H100V100H0Z M8 50C8 20 30 8 50 8C70 8 92 20 92 50C92 80 70 92 50 92C30 92 8 80 8 50Z" fill="#000" fill-rule="evenodd"/>'
+    const result = convertSvg(svg(outline))
+
+    expect(result.ok && result.art.items.filter(item => item.type === 'ink')).toHaveLength(1)
+    expect(result.ok && areas(result.art.items)).toHaveLength(1)
+  })
+
   it('keeps a lone open line a mistake: nothing to colour', () => {
     expect(errorOf(convertSvg(svg('<path d="M10 10L90 90" stroke="#000" stroke-width="3" fill="none"/>')))).toBe('no-regions')
   })

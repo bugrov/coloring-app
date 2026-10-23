@@ -364,7 +364,8 @@ class SvgConverter {
       this.warn('ignored-dash')
     }
 
-    const coversCanvas = fill.kind !== 'none' && this.isBackground(bounds)
+    // A frame fill is a plain rectangle; a big shape with curves (an outline that spans the whole drawing) is part of the drawing.
+    const coversCanvas = fill.kind !== 'none' && this.isBackground(bounds) && (tag === 'rect' || isPlainRectangle(d))
     const isInkFill = fill.kind === 'color' && relativeLuminance(fill.rgb) <= INK_LUMINANCE_MAX && !coversCanvas
     const isRegion = hasInterior && !isInkFill && (fill.kind !== 'none' || (hasStroke && (closed || ALWAYS_CLOSED.has(tag))))
 
@@ -540,6 +541,11 @@ function withoutPlainDoctype(source: string): string {
 
   // Never closed: not a document type a parser would accept either.
   throw new SvgConversionError('doctype-not-allowed')
+}
+
+/** Path data of a rectangle: only straight moves and at most a handful of commands. */
+function isPlainRectangle(d: string): boolean {
+  return /^[MLHVZ\d\s.,+eE-]+$/.test(d) && (d.match(/[A-Z]/g)?.length ?? 0) <= 8
 }
 
 function stripBom(source: string): string {
