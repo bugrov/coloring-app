@@ -1,8 +1,9 @@
 import { DOMParser, type Element } from '@xmldom/xmldom'
 import { ART_FORMAT_VERSION, artSchema, isValidPathData } from '../art'
-import type { ArtItem, Bounds, ColoringArt, SvgConversion, SvgErrorCode, SvgLimits, SvgWarning, SvgWarningCode } from '../types'
+import type { ArtInk, ArtItem, Bounds, ColoringArt, SvgConversion, SvgErrorCode, SvgLimits, SvgWarning, SvgWarningCode } from '../types'
 import { parseColor, relativeLuminance, toHex, type Rgb } from './color'
 import { processPath } from './geometry'
+import { findRegions } from './regions'
 import { ceilTo, floorTo, roundTo } from './number'
 import { IDENTITY, matrixScale, multiply, parseTransform, translation, type Matrix } from './transform'
 import {
@@ -107,13 +108,7 @@ class SvgConverter {
     if (new TextEncoder().encode(source).length > this.limits.maxBytes) {
       throw new SvgConversionError('too-large')
     }
-    // DTDs enable entity expansion (billion laughs) and external entities (XXE).
-    // Design tools never emit them, so they are rejected outright.
-    if (/<!DOCTYPE|<!ENTITY/i.test(source)) {
-      throw new SvgConversionError('doctype-not-allowed')
-    }
-
-    const root = this.parse(stripBom(source))
+    const root = this.parse(withoutPlainDoctype(stripBom(source)))
 
     this.indexDocument(root)
     this.checkDeadline()
@@ -126,6 +121,8 @@ class SvgConverter {
       this.visit(child, { matrix: IDENTITY, style, useDepth: 0, depth: 1 })
     }
 
+    // Only dark shapes (outlines traced from a bitmap, strokes turned into fills): the areas are the white between them.
+    if (this.regionCount === 0) this.findAreasBetweenLines()
     if (this.regionCount === 0) throw new SvgConversionError('no-regions')
 
     const [x, y, width, height] = this.viewBox
@@ -151,6 +148,24 @@ class SvgConverter {
     const art = artSchema.parse({ version: ART_FORMAT_VERSION, viewBox: this.viewBox, items: this.items })
 
     return { art, warnings: [...this.warnings.values()] }
+  }
+
+  private findAreasBetweenLines() {
+    const ink = this.items.filter((item): item is ArtInk => item.type === 'ink')
+
+    if (ink.length === 0) return
+    const budget = Math.max(0, this.limits.maxOutputLength - this.outputLength)
+    const found = findRegions(ink, this.viewBox, this.limits.maxRegions, budget, () => this.checkDeadline())
+    const areas = found.map((region): ArtItem => ({ type: 'region', id: 0, kind: region.background ? 'background' : 'area', d: region.d, fillRule: 'nonzero', bounds: region.bounds }))
+
+    // They are not part of the file: counted against the size of the result as a whole, not against its share of the file.
+    this.outputLength += areas.reduce((total, area) => total + JSON.stringify(area).length, 0)
+
+    if (this.items.length + areas.length > this.limits.maxItems || this.outputLength > this.limits.maxOutputLength) {
+      throw new SvgConversionError('too-complex')
+    }
+    this.items.unshift(...areas)
+    this.regionCount += areas.length
   }
 
   private parse(source: string): Element {
@@ -349,7 +364,8 @@ class SvgConverter {
       this.warn('ignored-dash')
     }
 
-    const coversCanvas = fill.kind !== 'none' && this.isBackground(bounds)
+    // A frame fill is a plain rectangle; a big shape with curves (an outline that spans the whole drawing) is part of the drawing.
+    const coversCanvas = fill.kind !== 'none' && this.isBackground(bounds) && (tag === 'rect' || isPlainRectangle(d))
     const isInkFill = fill.kind === 'color' && relativeLuminance(fill.rgb) <= INK_LUMINANCE_MAX && !coversCanvas
     const isRegion = hasInterior && !isInkFill && (fill.kind !== 'none' || (hasStroke && (closed || ALWAYS_CLOSED.has(tag))))
 
@@ -490,6 +506,47 @@ function oneOf<T extends string>(value: string | undefined, allowed: readonly T[
 }
 
 const BYTE_ORDER_MARK = 0xFE_FF
+
+/**
+ * DTDs enable entity expansion (billion laughs) and external entities (XXE). Both need declarations
+ * inside the document type (`<!DOCTYPE svg [ <!ENTITY ... > ]>`), so a type with such a part, or any
+ * `<!ENTITY`, is refused. The plain one that Illustrator and trace tools write
+ * (`<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://...dtd">`) declares nothing: it is cut out
+ * before parsing, and the parser never sees it.
+ */
+function withoutPlainDoctype(source: string): string {
+  if (/<!ENTITY/i.test(source)) throw new SvgConversionError('doctype-not-allowed')
+  const start = source.search(/<!DOCTYPE/i)
+
+  if (start < 0) return source
+  let quote = ''
+
+  for (let i = start + '<!DOCTYPE'.length; i < source.length; i++) {
+    const char = source[i]!
+
+    if (quote) {
+      if (char === quote) quote = ''
+    } else if (char === '"' || char === '\'') {
+      quote = char
+    } else if (char === '[') {
+      throw new SvgConversionError('doctype-not-allowed')
+    } else if (char === '>') {
+      const rest = source.slice(i + 1)
+
+      if (/<!DOCTYPE/i.test(rest)) throw new SvgConversionError('doctype-not-allowed')
+
+      return source.slice(0, start) + rest
+    }
+  }
+
+  // Never closed: not a document type a parser would accept either.
+  throw new SvgConversionError('doctype-not-allowed')
+}
+
+/** Path data of a rectangle: only straight moves and at most a handful of commands. */
+function isPlainRectangle(d: string): boolean {
+  return /^[MLHVZ\d\s.,+eE-]+$/.test(d) && (d.match(/[A-Z]/g)?.length ?? 0) <= 8
+}
 
 function stripBom(source: string): string {
   return source.charCodeAt(0) === BYTE_ORDER_MARK ? source.slice(1) : source

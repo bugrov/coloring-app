@@ -68,3 +68,32 @@ export const MAX_STYLE_ATTRIBUTE_LENGTH = 4096
  */
 export const OUTPUT_PER_SOURCE_BYTE = 4
 export const OUTPUT_ALLOWANCE = 64_000
+
+/**
+ * Finding the areas of a drawing that has only dark shapes (see `regions.ts`): the lines are drawn
+ * into a bitmap this many pixels along its long side.
+ */
+export const SYNTH_RASTER_SIDE = 1024
+
+/** Hairline gaps this wide (in bitmap pixels) between lines are closed before areas are looked for. */
+export const SYNTH_GAP_CLOSE_PX = 1
+
+/** An area is grown by this many bitmap pixels so that it goes under the lines. */
+export const SYNTH_GROW_PX = 2
+
+/** Empty parts smaller than this (bitmap pixels, or this share of the bitmap) are specks, not areas. */
+export const SYNTH_MIN_AREA_PX = 24
+export const SYNTH_MIN_AREA_SHARE = 0.00004
+
+/** An outline is simplified until it stays within this many bitmap pixels of the original. */
+export const SYNTH_SIMPLIFY_PX = 0.9
+
+/**
+ * A white part that reaches the edge of the drawing is the page around an object, unless the page is divided
+ * by lines into several big parts that all reach the edge (sky, sea and sand of a scene that fills the sheet):
+ * then each of them is an area. "Big" is this share of the bitmap, for the second largest one.
+ */
+export const SYNTH_DIVIDED_SHARE = 0.03
+
+/** No outline keeps more points than this: a jagged one is simplified more, so that a crafted file cannot make a huge result. */
+export const SYNTH_MAX_RING_POINTS = 500
