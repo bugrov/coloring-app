@@ -88,5 +88,12 @@ export const SYNTH_MIN_AREA_SHARE = 0.00004
 /** An outline is simplified until it stays within this many bitmap pixels of the original. */
 export const SYNTH_SIMPLIFY_PX = 0.9
 
+/**
+ * A white part that reaches the edge of the drawing is the page around an object, unless the page is divided
+ * by lines into several big parts that all reach the edge (sky, sea and sand of a scene that fills the sheet):
+ * then each of them is an area. "Big" is this share of the bitmap, for the second largest one.
+ */
+export const SYNTH_DIVIDED_SHARE = 0.03
+
 /** No outline keeps more points than this: a jagged one is simplified more, so that a crafted file cannot make a huge result. */
 export const SYNTH_MAX_RING_POINTS = 500

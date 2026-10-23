@@ -2,6 +2,7 @@ import svgpath from 'svgpath'
 import type { ArtInk } from '../types'
 import {
   SYNTH_GAP_CLOSE_PX,
+  SYNTH_DIVIDED_SHARE,
   SYNTH_GROW_PX,
   SYNTH_MAX_RING_POINTS,
   SYNTH_MIN_AREA_PX,
@@ -59,8 +60,11 @@ export function findRegions(
   const closed = dilate(drawn, width, height, SYNTH_GAP_CLOSE_PX)
   const { labels, parts } = label(closed, width, height, checkDeadline)
   const minArea = Math.max(SYNTH_MIN_AREA_PX, Math.round(width * height * SYNTH_MIN_AREA_SHARE))
+  // The part that reaches the edge is the page around an object, not an area: unless lines divide the page itself.
+  const reachingEdge = parts.filter(part => part.touchesBorder && part.area >= minArea).sort((a, b) => b.area - a.area)
+  const pageIsDivided = reachingEdge.length >= 2 && reachingEdge[1]!.area >= width * height * SYNTH_DIVIDED_SHARE
   const kept = parts
-    .filter(part => !part.touchesBorder && part.area >= minArea)
+    .filter(part => part.area >= minArea && (!part.touchesBorder || pageIsDivided))
     .sort((a, b) => b.area - a.area)
     .slice(0, maxRegions)
   const found: FoundRegion[] = []
