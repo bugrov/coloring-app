@@ -122,11 +122,12 @@ test.describe('drawing engine (sandbox)', () => {
     // The right button drags the picture (a mouse has no second finger).
     await page.mouse.move(stage.x + stage.width / 2, stage.y + stage.height / 2)
     await page.mouse.down({ button: 'right' })
-    await page.mouse.move(stage.x + stage.width / 2 + 120, stage.y + stage.height / 2, { steps: 5 })
+    await page.mouse.move(stage.x + stage.width / 2 + 120, stage.y + stage.height / 2 + 80, { steps: 5 })
     await page.mouse.up({ button: 'right' })
 
     const after = (await page.locator('.coloring-stage canvas').boundingBox())!
 
+    expect(after.y).toBeCloseTo(before.y, 0)
     expect(after.x).toBeGreaterThan(before.x + 50)
     // Never further than the edge of the sheet reaching the edge of the stage.
     expect(after.x).toBeLessThanOrEqual(stage.x + 1)

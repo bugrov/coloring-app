@@ -502,6 +502,11 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     const { scale, x, y } = view.value
 
     sheetArea = { x: (rect.left - box.left - x) / scale, y: (rect.top - box.top - y) / scale, width: rect.width / scale, height: rect.height / scale }
+
+    // Only along the long side of the sheet: on a stage held sideways the picture moves sideways (the
+    // background beside the art), not up and down, where the stage shows all the art there is.
+    if (options.orientation?.value === 'tall') sheetArea = { ...sheetArea, x: 0, width: contentSize.width }
+    else sheetArea = { ...sheetArea, y: 0, height: contentSize.height }
   }
 
   /** A sheet wider or higher than the stage can be moved at scale 1 as well. */
