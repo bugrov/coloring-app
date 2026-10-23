@@ -1,10 +1,7 @@
 import { context2d, createCanvas, releaseCanvas, type AnyCanvas, type Rect } from './canvas'
-import { PAINT_LONG_SIDE, PAINTED_ALPHA_MIN, PROGRESS_GRID_LONG_SIDE, PROGRESS_SAMPLE_STEP, REGION_COMPLETE_RATIO } from './constants'
+import { PAINTED_ALPHA_MIN, PROGRESS_GRID_LONG_SIDE, PROGRESS_SAMPLE_STEP, REGION_COMPLETE_RATIO } from './constants'
 import { drawArt, type ArtGeometry } from './geometry'
 import type { ArtSpace } from './space'
-
-/** Paint pixels per progress cell side; both grids span the art's long side. */
-const CELL_PAINT_PX = PAINT_LONG_SIDE / PROGRESS_GRID_LONG_SIDE
 
 export interface Progress {
   /** 0–100, reaches 100 only when every region is complete. */
@@ -72,6 +69,10 @@ const NO_REGION = -1
 export class ProgressTracker {
   private readonly gridWidth: number
   private readonly gridHeight: number
+  /** Paint pixels per cell side, and where the art lies on the paint canvas (the sheet is bigger). */
+  private readonly cell: number
+  private readonly offsetX: number
+  private readonly offsetY: number
   private readonly labels: Int32Array
   private readonly painted: Uint8Array
   private readonly totals: Uint32Array
@@ -80,6 +81,9 @@ export class ProgressTracker {
   constructor(space: ArtSpace, geometry: ArtGeometry, private readonly tolerance = REGION_COMPLETE_RATIO) {
     const scale = PROGRESS_GRID_LONG_SIDE / space.longSide
 
+    this.cell = space.cellPx
+    this.offsetX = space.artPaintX
+    this.offsetY = space.artPaintY
     this.gridWidth = Math.max(1, Math.round(space.width * scale))
     this.gridHeight = Math.max(1, Math.round(space.height * scale))
 
@@ -98,7 +102,7 @@ export class ProgressTracker {
     const canvas = createCanvas(this.gridWidth, this.gridHeight)
     const ctx = context2d(canvas, { willReadFrequently: true })
 
-    ctx.setTransform(...space.artTransform(scale))
+    ctx.setTransform(...space.artViewTransform(scale))
     ctx.fillStyle = '#000'
     ctx.fillRect(space.x, space.y, space.width, space.height)
 
@@ -142,19 +146,20 @@ export class ProgressTracker {
    * progress everywhere.
    */
   update(paint: AnyCanvas, rect: Rect) {
-    const cell = CELL_PAINT_PX
-    const left = Math.max(0, Math.floor(rect.x / cell))
-    const top = Math.max(0, Math.floor(rect.y / cell))
-    const right = Math.min(this.gridWidth, Math.ceil((rect.x + rect.width) / cell))
-    const bottom = Math.min(this.gridHeight, Math.ceil((rect.y + rect.height) / cell))
+    const { cell, offsetX, offsetY } = this
+    // The grid covers the art only: what the paint does on the sheet around it is not counted.
+    const left = Math.max(0, Math.floor((rect.x - offsetX) / cell))
+    const top = Math.max(0, Math.floor((rect.y - offsetY) / cell))
+    const right = Math.min(this.gridWidth, Math.ceil((rect.x + rect.width - offsetX) / cell))
+    const bottom = Math.min(this.gridHeight, Math.ceil((rect.y + rect.height - offsetY) / cell))
     // Grid and paint sizes are rounded separately: the last cells may reach past the paint edge.
-    const pixelRight = Math.min(paint.width, right * cell)
-    const pixelBottom = Math.min(paint.height, bottom * cell)
+    const pixelRight = Math.min(paint.width - offsetX, right * cell)
+    const pixelBottom = Math.min(paint.height - offsetY, bottom * cell)
 
     if (pixelRight <= left * cell || pixelBottom <= top * cell) return
 
     const width = pixelRight - left * cell
-    const { data } = context2d(paint).getImageData(left * cell, top * cell, width, pixelBottom - top * cell)
+    const { data } = context2d(paint).getImageData(offsetX + left * cell, offsetY + top * cell, width, pixelBottom - top * cell)
 
     for (let row = top; row < bottom; row++) {
       for (let column = left; column < right; column++) {
@@ -167,8 +172,8 @@ export class ProgressTracker {
   }
 
   private isBlockPainted(data: Uint8ClampedArray, stride: number, x0: number, y0: number, maxWidth: number, maxHeight: number): boolean {
-    const blockWidth = Math.min(CELL_PAINT_PX, maxWidth)
-    const blockHeight = Math.min(CELL_PAINT_PX, maxHeight)
+    const blockWidth = Math.min(this.cell, maxWidth)
+    const blockHeight = Math.min(this.cell, maxHeight)
 
     if (blockWidth <= 0 || blockHeight <= 0) return false
     // A fixed sub-grid of pixels: deterministic, and 4× cheaper than every pixel

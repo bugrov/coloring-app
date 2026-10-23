@@ -122,8 +122,8 @@ function wheelPixels(delta: number, mode: number, pageSize: number, cap: number)
   return Math.max(-cap, Math.min(cap, pixels))
 }
 
-/** Whether a position given as a share of the art lies on the art (not on the empty bands around it). */
-function isOnArt([rx, ry]: [number, number]): boolean {
+/** Whether a position given as a share of the sheet lies on it (a stage wider than the sheet leaves empty bands). */
+function isOnSheet([rx, ry]: [number, number]): boolean {
   return rx >= 0 && rx <= 1 && ry >= 0 && ry <= 1
 }
 
@@ -174,7 +174,7 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     transform: `translate(${view.value.x}px, ${view.value.y}px) scale(${view.value.scale})`,
   }))
 
-  /** Position as a share of the rendered art; `rect` is the canvas rect, which already includes zoom. */
+  /** Position as a share of the rendered sheet; `rect` is the canvas rect, which already includes zoom. */
   function ratioOf(event: { clientX: number, clientY: number }, rect: DOMRect): [number, number] {
     return [(event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height]
   }
@@ -352,7 +352,7 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     canvasRect = canvas.value!.getBoundingClientRect()
     const ratio = ratioOf(event, canvasRect)
 
-    if (!isOnArt(ratio)) return
+    if (!isOnSheet(ratio)) return
     const { point, region } = engine.value.locate(...ratio)
 
     if (region === null) return

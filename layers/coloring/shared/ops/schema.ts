@@ -1,11 +1,11 @@
 import { z } from 'zod'
-import { MAX_STROKE_POINTS, OP_GRID, OPACITY_LEVELS, TOOLS } from './constants'
+import { MAX_STROKE_POINTS, OP_GRID, OP_GRID_REACH, OPACITY_LEVELS, TOOLS } from './constants'
 
 const regionId = z.number().int().positive()
 const color = z.string().regex(/^#[0-9a-f]{6}$/)
 /** Percent; absent means fully opaque, so ops saved before opacity existed stay valid. */
 const opacity = z.number().int().min(Math.min(...OPACITY_LEVELS)).max(100)
-const coordinate = z.number().int().min(0).max(OP_GRID)
+const coordinate = z.number().int().min(-OP_GRID_REACH).max(OP_GRID + OP_GRID_REACH)
 
 export const strokeOpSchema = z.object({
   type: z.literal('stroke'),

@@ -89,19 +89,28 @@ test.describe('drawing engine (sandbox)', () => {
     await expect(page.getByText('операций: 1')).toBeVisible()
   })
 
-  test('pressing the empty band around the art does nothing', async ({ page }) => {
+  test('the background reaches the sides of the stage, beyond the art', async ({ page }) => {
     const stage = (await page.locator('.coloring-stage').boundingBox())!
-    const canvas = (await page.locator('.coloring-stage canvas').boundingBox())!
+    const art = (await page.locator('.coloring-stage__art').boundingBox())!
 
-    test.skip(canvas.x - stage.x < 10, 'No empty band at this aspect ratio')
+    test.skip(art.x - stage.x < 20, 'The art takes the whole width at this aspect ratio')
 
-    await page.mouse.move(stage.x + 4, stage.y + stage.height / 2)
+    // A hold in the band between the edge of the stage and the art fills the background...
+    await page.mouse.move(stage.x + 6, stage.y + stage.height / 2)
     await page.mouse.down()
     await page.waitForTimeout(700)
     await page.mouse.up()
+    await expect(page.getByText('операций: 1')).toBeVisible()
 
-    await expect(page.getByText('операций: 0')).toBeVisible()
-    expect(await paintedPixels(page)).toBe(0)
+    // ...including the pixels under that band, and no region of the art counts towards the percent.
+    const edge = await page.locator('.coloring-stage canvas').evaluate((canvas: HTMLCanvasElement) => {
+      const { data } = canvas.getContext('2d')!.getImageData(0, Math.floor(canvas.height / 2), 4, 1)
+
+      return data[3]!
+    })
+
+    expect(edge).toBeGreaterThan(0)
+    await expect(page.getByText(/^0%/)).toBeVisible()
   })
 
   test('a finger stroke is kept (touch capture moves to the stage)', async ({ page, browserName, hasTouch }) => {

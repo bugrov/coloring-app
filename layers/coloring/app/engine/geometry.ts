@@ -44,6 +44,7 @@ export class ArtGeometry {
       }
     })
     this.regions = this.items.filter((item): item is RegionShape => item.type === 'region')
+    this.carryBackgroundOverSheet(art.viewBox, space)
 
     for (const region of this.regions) this.byId.set(region.id, region)
 
@@ -54,6 +55,26 @@ export class ArtGeometry {
 
     this.hitCanvas = createCanvas(1, 1)
     this.hitContext = context2d(this.hitCanvas)
+  }
+
+  /**
+   * The bottom region of an art is its background, as big as the art. It is carried on over the sheet
+   * around the art, so that the background can be painted all the way to the edges of the frame; the
+   * regions above it keep their place, and nothing else changes (same id, nothing to store).
+   */
+  private carryBackgroundOverSheet([x, y, width, height]: ColoringArt['viewBox'], { sheet }: ArtSpace) {
+    const background = this.regions[0]
+
+    if (!background || background.kind !== 'background') return
+    const { bounds } = background
+
+    // Only a background that really is the whole canvas: a part of the sheet (a sky, a sea) stays as it is.
+    if (bounds.minX > x || bounds.minY > y || bounds.maxX < x + width || bounds.maxY < y + height) return
+    const path = new Path2D(`M${sheet.x} ${sheet.y}h${sheet.width}v${sheet.height}h${-sheet.width}Z`)
+
+    background.path = path
+    background.fillRule = 'nonzero'
+    background.bounds = { minX: sheet.x, minY: sheet.y, maxX: sheet.x + sheet.width, maxY: sheet.y + sheet.height }
   }
 
   /** Gives the one-pixel canvas of the hit tests back. */
@@ -86,10 +107,11 @@ export class ArtGeometry {
   paintRect(region: RegionShape): Rect {
     const { space } = this
     const s = space.paintScale
-    const x = Math.max(0, Math.floor((region.bounds.minX - space.x) * s) - RECT_PADDING)
-    const y = Math.max(0, Math.floor((region.bounds.minY - space.y) * s) - RECT_PADDING)
-    const right = Math.min(space.paintWidth, Math.ceil((region.bounds.maxX - space.x) * s) + RECT_PADDING)
-    const bottom = Math.min(space.paintHeight, Math.ceil((region.bounds.maxY - space.y) * s) + RECT_PADDING)
+    const { sheet } = space
+    const x = Math.max(0, Math.floor((region.bounds.minX - sheet.x) * s) - RECT_PADDING)
+    const y = Math.max(0, Math.floor((region.bounds.minY - sheet.y) * s) - RECT_PADDING)
+    const right = Math.min(space.paintWidth, Math.ceil((region.bounds.maxX - sheet.x) * s) + RECT_PADDING)
+    const bottom = Math.min(space.paintHeight, Math.ceil((region.bounds.maxY - sheet.y) * s) + RECT_PADDING)
 
     return { x, y, width: Math.max(0, right - x), height: Math.max(0, bottom - y) }
   }

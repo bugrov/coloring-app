@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { OP_GRID } from '../../../../layers/coloring/shared'
+import { OP_GRID_REACH } from '../../../../layers/coloring/shared/ops/constants'
 import { HoldDetector } from '../../../../layers/coloring/app/engine/hold'
 import { computeProgress, regionCode } from '../../../../layers/coloring/app/engine/progress'
-import { ArtSpace } from '../../../../layers/coloring/app/engine/space'
+import { ArtSpace, sheetOf } from '../../../../layers/coloring/app/engine/space'
 import { StampWalker } from '../../../../layers/coloring/app/engine/stamps'
 import { clampView, panBy, zoomAt } from '../../../../layers/coloring/app/engine/viewport'
 
@@ -81,17 +83,70 @@ describe('regionCode', () => {
 describe('ArtSpace', () => {
   const space = new ArtSpace({ viewBox: [10, 20, 800, 400] })
 
-  it('fits the paint canvas to the long side', () => {
-    expect([space.paintWidth, space.paintHeight]).toEqual([2048, 1024])
+  it('covers the sheet around the art with the paint canvas, in whole cells', () => {
+    expect([space.paintWidth, space.paintHeight]).toEqual([2256, 1024])
+    // The art keeps its place inside: 13 cells of 8 px of margin on each side.
+    expect([space.artPaintX, space.artPaintY]).toEqual([104, 0])
+    expect(space.cellPx).toBe(8)
   })
 
-  it('maps positions on the rendered art to integer grid units within bounds', () => {
+  it('maps positions on the rendered sheet to integer grid units within its bounds', () => {
+    // The middle of the sheet is the middle of the art; the sheet reaches 208 grid units before the art.
     expect(space.gridFromRatio(0.5, 0.5)).toEqual([2048, 1024])
-    expect(space.gridFromRatio(-0.1, 1.2)).toEqual([0, 2048])
+    expect(space.gridFromRatio(-0.1, 1.2)).toEqual([-208, 2048])
+  })
+
+  it('turns grid points into paint pixels from the sheet corner', () => {
+    expect(space.gridPointsToPaint([0, 0, 4096, 2048])).toEqual([104, 0, 104 + 2048, 1024])
+    expect(space.gridLengthToPaint(16)).toBe(8)
   })
 
   it('maps grid units back to art units', () => {
     expect(space.gridToArt(4096, 2048)).toEqual([810, 420])
+  })
+})
+
+describe('sheetOf', () => {
+  it.each<[string, [number, number, number, number]]>([
+    ['wide', [0, 0, 800, 400]],
+    ['square', [0, 0, 500, 500]],
+    ['tall', [0, 0, 300, 900]],
+    ['very wide', [5, 5, 2000, 400]],
+  ])('lays a %s art on a sheet 2.2 times as wide as it is high, art in the middle', (_name, viewBox) => {
+    const sheet = sheetOf(viewBox)
+    const [x, y, width, height] = viewBox
+
+    expect(sheet.width / sheet.height).toBeGreaterThan(2.1)
+    expect(sheet.width / sheet.height).toBeLessThan(2.3)
+    expect(sheet.x).toBeLessThanOrEqual(x)
+    expect(sheet.y).toBeLessThanOrEqual(y)
+    expect(sheet.x + sheet.width).toBeGreaterThanOrEqual(x + width)
+    expect(sheet.y + sheet.height).toBeGreaterThanOrEqual(y + height)
+    expect(x - sheet.x).toBeCloseTo(sheet.x + sheet.width - (x + width))
+    expect(y - sheet.y).toBeCloseTo(sheet.y + sheet.height - (y + height))
+  })
+
+  it.each<[string, [number, number, number, number]]>([
+    ['a very tall art', [0, 0, 1, 1000]],
+    ['a very wide art', [0, 0, 1000, 1]],
+    ['a square art', [0, 0, 500, 500]],
+  ])('keeps every position of the sheet within what an op may hold (%s)', (_name, viewBox) => {
+    const space = new ArtSpace({ viewBox })
+
+    for (const [rx, ry] of [[0, 0], [1, 1], [0, 1], [1, 0]] as const) {
+      for (const value of space.gridFromRatio(rx, ry)) {
+        expect(value).toBeGreaterThanOrEqual(-OP_GRID_REACH)
+        expect(value).toBeLessThanOrEqual(OP_GRID + OP_GRID_REACH)
+      }
+    }
+  })
+
+  it('keeps the pixels of the canvas near what a plain art took', () => {
+    for (const viewBox of [[0, 0, 800, 400], [0, 0, 500, 500], [0, 0, 300, 900]] satisfies [number, number, number, number][]) {
+      const space = new ArtSpace({ viewBox })
+
+      expect(space.paintWidth * space.paintHeight).toBeLessThan(2048 * 2048)
+    }
   })
 })
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { DEFAULT_OPACITY } from '../../shared'
 import type { ColoringArt, Op, Tool } from '../../shared'
-import { DEFAULT_THICKNESS, HOLD_DURATION_MS, type PaintDelta, type Progress } from '../engine'
+import { DEFAULT_THICKNESS, HOLD_DURATION_MS, sheetOf, type PaintDelta, type Progress } from '../engine'
 import type { ColoringStageHandle, HoldFeedback } from '../composables/useColoringStage'
 
 const props = withDefaults(defineProps<{
@@ -54,7 +54,24 @@ const { contentStyle, handle } = useColoringStage({ stage, content, canvas }, {
   onProgress: progress => emit('progress', progress),
 })
 
-const aspectRatio = computed(() => props.art.viewBox[2] / props.art.viewBox[3])
+/**
+ * Where the art lies on its sheet, as shares of the sheet; the sheet is laid out around the art, which
+ * keeps its place and size however wide the stage is (the stage cuts off what does not fit).
+ */
+const layout = computed(() => {
+  const [x, y, width, height] = props.art.viewBox
+  const sheet = sheetOf(props.art.viewBox)
+
+  return {
+    '--ratio': width / height,
+    '--sheet-scale': sheet.width / width,
+    '--sheet-aspect': sheet.width / sheet.height,
+    '--art-left': `${((x - sheet.x) / sheet.width) * 100}%`,
+    '--art-top': `${((y - sheet.y) / sheet.height) * 100}%`,
+    '--art-width': `${(width / sheet.width) * 100}%`,
+    '--art-height': `${(height / sheet.height) * 100}%`,
+  }
+})
 
 defineExpose<ColoringStageHandle>(handle)
 </script>
@@ -67,17 +84,22 @@ defineExpose<ColoringStageHandle>(handle)
     <div
       ref="content"
       class="coloring-stage__content"
-      :style="[contentStyle, { '--ratio': aspectRatio }]"
+      :style="contentStyle"
     >
-      <canvas
-        ref="canvas"
-        class="coloring-stage__layer"
-      />
-      <!-- Line art over the paint: multiply keeps outlines on top and the paint visible through white areas. -->
-      <ArtPreview
-        class="coloring-stage__layer coloring-stage__layer--art"
-        :art="art"
-      />
+      <div
+        class="coloring-stage__sheet"
+        :style="layout"
+      >
+        <canvas
+          ref="canvas"
+          class="coloring-stage__layer"
+        />
+        <!-- Line art over the paint: multiply keeps outlines on top and the paint visible through white areas. -->
+        <ArtPreview
+          class="coloring-stage__art"
+          :art="art"
+        />
+      </div>
     </div>
     <span
       v-if="hold"
@@ -162,14 +184,25 @@ defineExpose<ColoringStageHandle>(handle)
 
 .coloring-stage__content {
   position: relative;
-  width: min(100cqw, 100cqh * var(--ratio));
-  aspect-ratio: var(--ratio);
+  width: 100%;
+  height: 100%;
   background: #fff;
   isolation: isolate;
   transform-origin: 0 0;
 
   // No `will-change: transform`: a permanently promoted layer is not
   // re-rasterized after zooming, which would blur the vector line art.
+}
+
+// The sheet: the art (as big as the stage allows) with the background carried on around it. It is
+// centred and may be wider than the stage, which cuts off the rest.
+.coloring-stage__sheet {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(min(100cqw, 100cqh * var(--ratio)) * var(--sheet-scale));
+  aspect-ratio: var(--sheet-aspect);
+  transform: translate(-50%, -50%);
 }
 
 .coloring-stage__layer {
@@ -179,7 +212,12 @@ defineExpose<ColoringStageHandle>(handle)
   height: 100%;
 }
 
-.coloring-stage__layer--art {
+.coloring-stage__art {
+  position: absolute;
+  top: var(--art-top);
+  left: var(--art-left);
+  width: var(--art-width);
+  height: var(--art-height);
   mix-blend-mode: multiply;
   pointer-events: none;
 }
