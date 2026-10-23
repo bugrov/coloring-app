@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ArtItem, ArtRegion, SvgConversion } from '../../../../layers/coloring/shared'
-import { convertSvg } from '../../../../layers/coloring/shared'
+import { convertSvg, DEFAULT_SVG_LIMITS } from '../../../../layers/coloring/shared'
 
 const svg = (body: string, attrs = 'viewBox="0 0 100 100"') => `<svg xmlns="http://www.w3.org/2000/svg" ${attrs}>${body}</svg>`
 
@@ -77,6 +77,24 @@ describe('areas between the lines of a drawing that has only dark shapes', () =>
     const body = '<rect x="10" y="10" width="50" height="50" fill="#fff" stroke="#000"/><path d="M60 60H90V90H60Z M65 65H85V85H65Z" fill="#000" fill-rule="evenodd"/>'
 
     expect(areasOf(svg(body))).toHaveLength(1)
+  })
+
+  it('stays within the size the result may have: the largest areas are kept, the rest left out', () => {
+    // Twenty rings in a grid.
+    const rings = Array.from({ length: 20 }, (_, index) => {
+      const x = 5 + (index % 5) * 19
+      const y = 5 + Math.floor(index / 5) * 19
+
+      return `<path d="M${x} ${y}h15v15h-15Z M${x + 3} ${y + 3}h9v9h-9Z" fill="#000" fill-rule="evenodd"/>`
+    }).join('')
+    const source = svg(rings)
+    const all = convertSvg(source)
+    const limited = convertSvg(source, { ...DEFAULT_SVG_LIMITS, maxOutputLength: 4000 })
+
+    expect(all.ok && areas(all.art.items)).toHaveLength(20)
+    expect(limited.ok).toBe(true)
+    expect(limited.ok && areas(limited.art.items).length).toBeLessThan(20)
+    expect(limited.ok && JSON.stringify(limited.art).length).toBeLessThanOrEqual(4000)
   })
 
   it('keeps a lone open line a mistake: nothing to colour', () => {

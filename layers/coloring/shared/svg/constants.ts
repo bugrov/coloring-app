@@ -87,3 +87,6 @@ export const SYNTH_MIN_AREA_SHARE = 0.00004
 
 /** An outline is simplified until it stays within this many bitmap pixels of the original. */
 export const SYNTH_SIMPLIFY_PX = 0.9
+
+/** No outline keeps more points than this: a jagged one is simplified more, so that a crafted file cannot make a huge result. */
+export const SYNTH_MAX_RING_POINTS = 500

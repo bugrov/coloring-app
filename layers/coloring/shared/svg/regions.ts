@@ -3,6 +3,7 @@ import type { ArtInk } from '../types'
 import {
   SYNTH_GAP_CLOSE_PX,
   SYNTH_GROW_PX,
+  SYNTH_MAX_RING_POINTS,
   SYNTH_MIN_AREA_PX,
   SYNTH_MIN_AREA_SHARE,
   SYNTH_RASTER_SIDE,
@@ -27,12 +28,17 @@ interface Subpath {
   closed: boolean
 }
 
+/** Characters an area takes besides its path data (type, id, kind, rule, bounds). */
+const REGION_OVERHEAD = 110
+
 const DIRECTIONS = [[1, 0], [0, 1], [-1, 0], [0, -1]] as const
 
 export function findRegions(
   ink: readonly ArtInk[],
   viewBox: readonly [number, number, number, number],
   maxRegions: number,
+  /** How many characters of path data the areas may take together; the largest areas come first and the rest are left out. */
+  budget: number,
   checkDeadline: () => void,
 ): FoundRegion[] {
   const [vx, vy, vw, vh] = viewBox
@@ -58,6 +64,7 @@ export function findRegions(
     .sort((a, b) => b.area - a.area)
     .slice(0, maxRegions)
   const found: FoundRegion[] = []
+  let used = 0
 
   for (const part of kept) {
     checkDeadline()
@@ -68,8 +75,15 @@ export function findRegions(
     const xs = points.map(point => point[0])
     const ys = points.map(point => point[1])
 
+    const d = `M${points.map(([x, y]) => `${x} ${y}`).join('L')}Z`
+
+    // The cost of an item is its path plus the fixed fields around it.
+    used += d.length + REGION_OVERHEAD
+
+    if (used > budget) break
+
     found.push({
-      d: `M${points.map(([x, y]) => `${x} ${y}`).join('L')}Z`,
+      d,
       bounds: [Math.floor(Math.min(...xs)), Math.floor(Math.min(...ys)), Math.ceil(Math.max(...xs)), Math.ceil(Math.max(...ys))],
     })
   }
@@ -365,7 +379,16 @@ function traceArea(labels: Int32Array, width: number, part: Part): Array<[number
 
   const ring = followOutline(local, localWidth, localHeight)
 
-  return simplifyRing(ring, SYNTH_SIMPLIFY_PX).map(([x, y]) => [x + part.minX - pad, y + part.minY - pad])
+  let tolerance = SYNTH_SIMPLIFY_PX
+  let simplified = simplifyRing(ring, tolerance)
+
+  // A jagged outline is simplified more until it is within the limit.
+  while (simplified.length > SYNTH_MAX_RING_POINTS && tolerance < 64) {
+    tolerance *= 2
+    simplified = simplifyRing(simplified, tolerance)
+  }
+
+  return simplified.map(([x, y]) => [x + part.minX - pad, y + part.minY - pad])
 }
 
 /** The outer border of the marked pixels, as the corners of the pixel edges, walked with the marked side on the right. */
