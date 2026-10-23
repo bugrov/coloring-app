@@ -23,7 +23,8 @@ defineEmits<{ restart: [] }>()
 
 <style scoped lang="scss">
 .restart-corner {
-  display: grid;
+  // Not on a narrow screen: there it would crowd the undo/redo plate, and the same button is in the row above.
+  display: none;
   place-items: center;
   width: calc(44px * var(--ui-scale));
   height: calc(44px * var(--ui-scale));
@@ -41,6 +42,12 @@ defineEmits<{ restart: [] }>()
 
 .restart-corner:active:not(:disabled) {
   transform: scale(0.92);
+}
+
+@media (min-width: 451px) {
+  .restart-corner {
+    display: grid;
+  }
 }
 
 @media (hover: hover) {

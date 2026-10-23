@@ -113,6 +113,25 @@ test.describe('drawing engine (sandbox)', () => {
     await expect(page.getByText(/^0%/)).toBeVisible()
   })
 
+  test('the sheet wider than the stage can be moved without zooming', async ({ page }) => {
+    const before = (await page.locator('.coloring-stage canvas').boundingBox())!
+    const stage = (await page.locator('.coloring-stage').boundingBox())!
+
+    test.skip(before.width <= stage.width + 2, 'The sheet fits the stage at this aspect ratio')
+
+    // The right button drags the picture (a mouse has no second finger).
+    await page.mouse.move(stage.x + stage.width / 2, stage.y + stage.height / 2)
+    await page.mouse.down({ button: 'right' })
+    await page.mouse.move(stage.x + stage.width / 2 + 120, stage.y + stage.height / 2, { steps: 5 })
+    await page.mouse.up({ button: 'right' })
+
+    const after = (await page.locator('.coloring-stage canvas').boundingBox())!
+
+    expect(after.x).toBeGreaterThan(before.x + 50)
+    // Never further than the edge of the sheet reaching the edge of the stage.
+    expect(after.x).toBeLessThanOrEqual(stage.x + 1)
+  })
+
   test('a finger stroke is kept (touch capture moves to the stage)', async ({ page, browserName, hasTouch }) => {
     test.skip(browserName !== 'chromium' || !hasTouch, 'Real touch input is sent through the Chromium DevTools protocol')
     const [x, y] = await at(page, 0.3, 0.35)

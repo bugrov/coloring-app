@@ -92,6 +92,9 @@ test.describe('editor with the database', () => {
     expect(toolbar.y).toBeGreaterThanOrEqual(frame.y + frame.height - 1)
     expect(frame.width).toBeGreaterThan(portrait.width * 0.8)
 
+    // The second "start over" button would crowd the undo/redo plate on a narrow screen: the row above has one.
+    if (portrait.width <= 450) await expect(page.locator('.restart-corner')).toBeHidden()
+
     // A hold on the background beside the art fills it all the way to the frame, and it is still there after turning the device.
     const stage = (await page.locator('.coloring-stage').boundingBox())!
 
@@ -104,13 +107,12 @@ test.describe('editor with the database', () => {
     await page.setViewportSize({ width: portrait.height, height: portrait.width })
     await expect(page.locator('.save-status')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Отменить' })).toBeEnabled()
-    const painted = await page.locator('.coloring-stage canvas').evaluate((canvas: HTMLCanvasElement) => {
+    // The picture is rebuilt from the history for the other way of holding the device: wait for it.
+    await expect.poll(() => page.locator('.coloring-stage canvas').evaluate((canvas: HTMLCanvasElement) => {
       const { data } = canvas.getContext('2d')!.getImageData(8, 8, 1, 1)
 
       return data[3]!
-    })
-
-    expect(painted).toBeGreaterThan(0)
+    })).toBeGreaterThan(0)
   })
 
   test('the palette opens from the chosen crayon, a pick moves it to the chosen place and closes it', async ({ page }) => {

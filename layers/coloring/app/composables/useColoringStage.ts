@@ -19,6 +19,7 @@ import {
   zoomAt,
   type PaintDelta,
   type PaintHost,
+  type Area,
   type PaintSnapshot,
   type Progress,
   type SheetOrientation,
@@ -154,6 +155,8 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
   /** Where the canvas is on the screen, kept while a stroke is drawn: reading it forces a layout, and the view only moves by gestures, the wheel or a resize. */
   let canvasRect: DOMRect | null = null
   let contentSize = { width: 0, height: 0 }
+  /** The sheet in content pixels at scale 1: the part of the content the view may be moved over (it can be wider than the stage). */
+  let sheetArea: Area | undefined
 
   watch([options.art, canvas, () => options.orientation?.value], ([art, element, orientation]) => {
     // The canvas is about to be rebuilt for another art: nothing of the old stroke is kept.
@@ -314,9 +317,9 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     const next = gestureSnapshot()
     const box = contentBox()
     const factor = gesture.distance < PINCH_MIN_DISTANCE_PX ? 1 : next.distance / gesture.distance
-    const zoomed = zoomAt(view.value, factor, next.x - box.left, next.y - box.top, box.width, box.height)
+    const zoomed = zoomAt(view.value, factor, next.x - box.left, next.y - box.top, box.width, box.height, sheetArea)
 
-    view.value = panBy(zoomed, next.x - gesture.x, next.y - gesture.y, box.width, box.height)
+    view.value = panBy(zoomed, next.x - gesture.x, next.y - gesture.y, box.width, box.height, sheetArea)
     canvasRect = null
     gesture = next
   }
@@ -385,7 +388,7 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     if (!drag) return
     const box = contentBox()
 
-    view.value = panBy(view.value, event.clientX - drag.x, event.clientY - drag.y, box.width, box.height)
+    view.value = panBy(view.value, event.clientX - drag.x, event.clientY - drag.y, box.width, box.height, sheetArea)
     canvasRect = null
     drag.x = event.clientX
     drag.y = event.clientY
@@ -472,13 +475,13 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
       event.preventDefault()
       const delta = wheelPixels(event.deltaY, event.deltaMode, box.height, WHEEL_ZOOM_MAX_DELTA_PX)
 
-      view.value = zoomAt(view.value, Math.exp(-delta * WHEEL_ZOOM_SPEED), event.clientX - box.left, event.clientY - box.top, box.width, box.height)
-    } else if (view.value.scale > 1) {
+      view.value = zoomAt(view.value, Math.exp(-delta * WHEEL_ZOOM_SPEED), event.clientX - box.left, event.clientY - box.top, box.width, box.height, sheetArea)
+    } else if (view.value.scale > 1 || isSheetWiderThanStage()) {
       event.preventDefault()
       const dx = wheelPixels(event.deltaX, event.deltaMode, box.width, WHEEL_PAN_MAX_DELTA_PX)
       const dy = wheelPixels(event.deltaY, event.deltaMode, box.height, WHEEL_PAN_MAX_DELTA_PX)
 
-      view.value = panBy(view.value, -dx, -dy, box.width, box.height)
+      view.value = panBy(view.value, -dx, -dy, box.width, box.height, sheetArea)
     }
   }
 
@@ -486,6 +489,24 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
     const element = content.value
 
     if (element) contentSize = { width: element.offsetWidth, height: element.offsetHeight }
+    measureSheet()
+  }
+
+  /** Where the sheet lies in the content, found from where the canvas is on the screen now (the view is taken off). */
+  function measureSheet() {
+    const element = canvas.value
+    const box = content.value ? contentBox() : null
+
+    if (!element || !box) return
+    const rect = element.getBoundingClientRect()
+    const { scale, x, y } = view.value
+
+    sheetArea = { x: (rect.left - box.left - x) / scale, y: (rect.top - box.top - y) / scale, width: rect.width / scale, height: rect.height / scale }
+  }
+
+  /** A sheet wider or higher than the stage can be moved at scale 1 as well. */
+  function isSheetWiderThanStage(): boolean {
+    return !!sheetArea && (sheetArea.width > contentSize.width + 1 || sheetArea.height > contentSize.height + 1)
   }
 
   /** Keeps the same part of the art in view when the stage changes size (rotation, window resize). */
@@ -500,7 +521,8 @@ export function useColoringStage({ stage, content, canvas }: ColoringStageElemen
 
     contentSize = { width, height }
     canvasRect = null
-    view.value = clampView({ ...view.value, x: view.value.x * sx, y: view.value.y * sy }, width, height)
+    measureSheet()
+    view.value = clampView({ ...view.value, x: view.value.x * sx, y: view.value.y * sy }, width, height, sheetArea)
   }
 
   const listeners = {

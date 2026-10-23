@@ -41,18 +41,19 @@ function onHoldAnimationEnd() {
 }
 
 /**
- * Which way the sheet is stretched follows the stage: wide when it is wider than high, tall when it is
- * higher. Between the two (a nearly square stage) it stays as it is, so a window dragged across the
- * line does not rebuild the picture over and over.
+ * Which way the sheet is stretched follows the way the device is held, the same question the page's
+ * layout asks (`orientation: portrait`), so the two cannot disagree. The picture is rebuilt only when the
+ * device is really turned (or a window is dragged across the square), not on every resize.
  */
-const ORIENTATION_MARGIN = 1.1
+const portraitQuery = import.meta.client ? window.matchMedia('(orientation: portrait)') : null
+const orientation = ref<SheetOrientation>(portraitQuery?.matches ? 'tall' : 'wide')
 
-const orientation = ref<SheetOrientation>(import.meta.client && window.innerWidth < window.innerHeight ? 'tall' : 'wide')
+function onOrientationChange(event: MediaQueryListEvent) {
+  orientation.value = event.matches ? 'tall' : 'wide'
+}
 
-useResizeObserver(stage, ({ width, height }) => {
-  if (width > height * ORIENTATION_MARGIN) orientation.value = 'wide'
-  else if (width * ORIENTATION_MARGIN < height) orientation.value = 'tall'
-})
+onMounted(() => portraitQuery?.addEventListener('change', onOrientationChange))
+onBeforeUnmount(() => portraitQuery?.removeEventListener('change', onOrientationChange))
 
 const { contentStyle, handle } = useColoringStage({ stage, content, canvas }, {
   art: toRef(props, 'art'),
@@ -219,7 +220,7 @@ defineExpose<ColoringStageHandle>(handle)
   // it while the background goes on underneath.
   top: calc(50% - var(--stage-inset-bottom, 0px) / 2);
   left: 50%;
-  width: calc(min(100cqw, (100cqh - var(--stage-inset-bottom, 0px)) * var(--ratio)) * var(--sheet-scale));
+  width: calc(min(100cqw, max(0px, 100cqh - var(--stage-inset-bottom, 0px)) * var(--ratio)) * var(--sheet-scale));
   aspect-ratio: var(--sheet-aspect);
 
   // The art, not the sheet, is what sits in the middle: the sheet reaches further below it than above.
