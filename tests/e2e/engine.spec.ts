@@ -57,6 +57,38 @@ test.describe('drawing engine (sandbox)', () => {
     expect(await paintedPixels(page)).toBeLessThan(filled / 10)
   })
 
+  test('an action that changes nothing is not recorded', async ({ page }) => {
+    const [x, y] = await at(page, 0.5, 0.4)
+    const hold = async () => {
+      await page.mouse.move(x, y)
+      await page.mouse.down()
+      await page.waitForTimeout(700)
+      await page.mouse.up()
+    }
+    const stroke = async () => {
+      await page.mouse.move(x - 20, y)
+      await page.mouse.down()
+
+      for (let i = 1; i <= 10; i++) await page.mouse.move(x - 20 + i * 4, y)
+      await page.mouse.up()
+    }
+
+    // The eraser on a clear region: nothing to erase.
+    await page.getByRole('button', { name: 'Резинка', exact: true }).click()
+    await hold()
+    await stroke()
+    await expect(page.getByText('операций: 0')).toBeVisible()
+
+    // The same colour over a region already filled with it.
+    // (The brush: a pencil's grain makes every pass over the same colour look a little different.)
+    await page.getByRole('button', { name: 'Кисть', exact: true }).click()
+    await hold()
+    await expect(page.getByText('операций: 1')).toBeVisible()
+    await hold()
+    await stroke()
+    await expect(page.getByText('операций: 1')).toBeVisible()
+  })
+
   test('pressing the empty band around the art does nothing', async ({ page }) => {
     const stage = (await page.locator('.coloring-stage').boundingBox())!
     const canvas = (await page.locator('.coloring-stage canvas').boundingBox())!

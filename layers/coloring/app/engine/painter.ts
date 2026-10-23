@@ -35,8 +35,8 @@ function accumulatesOnScratch(style: StrokeStyle): boolean {
 
 /** A mask pixel at least this opaque is inside the region for sure (not on its soft edge). */
 const UNCHANGED_MASK_ALPHA = 250
-/** Rounding noise of compositing the same colour over itself, per 8-bit channel. */
-const UNCHANGED_CHANNEL_DELTA = 2
+/** Rounding noise of compositing the same colour over itself (a soft brush shows up to 3), per 8-bit channel. */
+const UNCHANGED_CHANNEL_DELTA = 6
 
 /** Extra pixels around a segment's bounds so caps and soft edges are not cut. */
 const SEGMENT_PADDING = 2
