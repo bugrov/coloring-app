@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { OP_GRID } from '../../../../layers/coloring/shared'
+import { OP_GRID_REACH } from '../../../../layers/coloring/shared/ops/constants'
 import { HoldDetector } from '../../../../layers/coloring/app/engine/hold'
 import { computeProgress, regionCode } from '../../../../layers/coloring/app/engine/progress'
 import { ArtSpace, sheetOf } from '../../../../layers/coloring/app/engine/space'
@@ -122,6 +124,21 @@ describe('sheetOf', () => {
     expect(sheet.y + sheet.height).toBeGreaterThanOrEqual(y + height)
     expect(x - sheet.x).toBeCloseTo(sheet.x + sheet.width - (x + width))
     expect(y - sheet.y).toBeCloseTo(sheet.y + sheet.height - (y + height))
+  })
+
+  it.each<[string, [number, number, number, number]]>([
+    ['a very tall art', [0, 0, 1, 1000]],
+    ['a very wide art', [0, 0, 1000, 1]],
+    ['a square art', [0, 0, 500, 500]],
+  ])('keeps every position of the sheet within what an op may hold (%s)', (_name, viewBox) => {
+    const space = new ArtSpace({ viewBox })
+
+    for (const [rx, ry] of [[0, 0], [1, 1], [0, 1], [1, 0]] as const) {
+      for (const value of space.gridFromRatio(rx, ry)) {
+        expect(value).toBeGreaterThanOrEqual(-OP_GRID_REACH)
+        expect(value).toBeLessThanOrEqual(OP_GRID + OP_GRID_REACH)
+      }
+    }
   })
 
   it('keeps the pixels of the canvas near what a plain art took', () => {
