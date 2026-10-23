@@ -95,6 +95,12 @@ test.describe('editor with the database', () => {
     // The second "start over" button would crowd the undo/redo plate on a narrow screen: the row above has one.
     if (portrait.width <= 450) await expect(page.locator('.restart-corner')).toBeHidden()
 
+    // On a narrow stage the picture is zoomed until it fills the frame from top to bottom (the rest is a move away).
+    const stage = (await page.locator('.coloring-stage').boundingBox())!
+    const canvas = (await page.locator('.coloring-stage canvas').boundingBox())!
+
+    expect(canvas.height).toBeGreaterThanOrEqual(stage.height - 2)
+
     // What is drawn is still there after turning the device: the picture is rebuilt from the history.
     await scribble(page)
     await expect(page.getByRole('button', { name: 'Отменить' })).toBeEnabled()
