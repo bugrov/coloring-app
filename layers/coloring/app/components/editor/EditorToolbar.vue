@@ -58,6 +58,11 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeyDown)
 })
 
+// The eraser has no colours to show: an open palette would leave nothing reachable.
+watch(() => editor.tool, (tool) => {
+  if (tool === 'eraser') editor.togglePalette(false)
+})
+
 // Opening hides the pressed crayon behind `inert`, so focus moves into the list, on the chosen
 // colour, which is also scrolled to the middle; closing brings focus back to the chosen crayon.
 watch(() => editor.paletteOpen, async (open) => {

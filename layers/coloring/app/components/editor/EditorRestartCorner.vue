@@ -40,17 +40,7 @@ defineEmits<{ restart: [] }>()
 }
 
 .restart-corner:active:not(:disabled) {
-  filter: brightness(0.94);
   transform: scale(0.92);
-}
-
-.restart-corner:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.restart-corner:focus-visible {
-  @include focus-ring;
 }
 
 @media (hover: hover) {

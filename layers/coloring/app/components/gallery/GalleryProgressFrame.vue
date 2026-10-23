@@ -36,7 +36,7 @@ const offset = computed(() => progressDashOffset(props.percent))
     aria-hidden="true"
   >
     <path
-      :class="{ 'progress-frame__line--shown': measured }"
+      :class="{ 'progress-frame__line--shown': measured && percent > 0 }"
       :d="path"
       :stroke-width="band"
       pathLength="1"
