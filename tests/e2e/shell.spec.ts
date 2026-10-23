@@ -21,3 +21,15 @@ test.describe('app shell', () => {
     expect(shell).toEqual({ userSelect: 'none', touchAction: 'pan-x pan-y', overscroll: 'none', scrollable: false })
   })
 })
+
+test.describe('portrait', () => {
+  test('is a layout of its own, not a prompt to turn the device', async ({ page }) => {
+    const { width, height } = page.viewportSize() ?? { width: 0, height: 0 }
+
+    await page.setViewportSize({ width: Math.min(width, height), height: Math.max(width, height) })
+    await page.goto('/login')
+
+    await expect(page.getByText('Поверните устройство')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Играть' })).toBeVisible()
+  })
+})

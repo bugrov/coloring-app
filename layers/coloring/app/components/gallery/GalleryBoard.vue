@@ -201,13 +201,18 @@ onBeforeUnmount(() => observer?.disconnect())
 // (auto margins: a list taller than the screen starts at the top and scrolls).
 .gallery-board__grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-gallery);
   width: 100%;
   max-width: 1100px;
   margin: auto;
   padding: 0;
   list-style: none;
+
+  // A phone held upright has room for two cards across; the cards keep their shape.
+  @media (min-width: 480px) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 
   @media (min-width: 640px) {
     grid-template-columns: repeat(4, minmax(0, 1fr));

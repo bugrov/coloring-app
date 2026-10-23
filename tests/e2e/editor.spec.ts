@@ -77,6 +77,42 @@ test.describe('editor with the database', () => {
     await expect(page.getByRole('button', { name: 'Вернуть' })).toBeDisabled()
   })
 
+  test('held upright the actions lie above the picture, the crayons below it, and the picture survives turning the device', async ({ page }) => {
+    const { width, height } = page.viewportSize() ?? { width: 0, height: 0 }
+    const portrait = { width: Math.min(width, height), height: Math.max(width, height) }
+
+    await page.setViewportSize(portrait)
+    await openOctopus(page, 'p')
+
+    const frame = (await page.locator('.editor__frame').boundingBox())!
+    const actions = (await page.locator('.editor__actions').boundingBox())!
+    const toolbar = (await page.locator('.editor__toolbar').boundingBox())!
+
+    expect(actions.y + actions.height).toBeLessThanOrEqual(frame.y + 1)
+    expect(toolbar.y).toBeGreaterThanOrEqual(frame.y + frame.height - 1)
+    expect(frame.width).toBeGreaterThan(portrait.width * 0.8)
+
+    // A hold on the background beside the art fills it all the way to the frame, and it is still there after turning the device.
+    const stage = (await page.locator('.coloring-stage').boundingBox())!
+
+    await page.mouse.move(stage.x + 40, stage.y + stage.height * 0.2)
+    await page.mouse.down()
+    await page.waitForTimeout(700)
+    await page.mouse.up()
+    await expect(page.getByRole('button', { name: 'Отменить' })).toBeEnabled()
+
+    await page.setViewportSize({ width: portrait.height, height: portrait.width })
+    await expect(page.locator('.save-status')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Отменить' })).toBeEnabled()
+    const painted = await page.locator('.coloring-stage canvas').evaluate((canvas: HTMLCanvasElement) => {
+      const { data } = canvas.getContext('2d')!.getImageData(8, 8, 1, 1)
+
+      return data[3]!
+    })
+
+    expect(painted).toBeGreaterThan(0)
+  })
+
   test('the palette opens from the chosen crayon, a pick moves it to the chosen place and closes it', async ({ page }) => {
     await openOctopus(page, 'c')
 
